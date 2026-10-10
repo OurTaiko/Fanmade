@@ -61,7 +61,7 @@ func TestUserOIDCLoginAndSessionAreAtomic(t *testing.T) {
 				w.WriteHeader(500)
 				return
 			}
-			respond(w, 200, map[string]any{"access_token": "web:" + id, "token_type": "Bearer", "expires_in": 3600, "id_token": token})
+			respond(w, 200, map[string]any{"access_token": "web:" + id, "token_type": "Bearer", "expires_in": 3600, "refresh_token": "refresh:" + id, "id_token": token})
 		case "/internal/v1/web/introspect":
 			var body struct {
 				Token string `json:"accessToken"`
@@ -97,6 +97,24 @@ func TestUserOIDCLoginAndSessionAreAtomic(t *testing.T) {
 	w := callback(id)
 	if w.Code != 303 || w.Header().Get("Location") != "http://localhost/users" {
 		t.Fatal(w.Code, w.Header(), w.Body.String())
+	}
+	var cookie *http.Cookie
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "ourtaiko_session" {
+			cookie = c
+		}
+	}
+	if cookie == nil || cookie.MaxAge < 604790 || cookie.MaxAge > 604800 || !cookie.HttpOnly {
+		t.Fatal("expected seven-day HttpOnly cookie")
+	}
+	var encryptedRefresh []byte
+	var deadline, accessExpiry time.Time
+	if err = pool.QueryRow(ctx, `SELECT upstream_refresh_token,expires_at,upstream_expires_at FROM sessions WHERE user_id=$1`, id).Scan(&encryptedRefresh, &deadline, &accessExpiry); err != nil {
+		t.Fatal(err)
+	}
+	plain, err := client.unseal(encryptedRefresh, "refresh:"+hash(cookie.Value))
+	if err != nil || plain != "refresh:"+id || time.Until(deadline) < 167*time.Hour || time.Until(accessExpiry) > time.Hour {
+		t.Fatal("invalid persisted renewal credentials", err)
 	}
 	var first, last time.Time
 	if err = pool.QueryRow(ctx, `SELECT first_login_at,last_active_at FROM users WHERE id=$1`, id).Scan(&first, &last); err != nil || last.Before(first) {

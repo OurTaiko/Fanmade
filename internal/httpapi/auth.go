@@ -24,9 +24,11 @@ type User struct {
 	IsAdmin           bool   `json:"isAdmin"`
 }
 type session struct {
-	User  User
-	CSRF  string
-	Token string
+	User          User
+	CSRF          string
+	Token         string
+	RefreshToken  string
+	AccessExpires time.Time
 }
 type credentials struct {
 	Username string `json:"username"`
@@ -39,12 +41,19 @@ func (s *Server) localSession(r *http.Request) (session, error) {
 	if e != nil || len(c.Value) != 64 {
 		return v, pgx.ErrNoRows
 	}
-	var encrypted []byte
-	e = s.DB.QueryRow(r.Context(), `SELECT user_id,csrf_token,upstream_token FROM sessions WHERE token_hash=$1 AND expires_at>now()`, hash(c.Value)).Scan(&v.User.ID, &v.CSRF, &encrypted)
+	var encrypted, refresh []byte
+	var accessExpires *time.Time
+	e = s.DB.QueryRow(r.Context(), `SELECT user_id,csrf_token,upstream_token,upstream_refresh_token,upstream_expires_at FROM sessions WHERE token_hash=$1 AND expires_at>now()`, hash(c.Value)).Scan(&v.User.ID, &v.CSRF, &encrypted, &refresh, &accessExpires)
 	if e != nil {
 		return v, e
 	}
 	v.Token, e = s.Config.SSO.unseal(encrypted, hash(c.Value))
+	if e == nil && len(refresh) > 0 {
+		v.RefreshToken, e = s.Config.SSO.unseal(refresh, "refresh:"+hash(c.Value))
+	}
+	if accessExpires != nil {
+		v.AccessExpires = *accessExpires
+	}
 	return v, e
 }
 
@@ -81,6 +90,12 @@ func (s *Server) current(r *http.Request) (session, error) {
 	v, e := s.localSession(r)
 	if e != nil {
 		return v, e
+	}
+	if v.RefreshToken != "" && time.Until(v.AccessExpires) < time.Minute {
+		v, e = s.refreshWebSession(r)
+		if e != nil {
+			return session{}, e
+		}
 	}
 	u, e := s.Config.SSO.identity(r.Context(), "web", v.Token)
 	if e != nil {
@@ -229,7 +244,7 @@ func (s *Server) ssoCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	revoke := func() {
-		_ = s.Config.SSO.call(ctx, "web/revoke", map[string]string{"accessToken": token.AccessToken}, nil)
+		_ = s.Config.SSO.call(ctx, "web/revoke", map[string]string{"accessToken": token.AccessToken, "refreshToken": token.RefreshToken}, nil)
 	}
 	raw, _ := token.Extra("id_token").(string)
 	idToken, e := provider.Verifier(&oidc.Config{ClientID: cfg.ClientID}).Verify(ctx, raw)
@@ -263,11 +278,13 @@ func (s *Server) ssoCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	rawSession, csrf := ID()+ID(), ID()+ID()
 	digest := hash(rawSession)
-	expires := token.Expiry
-	if expires.IsZero() || expires.After(time.Now().Add(time.Hour)) {
-		expires = time.Now().Add(time.Hour)
+	expires := time.Now().Add(7 * 24 * time.Hour)
+	if token.RefreshToken == "" || token.Expiry.IsZero() || !token.Expiry.After(time.Now()) {
+		revoke()
+		fail()
+		return
 	}
-	_, e = tx.Exec(ctx, `INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at,upstream_token) VALUES($1,$2,$3,$4,$5)`, digest, u.ID, csrf, expires, s.Config.SSO.seal(token.AccessToken, digest))
+	_, e = tx.Exec(ctx, `INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at,upstream_token,upstream_refresh_token,upstream_expires_at) VALUES($1,$2,$3,$4,$5,$6,$7)`, digest, u.ID, csrf, expires, s.Config.SSO.seal(token.AccessToken, digest), s.Config.SSO.seal(token.RefreshToken, "refresh:"+digest), token.Expiry)
 	if e != nil {
 		revoke()
 		fail()
@@ -297,13 +314,22 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		c, _ := r.Cookie("ourtaiko_session")
-		if _, e = s.DB.Exec(r.Context(), `DELETE FROM sessions WHERE token_hash=$1`, hash(c.Value)); e != nil {
+		var access, refresh []byte
+		e = s.DB.QueryRow(r.Context(), `DELETE FROM sessions WHERE token_hash=$1 RETURNING upstream_token,upstream_refresh_token`, hash(c.Value)).Scan(&access, &refresh)
+		if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 			internal(w, e)
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		_ = s.Config.SSO.call(ctx, "web/revoke", map[string]string{"accessToken": v.Token}, nil)
+		if e == nil {
+			v.Token, _ = s.Config.SSO.unseal(access, hash(c.Value))
+			v.RefreshToken = ""
+			if len(refresh) > 0 {
+				v.RefreshToken, _ = s.Config.SSO.unseal(refresh, "refresh:"+hash(c.Value))
+			}
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 2*time.Second)
+			defer cancel()
+			_ = s.Config.SSO.call(ctx, "web/revoke", map[string]string{"accessToken": v.Token, "refreshToken": v.RefreshToken}, nil)
+		}
 	}
 	http.SetCookie(w, &http.Cookie{Name: "ourtaiko_session", Path: "/", HttpOnly: true, Secure: s.Config.CookieSecure, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	respond(w, 200, map[string]bool{"ok": true})

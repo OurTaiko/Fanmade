@@ -30,26 +30,32 @@ func (s *Server) gameBootstrap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
+	rows, err := tx.Query(r.Context(), chartSelect+` WHERE `+publishedChart+` AND c.category_flags <> 0 ORDER BY c.created_at DESC,c.id DESC`)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	charts, err := s.readCharts(rows)
+	if err != nil {
+		internal(w, err)
+		return
+	}
 	categories := categoryCatalog
-	// Counts travel with the category metadata, without fetching chart bodies.
-	// Each category counts memberships; the server total counts distinct charts.
+	// Read each chart once, newest uploads first as in the category list. Counts
+	// come from this same snapshot; multi-category charts travel only once.
+	memberships := make(map[string]int)
+	for _, chart := range charts {
+		for _, id := range chart.CategoryIDs {
+			memberships[id]++
+		}
+	}
 	type gameCategoryInfo struct {
 		Category
 		ChartCount int `json:"chartCount"`
 	}
 	counts := make([]gameCategoryInfo, 0, len(categories))
 	for _, category := range categories {
-		var n int
-		if err = tx.QueryRow(r.Context(), `SELECT count(*) FROM charts c WHERE (c.category_flags & $1) <> 0 AND `+publishedChart, category.Flag).Scan(&n); err != nil {
-			internal(w, err)
-			return
-		}
-		counts = append(counts, gameCategoryInfo{category.Category, n})
-	}
-	var chartCount int
-	if err = tx.QueryRow(r.Context(), `SELECT count(*) FROM charts c WHERE `+publishedChart+` AND c.category_flags <> 0`).Scan(&chartCount); err != nil {
-		internal(w, err)
-		return
+		counts = append(counts, gameCategoryInfo{category.Category, memberships[category.ID]})
 	}
 	scores := []Score{}
 	if user != nil {
@@ -78,7 +84,8 @@ func (s *Server) gameBootstrap(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	respond(w, 200, map[string]any{"user": user, "courseKeyedDifficulties": true, "categories": counts, "chartCount": chartCount, "scores": scores, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
+	s.chartNames(r.Context(), charts)
+	respond(w, 200, map[string]any{"user": user, "courseKeyedDifficulties": true, "categories": counts, "charts": charts, "chartCount": len(charts), "scores": scores, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
 		if s.remoteStorage() {
 			return 1
 		}

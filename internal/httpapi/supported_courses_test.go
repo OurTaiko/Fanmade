@@ -148,7 +148,7 @@ ALTER TABLE scores ADD CONSTRAINT scores_difficulty_check CHECK(difficulty IN ('
 		Scores []Score
 	}
 	w := call("GET", "/api/v1/game/bootstrap", "", 200)
-	if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || len(snapshot.Charts) != 0 || len(snapshot.Scores) != 1 || snapshot.Scores[0].Difficulty != "Oni" {
+	if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || len(snapshot.Charts) != 1 || snapshot.Charts[0].ID != ids[0] || len(snapshot.Scores) != 1 || snapshot.Scores[0].Difficulty != "Oni" {
 		t.Fatal("unsupported game data leaked", w.Body.String(), err)
 	}
 	// Fixtures already have the default Variety bit, including archived charts.

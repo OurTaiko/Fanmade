@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -89,8 +90,10 @@ func TestCategoriesFlow(t *testing.T) {
 	if !reflect.DeepEqual(catalog.Items, wantCatalog) {
 		t.Fatal("catalog metadata/order changed", catalog)
 	}
+	defaultIDs := []string{}
 	for _, raw := range []string{"", "[]", "null"} {
 		c := decodeChart(post(raw, ID()), 201)
+		defaultIDs = append(defaultIDs, c.ID)
 		if !reflect.DeepEqual(c.CategoryIDs, []string{"variety"}) {
 			t.Fatal("default", c.CategoryIDs)
 		}
@@ -116,19 +119,25 @@ func TestCategoriesFlow(t *testing.T) {
 			t.Fatal("invalid category accepted", raw, w.Code, w.Body.String())
 		}
 	}
+	// Deliberately disagree with ID order and include a timestamp tie.
+	sort.Strings(defaultIDs)
+	if _, err = pool.Exec(ctx, `UPDATE charts SET created_at=CASE WHEN id=$1 THEN '2024-01-01'::timestamptz WHEN id=$2 THEN '2020-01-01'::timestamptz ELSE '2022-01-01'::timestamptz END`, c.ID, defaultIDs[1]); err != nil {
+		t.Fatal(err)
+	}
 	w = call("GET", "/api/v1/game/bootstrap", "", gameToken)
 	var bootstrap map[string]json.RawMessage
-	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &bootstrap) != nil || bootstrap["charts"] != nil || bootstrap["categories"] == nil {
-		t.Fatal("bootstrap must not enumerate charts", w.Body.String())
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &bootstrap) != nil || bootstrap["charts"] == nil || bootstrap["categories"] == nil || w.Header().Get("Deprecation") != "" {
+		t.Fatal("bootstrap must include the complete catalog", w.Body.String())
 	}
 	var summary struct {
 		ChartCount int
+		Charts     []Chart
 		Categories []struct {
 			Category
 			ChartCount int
 		}
 	}
-	if err = json.Unmarshal(w.Body.Bytes(), &summary); err != nil || summary.ChartCount != 4 || len(summary.Categories) != 6 {
+	if err = json.Unmarshal(w.Body.Bytes(), &summary); err != nil || summary.ChartCount != 4 || len(summary.Charts) != 4 || len(summary.Categories) != 6 {
 		t.Fatal("server total must count unique charts", w.Body.String(), err)
 	}
 	wantCounts := map[string]int{"game": 1, "pop": 1, "variety": 3, "classic": 0, "virtual-singer": 0, "anime": 1}
@@ -147,10 +156,35 @@ func TestCategoriesFlow(t *testing.T) {
 			CategoryID string
 			Charts     []Chart
 		}
-		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || result.CategoryID != id {
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || result.CategoryID != id || w.Header().Get("Deprecation") != "@1791590400" {
 			t.Fatal(w.Code, w.Body.String())
 		}
 		return result.Charts
+	}
+	seen := map[string]bool{}
+	gotIDs := []string{}
+	for _, chart := range summary.Charts {
+		if seen[chart.ID] {
+			t.Fatal("bootstrap charts must be unique", chart.ID)
+		}
+		seen[chart.ID] = true
+		gotIDs = append(gotIDs, chart.ID)
+	}
+	if !reflect.DeepEqual(gotIDs, []string{c.ID, defaultIDs[2], defaultIDs[0], defaultIDs[1]}) {
+		t.Fatal("newest uploads first, descending ID for equal timestamps", gotIDs)
+	}
+	for _, category := range summary.Categories {
+		filtered := []Chart{}
+		for _, chart := range summary.Charts {
+			for _, id := range chart.CategoryIDs {
+				if id == category.ID {
+					filtered = append(filtered, chart)
+				}
+			}
+		}
+		if !reflect.DeepEqual(filtered, categoryCharts(category.ID)) {
+			t.Fatal("bootstrap must preserve all category metadata and ordering", category.ID)
+		}
 	}
 	for _, id := range []string{"game", "pop", "anime"} {
 		charts := categoryCharts(id)
@@ -241,6 +275,11 @@ func TestCategoriesFlow(t *testing.T) {
 	w = call("GET", "/api/v1/game/bootstrap", "", gameToken)
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &summary) != nil || summary.ChartCount != 3 {
 		t.Fatal("deleted chart counted", w.Body.String())
+	}
+	for _, chart := range summary.Charts {
+		if chart.ID == c.ID {
+			t.Fatal("deleted chart leaked through bootstrap")
+		}
 	}
 	for _, category := range summary.Categories {
 		if category.ChartCount != len(categoryCharts(category.ID)) {

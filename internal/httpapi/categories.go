@@ -126,14 +126,17 @@ func setCategories(ctx context.Context, tx pgx.Tx, chart string, ids []string) e
 	return err
 }
 
+// Deprecated: use GET /api/v1/game/bootstrap and filter charts by categoryIds.
+// Retained until remaining clients migrate; no removal date has been set.
 func (s *Server) gameCategory(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "@1791590400") // 2026-10-10 00:00:00 UTC, RFC 9745.
 	id := r.PathValue("category")
 	flag, exists := categoryFlag(id)
 	if !exists {
 		problem(w, 404, "CATEGORY_NOT_FOUND", "分类不存在")
 		return
 	}
-	rows, err := s.DB.Query(r.Context(), chartSelect+` WHERE `+publishedChart+` AND (c.category_flags & $1) <> 0 ORDER BY c.id`, flag)
+	rows, err := s.DB.Query(r.Context(), chartSelect+` WHERE `+publishedChart+` AND (c.category_flags & $1) <> 0 ORDER BY c.created_at DESC,c.id DESC`, flag)
 	if err != nil {
 		internal(w, err)
 		return

@@ -329,9 +329,10 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	var chartID, chartOwner string
+	var chartID string
+	var chartOwners []string
 	// FOR SHARE serializes with a song deletion, which locks the row FOR UPDATE.
-	e = tx.QueryRow(ctx, `SELECT c.id,c.owner_id FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR SHARE`, r.PathValue("id")).Scan(&chartID, &chartOwner)
+	e = tx.QueryRow(ctx, `SELECT c.id,c.owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR SHARE`, r.PathValue("id")).Scan(&chartID, &chartOwners)
 	if errors.Is(e, pgx.ErrNoRows) {
 		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
 		return
@@ -357,7 +358,7 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	}
 	id, depth, root := ID(), 0, ""
 	// Top-level comments notify the song's uploader, replies the parent's author.
-	notice := Notice{Recipient: chartOwner, Kind: "chart_comment", Actor: u.User.ID, ChartID: chartID, CommentID: id}
+	notice := Notice{Kind: "chart_comment", Actor: u.User.ID, ChartID: chartID, CommentID: id}
 	if req.ParentID != nil {
 		var parentChart, parentAuthor string
 		var gone bool
@@ -394,7 +395,17 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	if e = notify(ctx, tx, notice); e != nil {
+	if req.ParentID == nil {
+		for _, owner := range chartOwners {
+			notice.Recipient = owner
+			if e = notify(ctx, tx, notice); e != nil {
+				break
+			}
+		}
+	} else {
+		e = notify(ctx, tx, notice)
+	}
+	if e != nil {
 		internal(w, e)
 		return
 	}

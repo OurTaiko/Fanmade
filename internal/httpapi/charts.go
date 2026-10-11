@@ -18,14 +18,17 @@ import (
 )
 
 type Chart struct {
-	DemoEnd      float64       `json:"demoEnd"`
-	PreviewPath  string        `json:"previewPath,omitempty"`
-	AudioPreview *AudioPreview `json:"audioPreview,omitempty"`
-	CoverHash    string        `json:"coverHash,omitempty"`
-	CategoryIDs  []string      `json:"categoryIds"`
-	ID           string        `json:"id"`
-	OwnerID      string        `json:"ownerId"`
-	Uploader     string        `json:"uploader"`
+	DemoEnd      float64             `json:"demoEnd"`
+	PreviewPath  string              `json:"previewPath,omitempty"`
+	AudioPreview *AudioPreview       `json:"audioPreview,omitempty"`
+	CoverHash    string              `json:"coverHash,omitempty"`
+	CategoryIDs  []string            `json:"categoryIds"`
+	ID           string              `json:"id"`
+	OwnerIDs     []string            `json:"ownerIds"`
+	Owners       []NotificationActor `json:"owners"`
+	// Deprecated: original uploader only; authorization uses OwnerIDs.
+	OwnerID  string `json:"ownerId"`
+	Uploader string `json:"uploader"`
 	// UploaderAvatarURL is empty when the uploader has no avatar or SSO is unavailable.
 	UploaderAvatarURL string    `json:"uploaderAvatarUrl"`
 	Description       string    `json:"description"`
@@ -53,7 +56,7 @@ const supportedCoursesSQL = "('Easy','Normal','Hard','Oni','Edit','Easy_1p','Eas
 const publishedChart = `c.status='published' AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(c.difficulties) excluded
  WHERE excluded->>'course' NOT IN ` + supportedCoursesSQL + `)`
 
-const chartSelect = `SELECT c.id,c.owner_id,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,c.wave_filename,c.title_translations,c.subtitle_translations,c.is_single,
+const chartSelect = `SELECT c.id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,c.wave_filename,c.title_translations,c.subtitle_translations,c.is_single,
  c.difficulties,
  c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE chart_id=c.id AND kind='preview'),''),
  COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0)
@@ -63,8 +66,9 @@ func readChart(row pgx.Row) (Chart, error) {
 	c := Chart{Encoding: "utf-8"} // Compatibility field; stored TJA bytes are always UTF-8.
 	var difficulties []byte
 	var flags CategoryFlags
-	e := row.Scan(&c.ID, &c.OwnerID, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &c.IsSingle, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.Upvotes, &c.Downvotes, &c.CommentCount)
+	e := row.Scan(&c.ID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &c.IsSingle, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.Upvotes, &c.Downvotes, &c.CommentCount)
 	if e == nil {
+		c.OwnerID = c.OwnerIDs[0]
 		c.Score = c.Upvotes - c.Downvotes
 		c.CategoryIDs = flags.IDs()
 		e = json.Unmarshal(difficulties, &c.Difficulties)
@@ -76,7 +80,7 @@ func readChart(row pgx.Row) (Chart, error) {
 func (s *Server) chart(ctx context.Context, id string) (Chart, error) {
 	c, e := s.readChart(s.DB.QueryRow(ctx, chartSelect+` WHERE c.id=$1 AND `+publishedChart, id))
 	if e == nil {
-		c.setUploader(s.publicProfiles(ctx, []string{c.OwnerID})[c.OwnerID])
+		c.setOwners(s.publicProfiles(ctx, c.OwnerIDs))
 	}
 	if e == nil {
 		items := []Chart{c}
@@ -137,7 +141,7 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	if c.OwnerID != u.User.ID {
+	if !c.hasOwner(u.User.ID) {
 		problem(w, 403, "FORBIDDEN", "只能删除自己的作品")
 		return
 	}
@@ -168,7 +172,7 @@ func (s *Server) deleteChart(ctx context.Context, chartID, ownerID string) ([]st
 	}
 	defer tx.Rollback(ctx)
 	// Serialize with score submissions, which hold the song row FOR SHARE.
-	if e = tx.QueryRow(ctx, `SELECT id FROM charts WHERE id=$1 AND owner_id=$2 AND status<>'deleted' FOR UPDATE`, chartID, ownerID).Scan(&chartID); e != nil {
+	if e = tx.QueryRow(ctx, `SELECT id FROM charts WHERE id=$1 AND owner_ids @> ARRAY[$2::text] AND status<>'deleted' FOR UPDATE`, chartID, ownerID).Scan(&chartID); e != nil {
 		return nil, e
 	}
 	if _, e = tx.Exec(ctx, `DELETE FROM scores WHERE song_id=$1`, chartID); e != nil {

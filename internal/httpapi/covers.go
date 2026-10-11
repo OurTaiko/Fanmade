@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -107,8 +108,8 @@ func (s *Server) replaceCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	var owner string
-	err := s.DB.QueryRow(r.Context(), `SELECT owner_id FROM charts c WHERE c.id=$1 AND `+publishedChart, id).Scan(&owner)
+	var owner []string
+	err := s.DB.QueryRow(r.Context(), `SELECT owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart, id).Scan(&owner)
 	if errors.Is(err, pgx.ErrNoRows) {
 		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
 		return
@@ -117,7 +118,7 @@ func (s *Server) replaceCover(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	if owner != u.User.ID && !u.User.IsAdmin {
+	if !slices.Contains(owner, u.User.ID) && !u.User.IsAdmin {
 		problem(w, 403, "FORBIDDEN", "只有上传者或管理员可以修改封面")
 		return
 	}
@@ -173,7 +174,7 @@ func (s *Server) replaceCover(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	// Serialize with deletion/file replacement and recheck ownership after encoding.
-	err = tx.QueryRow(r.Context(), `SELECT owner_id FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE`, id).Scan(&owner)
+	err = tx.QueryRow(r.Context(), `SELECT owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE`, id).Scan(&owner)
 	if errors.Is(err, pgx.ErrNoRows) {
 		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
 		return
@@ -182,7 +183,7 @@ func (s *Server) replaceCover(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	if owner != u.User.ID && !u.User.IsAdmin {
+	if !slices.Contains(owner, u.User.ID) && !u.User.IsAdmin {
 		problem(w, 403, "FORBIDDEN", "只有上传者或管理员可以修改封面")
 		return
 	}

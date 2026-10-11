@@ -68,7 +68,7 @@ func TestUTF8ChartsMigration(t *testing.T) {
 		return value
 	}
 	before := snapshot()
-	if err = Migrate(ctx, pool, storage); err == nil || !strings.Contains(err.Error(), "non-UTF-8 charts remain") {
+	if err = migrateTo(ctx, pool, storage, 35); err == nil || !strings.Contains(err.Error(), "non-UTF-8 charts remain") {
 		t.Fatal("legacy encoding must abort migration", err)
 	}
 	var encoding string
@@ -83,7 +83,7 @@ func TestUTF8ChartsMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		if err = Migrate(ctx, pool, storage); err != nil {
+		if err = migrateTo(ctx, pool, storage, 35); err != nil {
 			t.Fatal(err)
 		}
 	}

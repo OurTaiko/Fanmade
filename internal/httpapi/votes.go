@@ -72,8 +72,9 @@ func (s *Server) voteChart(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 	// Holding the song row FOR SHARE serializes the vote with a deletion.
-	var id, owner string
-	e = tx.QueryRow(ctx, `SELECT c.id,c.owner_id FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR SHARE`, r.PathValue("id")).Scan(&id, &owner)
+	var id string
+	var owners []string
+	e = tx.QueryRow(ctx, `SELECT c.id,c.owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR SHARE`, r.PathValue("id")).Scan(&id, &owners)
 	if errors.Is(e, pgx.ErrNoRows) {
 		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
 		return
@@ -88,8 +89,15 @@ func (s *Server) voteChart(w http.ResponseWriter, r *http.Request) {
 	}
 	result := VoteResult{MyVote: value, Upvotes: new(int), Downvotes: new(int)}
 	e = tx.QueryRow(ctx, `SELECT COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=$1),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=$1),0)`, id).Scan(result.Upvotes, result.Downvotes)
-	if e == nil && value == 1 && owner != u.User.ID {
-		e = notifyUpvoteMilestone(ctx, tx, "chart_upvotes", owner, id, "", *result.Upvotes)
+	if e == nil && value == 1 {
+		for _, owner := range owners {
+			if owner == u.User.ID {
+				continue
+			}
+			if e = notifyUpvoteMilestone(ctx, tx, "chart_upvotes", owner, id, "", *result.Upvotes); e != nil {
+				break
+			}
+		}
 	}
 	if e == nil {
 		e = tx.Commit(ctx)

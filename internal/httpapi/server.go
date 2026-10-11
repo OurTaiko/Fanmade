@@ -135,6 +135,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/comments/{id}", s.deleteComment)
 	mux.HandleFunc("PUT /api/v1/comments/{id}/vote", s.voteComment)
 	mux.HandleFunc("GET /api/v1/users/{id}/comments", s.userComments)
+	mux.HandleFunc("POST /api/v1/charts/{id}/collaborations", s.inviteCollaborator)
+	mux.HandleFunc("POST /api/v1/me/notifications/{id}/respond", s.respondCollaboration)
 	mux.HandleFunc("GET /api/v1/me/notifications", s.listNotifications)
 	mux.HandleFunc("GET /api/v1/me/notifications/unread", s.unreadNotifications)
 	mux.HandleFunc("POST /api/v1/me/notifications/read", s.readAllNotifications)

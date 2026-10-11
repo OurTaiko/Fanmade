@@ -120,7 +120,7 @@ func (s *Server) webSearch(w http.ResponseWriter, r *http.Request, owner string)
 		problem(w, 400, "QUERY_INVALID", "顺序必须为 default / hot / top / comments")
 		return
 	}
-	where := keywordFilter + ` AND ($2='' OR c.owner_id=$2)`
+	where := keywordFilter + ` AND ($2='' OR c.owner_ids @> ARRAY[$2::text])`
 	var total int
 	if e := s.DB.QueryRow(r.Context(), `SELECT count(*) FROM charts c`+where, q, owner).Scan(&total); e != nil {
 		internal(w, e)

@@ -253,6 +253,13 @@ func testChartReplacement(t *testing.T, remote bool) {
 	if count(`SELECT count(*) FROM retired_files`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE kind IN ('tja','audio')`) != 4 {
 		t.Fatal("cleanup incomplete")
 	}
+	// Co-owners can replace files, and replacement preserves the entire owner set.
+	mustExec(`UPDATE charts SET owner_ids=array_append(owner_ids,'9b893bc6d9422c93536ff0df503b81e9') WHERE id=$1`, original.ID)
+	shared := decode(request("9b893bc6d9422c93536ff0df503b81e9", "PUT", path, ID(), nextSource, "next.mp3", audio, nextFields), 200)
+	if len(shared.OwnerIDs) != 2 || shared.OwnerID != original.OwnerID || !shared.hasOwner("9b893bc6d9422c93536ff0df503b81e9") {
+		t.Fatal("replacement lost ownership", shared.OwnerIDs)
+	}
+
 }
 
 func TestRetiredFileCleanupRetries(t *testing.T) {

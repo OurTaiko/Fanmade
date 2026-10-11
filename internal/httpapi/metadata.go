@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"ourtaiko.dev/fanmade/api/internal/audio"
 	"ourtaiko.dev/fanmade/api/internal/tja"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -178,10 +179,10 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
-	var owner string
+	var owner []string
 	var translations metadataTranslations
 	var sourceTitle, sourceSubtitle string
-	err = tx.QueryRow(r.Context(), `SELECT owner_id,title,subtitle,title_translations,subtitle_translations FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE`, r.PathValue("id")).Scan(&owner, &sourceTitle, &sourceSubtitle, &translations.Titles, &translations.Subtitles)
+	err = tx.QueryRow(r.Context(), `SELECT owner_ids,title,subtitle,title_translations,subtitle_translations FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE`, r.PathValue("id")).Scan(&owner, &sourceTitle, &sourceSubtitle, &translations.Titles, &translations.Subtitles)
 	if errors.Is(err, pgx.ErrNoRows) {
 		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已下架")
 		return
@@ -190,7 +191,7 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	if owner != u.User.ID && !u.User.IsAdmin {
+	if !slices.Contains(owner, u.User.ID) && !u.User.IsAdmin {
 		problem(w, 403, "FORBIDDEN", "只有作品作者或网站管理员可以修改信息")
 		return
 	}
@@ -296,7 +297,7 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	chart.setUploader(s.publicProfiles(r.Context(), []string{chart.OwnerID})[chart.OwnerID])
+	chart.setOwners(s.publicProfiles(r.Context(), chart.OwnerIDs))
 	items := []Chart{chart}
 	if err = s.coverHashes(r.Context(), items); err != nil {
 		internal(w, err)

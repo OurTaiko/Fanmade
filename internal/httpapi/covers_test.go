@@ -293,6 +293,10 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	status(get("/api/v1/charts/"+decode(w).ID+"/cover", ""), 404)
 	// Two simultaneous owner changes must leave exactly one complete cover.
 	optionalID := decode(w).ID
+	if _, err = pool.Exec(ctx, `UPDATE charts SET owner_ids=array_append(owner_ids,repeat('2',32)) WHERE id=$1`, optionalID); err != nil {
+		t.Fatal(err)
+	}
+	status(send("PUT", "/api/v1/charts/"+optionalID+"/cover", "other", "csrf", "", parts[2]), 200)
 	responses := make(chan *httptest.ResponseRecorder, 2)
 	for _, image := range []part{parts[2], changed[2]} {
 		go func(image part) {

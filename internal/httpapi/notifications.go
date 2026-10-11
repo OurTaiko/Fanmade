@@ -153,8 +153,8 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	rows, e := tx.Query(ctx, `SELECT n.id,n.kind,n.created_at,n.read_at IS NOT NULL,n.actor_id,n.chart_id,c.title,n.comment_id,m.parent_id,left(m.body,200),n.data
-	 FROM notifications n LEFT JOIN charts c ON c.id=n.chart_id LEFT JOIN comments m ON m.id=n.comment_id
+	rows, e := tx.Query(ctx, `SELECT n.id,n.kind,n.created_at,n.read_at IS NOT NULL,n.actor_id,n.chart_id,c.title,n.comment_id,m.parent_id,left(m.body,200),n.data || CASE WHEN i.id IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('status',i.status) END
+	 FROM notifications n LEFT JOIN charts c ON c.id=n.chart_id LEFT JOIN comments m ON m.id=n.comment_id LEFT JOIN chart_collaborations i ON i.id=n.collaboration_id
 	 WHERE `+filter+` ORDER BY n.created_at DESC,n.id LIMIT $2 OFFSET $3`, u.User.ID, notificationPageSize, (page-1)*notificationPageSize)
 	if e != nil {
 		internal(w, e)
@@ -276,7 +276,7 @@ func (s *Server) dismissNotification(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tag, e := s.DB.Exec(r.Context(), `DELETE FROM notifications WHERE id=$1 AND recipient_id=$2`, r.PathValue("id"), u.User.ID)
+	tag, e := s.DB.Exec(r.Context(), `DELETE FROM notifications n WHERE id=$1 AND recipient_id=$2 AND NOT EXISTS(SELECT 1 FROM chart_collaborations i WHERE i.id=n.collaboration_id AND i.status='pending')`, r.PathValue("id"), u.User.ID)
 	if e != nil {
 		internal(w, e)
 		return
@@ -361,8 +361,9 @@ func (s *Server) updateNotificationSettings(w http.ResponseWriter, r *http.Reque
 }
 
 // PruneNotifications drops read notices after 90 days and unread ones after a year.
+// Pending collaboration invitations stay actionable until explicitly resolved.
 func (s *Server) PruneNotifications(ctx context.Context) error {
-	_, e := s.DB.Exec(ctx, `DELETE FROM notifications WHERE (read_at IS NOT NULL AND read_at<now()-interval '90 days') OR created_at<now()-interval '365 days'`)
+	_, e := s.DB.Exec(ctx, `DELETE FROM notifications n WHERE ((read_at IS NOT NULL AND read_at<now()-interval '90 days') OR created_at<now()-interval '365 days') AND NOT EXISTS(SELECT 1 FROM chart_collaborations i WHERE i.id=n.collaboration_id AND i.status='pending')`)
 	return e
 }
 

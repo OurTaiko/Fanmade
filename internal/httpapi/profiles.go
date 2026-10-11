@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"slices"
 	"time"
 )
 
@@ -27,17 +28,27 @@ func (s *Server) publicProfiles(ctx context.Context, ids []string) map[string]Pu
 	return result
 }
 func (s *Server) chartNames(ctx context.Context, charts []Chart) {
-	ids := make([]string, len(charts))
-	for i, c := range charts {
-		ids[i] = c.OwnerID
+	ids := []string{}
+	for _, c := range charts {
+		ids = append(ids, c.OwnerIDs...)
 	}
 	profiles := s.publicProfiles(ctx, ids)
 	for i := range charts {
-		charts[i].setUploader(profiles[charts[i].OwnerID])
+		charts[i].setOwners(profiles)
 	}
 }
 
 func (c *Chart) setUploader(p PublicProfile) {
 	c.Uploader = p.Nickname
 	c.UploaderAvatarURL = p.AvatarURL
+}
+
+func (c *Chart) hasOwner(id string) bool { return slices.Contains(c.OwnerIDs, id) }
+func (c *Chart) setOwners(profiles map[string]PublicProfile) {
+	c.Owners = []NotificationActor{}
+	for _, id := range c.OwnerIDs {
+		p := profiles[id]
+		c.Owners = append(c.Owners, NotificationActor{ID: id, Nickname: p.Nickname, AvatarURL: p.AvatarURL})
+	}
+	c.setUploader(profiles[c.OwnerID])
 }

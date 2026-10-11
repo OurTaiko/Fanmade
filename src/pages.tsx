@@ -1,3 +1,5 @@
+import { chartOwners, isChartOwner } from './chart-owners'
+import { CollaborationDialog } from './collaborations'
 import { formatLocale } from '@/i18n'
 import { chartText } from '@/chart-language'
 import { i18n } from '@/i18n'
@@ -322,6 +324,7 @@ export function Detail() {
     [busy, setBusy] = useState(false)
   const [editing, setEditing] = useState(false)
   const [coverEditing, setCoverEditing] = useState(false)
+  const [collaborating, setCollaborating] = useState(false)
   const [saved, setSaved] = useState(false)
   const editButton = useRef<HTMLButtonElement>(null)
   // Below lg the page shows one section at a time; wider screens show them all.
@@ -333,6 +336,7 @@ export function Detail() {
     setError('')
     setEditing(false)
     setCoverEditing(false)
+    setCollaborating(false)
     setSaved(false)
     setConfirm(false)
     setActivityTab('image')
@@ -373,7 +377,7 @@ export function Detail() {
   if (!supportsChart(chart.difficulties))
     return <Notice>{t('messages.thisChartTypeIsNotSupported')}</Notice>
   const text = chartText(chart, i18n.resolvedLanguage)
-  const isOwner = session.user?.id === chart.ownerId
+  const isOwner = isChartOwner(chart, session.user?.id)
   const canManage = isOwner || !!session.user?.isAdmin
   const votes = chart.upvotes + chart.downvotes
   const pageTab: PageTab =
@@ -512,6 +516,9 @@ export function Detail() {
           }}
         />
       )}
+      {collaborating && isOwner && (
+        <CollaborationDialog chart={chart} onDismiss={() => setCollaborating(false)} />
+      )}
       {coverEditing && canManage && (
         <CoverDialog
           chart={chart}
@@ -602,20 +609,23 @@ export function Detail() {
               {t('messages.submissionDetails')}
             </h2>
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm [&>dt]:text-muted-foreground [&>dd]:wrap-anywhere">
-              <dt className="self-center">{t('messages.uploader')}</dt>
-              <dd>
-                <Link
-                  className="inline-flex max-w-full items-center gap-2 align-middle text-primary hover:underline"
-                  to={`/users/${encodeURIComponent(chart.ownerId)}`}
-                >
-                  <UserAvatar
-                    nickname={chart.uploader}
-                    avatarUrl={chart.uploaderAvatarUrl}
-                    className="size-6"
-                    fallbackClassName="text-xs"
-                  />
-                  <span className="min-w-0 wrap-anywhere">{chart.uploader}</span>
-                </Link>
+              <dt className="self-center">{t('collaboration.owners')}</dt>
+              <dd className="flex flex-wrap gap-3">
+                {chartOwners(chart).map((owner) => (
+                  <Link
+                    key={owner.id}
+                    className="inline-flex max-w-full items-center gap-2 align-middle text-primary hover:underline"
+                    to={`/users/${encodeURIComponent(owner.id)}`}
+                  >
+                    <UserAvatar
+                      nickname={owner.nickname}
+                      avatarUrl={owner.avatarUrl}
+                      className="size-6"
+                      fallbackClassName="text-xs"
+                    />
+                    <span className="min-w-0 wrap-anywhere">{owner.nickname}</span>
+                  </Link>
+                ))}
               </dd>
               <dt>{t('messages.published')}</dt>
               <dd>
@@ -673,6 +683,21 @@ export function Detail() {
                       onClick={() => setCoverEditing(true)}
                     >
                       {coverSource(chart) ? t('messages.changeCover') : t('messages.addCover')}
+                      <CaretRightIcon
+                        className="size-4 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </li>
+                )}
+                {isOwner && (
+                  <li>
+                    <button
+                      type="button"
+                      className={manageItemClassName}
+                      onClick={() => setCollaborating(true)}
+                    >
+                      {t('collaboration.add')}
                       <CaretRightIcon
                         className="size-4 shrink-0 text-muted-foreground"
                         aria-hidden="true"

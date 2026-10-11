@@ -17,6 +17,9 @@ export type Chart = Metadata & {
   id: string
   coverHash?: string
   categoryIds: string[]
+  ownerIds?: string[]
+  owners?: { id: string; nickname: string; avatarUrl?: string }[]
+  /** Original uploader; use ownerIds for ownership. */
   ownerId: string
   uploader: string
   uploaderAvatarUrl?: string

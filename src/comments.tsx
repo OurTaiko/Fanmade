@@ -1,3 +1,4 @@
+import { isChartOwner } from './chart-owners'
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
@@ -327,12 +328,12 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
                 {author}
               </Link>
             )}
-            {!gone && comment.authorId === tree.chart.ownerId && (
+            {!gone && isChartOwner(tree.chart, comment.authorId) && (
               <span
                 className="rounded-md bg-[#0071e3]/10 px-1.5 py-0.5 font-medium text-[#0071e3]"
-                title={t('interactions.uploaderBadgeTitle')}
+                title={t('collaboration.ownerBadgeTitle')}
               >
-                {t('interactions.uploaderBadge')}
+                {t('collaboration.owner')}
               </span>
             )}
             <span aria-hidden="true">·</span>

@@ -31,6 +31,9 @@ export const endpoints = {
     mine = false,
   ) => withQuery(`${API_ROOT}${mine ? '/me/charts' : '/charts'}`, query),
   chart: chartPath,
+  collaborations: (id: string) => `${chartPath(id)}/collaborations`,
+  respondCollaboration: (id: string) =>
+    `${API_ROOT}/me/notifications/${encodeURIComponent(id)}/respond`,
   chartFiles: (id: string) => `${chartPath(id)}/files`,
   cover: (id: string, hash?: string) =>
     withQuery(`${chartPath(id)}/cover`, hash ? { v: hash } : {}),

@@ -549,5 +549,23 @@
       "comment_upvotes": "Upvote milestones on my comments",
       "comment_removed": "My comments removed by administrators"
     }
+  },
+  "collaboration": {
+    "add": "Add co-creator",
+    "description": "Once accepted, the recipient becomes an owner and can edit details, replace files, change the cover, delete the chart, and invite co-creators.",
+    "search": "Search user nicknames",
+    "invite": "Send invitation",
+    "sent": "Invitation sent. The recipient can accept it in notifications.",
+    "owner": "Owner",
+    "owners": "Owners",
+    "pending": "Pending",
+    "noUsers": "No users found",
+    "notice": "{{actor}} invited you to co-create “{{chart}}”",
+    "permissions": "Accepting gives you full management access to this chart.",
+    "accept": "Accept",
+    "decline": "Decline",
+    "accepted": "Accepted. You are now an owner.",
+    "declined": "Declined",
+    "ownerBadgeTitle": "An owner of this chart"
   }
 }

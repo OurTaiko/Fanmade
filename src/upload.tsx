@@ -1,3 +1,4 @@
+import { isChartOwner } from './chart-owners'
 import { chartText } from '@/chart-language'
 import { i18n } from '@/i18n'
 import { useTranslation } from 'react-i18next'
@@ -72,7 +73,7 @@ export function UpdatePage() {
   if (!id) return <Notice>{t('messages.missingSongId')}</Notice>
   if (error) return <Notice>{error}</Notice>
   if (!chart || session.loading) return <p role="status">{t('messages.loadingSong')}</p>
-  if (!session.user || (session.user.id !== chart.ownerId && !session.user.isAdmin))
+  if (!session.user || (!isChartOwner(chart, session.user.id) && !session.user.isAdmin))
     return <p>{t('messages.onlyTheUploaderOrAnAdministratorCanUpdateThisSong')}</p>
   return <UploadPage key={`${chart.id}:${chart.tjaHash}:${chart.audioHash}`} existing={chart} />
 }

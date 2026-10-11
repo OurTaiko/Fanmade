@@ -539,5 +539,23 @@
       "comment_upvotes": "评论获赞里程碑",
       "comment_removed": "我的评论被管理员移除"
     }
+  },
+  "collaboration": {
+    "add": "添加共同创作",
+    "description": "对方同意后，将成为谱面的所有者之一，拥有编辑信息、替换文件、更换封面、删除谱面和邀请共同创作者的权限。",
+    "search": "搜索用户昵称",
+    "invite": "发送邀请",
+    "sent": "邀请已发送，请等待对方在通知中同意。",
+    "owner": "所有者",
+    "owners": "所有者",
+    "pending": "等待同意",
+    "noUsers": "没有找到用户",
+    "notice": "{{actor}} 邀请你成为《{{chart}}》的共同创作者",
+    "permissions": "同意后，你将拥有该谱面的完整管理权限。",
+    "accept": "同意",
+    "decline": "拒绝",
+    "accepted": "已同意，你已成为所有者之一。",
+    "declined": "已拒绝",
+    "ownerBadgeTitle": "这首谱面的所有者"
   }
 }

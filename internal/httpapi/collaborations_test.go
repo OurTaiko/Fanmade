@@ -184,3 +184,81 @@ func TestConcurrentCollaboratorInvitations(t *testing.T) {
 		t.Fatal(count, e)
 	}
 }
+
+func TestLeaveCoOwnedChart(t *testing.T) {
+	c, s := interactionFixture(t)
+	ctx := context.Background()
+	const owner, alice, bob = "d46774d30dd13b92d9e536808da468a4", "9b893bc6d9422c93536ff0df503b81e9", "5f0c4a0b0e7b4d3c9a6f1e2d3c4b5a69"
+	path := "/api/v1/charts/song/owners/me"
+	owners := func() (ids []string) {
+		t.Helper()
+		if e := s.DB.QueryRow(ctx, `SELECT owner_ids FROM charts WHERE id='song'`).Scan(&ids); e != nil {
+			t.Fatal(e)
+		}
+		return
+	}
+	// A sole owner cannot leave; the chart would have no owner.
+	if code := c.do("owner", "DELETE", path, `{}`, nil); code != 409 || !slices.Equal(owners(), []string{owner}) {
+		t.Fatal("sole owner left", code, owners())
+	}
+	if _, e := s.DB.Exec(ctx, `UPDATE charts SET owner_ids=ARRAY[$1,$2,$3]::text[] WHERE id='song'`, owner, alice, bob); e != nil {
+		t.Fatal(e)
+	}
+	for user, want := range map[string]int{"": 401, "admin": 403} {
+		if code := c.do(user, "DELETE", path, `{}`, nil); code != want {
+			t.Fatal(user, code)
+		}
+	}
+	if code := c.do("alice", "DELETE", "/api/v1/charts/missing/owners/me", `{}`, nil); code != 404 {
+		t.Fatal("missing chart", code)
+	}
+	r := httptest.NewRequest("DELETE", path, strings.NewReader(`{}`))
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Origin", "http://localhost")
+	r.AddCookie(&http.Cookie{Name: "ourtaiko_session", Value: c.tokens["alice"]})
+	w := httptest.NewRecorder()
+	c.handler.ServeHTTP(w, r)
+	if w.Code != 403 || len(owners()) != 3 {
+		t.Fatal("missing csrf", w.Code)
+	}
+	// Any owner may leave, including the original uploader; the rest keep the chart.
+	var left struct {
+		OwnerIDs []string `json:"ownerIds"`
+	}
+	if code := c.do("owner", "DELETE", path, `{}`, &left); code != 200 || !slices.Equal(left.OwnerIDs, []string{alice, bob}) || !slices.Equal(owners(), []string{alice, bob}) {
+		t.Fatal("uploader leaving", code, left.OwnerIDs)
+	}
+	if code := c.do("owner", "DELETE", path, `{}`, nil); code != 403 {
+		t.Fatal("left twice", code)
+	}
+	if code := c.do("owner", "PATCH", "/api/v1/charts/song", `{"description":"gone"}`, nil); code != 403 {
+		t.Fatal("former owner still edits", code)
+	}
+	if code := c.do("alice", "PATCH", "/api/v1/charts/song", `{"description":"ours"}`, nil); code != 200 {
+		t.Fatal("remaining owner cannot edit", code)
+	}
+	var chart Chart
+	if code := c.do("", "GET", "/api/v1/charts/song", "", &chart); code != 200 || chart.OwnerID != alice || len(chart.Owners) != 2 {
+		t.Fatalf("chart after leaving: %d %+v", code, chart.OwnerIDs)
+	}
+	// The last two owners cannot both leave.
+	var wg sync.WaitGroup
+	codes := make(chan int, 2)
+	for _, user := range []string{"alice", "bob"} {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			codes <- c.do(user, "DELETE", path, `{}`, nil)
+		}()
+	}
+	wg.Wait()
+	close(codes)
+	var results []int
+	for code := range codes {
+		results = append(results, code)
+	}
+	slices.Sort(results)
+	if !slices.Equal(results, []int{200, 409}) || len(owners()) != 1 {
+		t.Fatal("concurrent leave", results, owners())
+	}
+}

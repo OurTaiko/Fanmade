@@ -182,3 +182,48 @@ func (s *Server) respondCollaboration(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, 200, map[string]string{"status": desired})
 }
+
+// leaveChart lets an owner give up a co-owned chart. The last owner cannot
+// leave: a chart always has an owner, and a sole owner deletes it instead.
+func (s *Server) leaveChart(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.required(w, r, true)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	tx, e := s.DB.Begin(ctx)
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	defer tx.Rollback(ctx)
+	// The chart lock serializes this with invitations being accepted and with
+	// other owners leaving, so two owners cannot both leave a chart of two.
+	var owners []string
+	e = tx.QueryRow(ctx, `SELECT owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE`, r.PathValue("id")).Scan(&owners)
+	if errors.Is(e, pgx.ErrNoRows) {
+		problem(w, 404, "CHART_NOT_FOUND", "作品不存在")
+		return
+	}
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	if !slices.Contains(owners, u.User.ID) {
+		problem(w, 403, "FORBIDDEN", "你不是这个作品的所有者")
+		return
+	}
+	if len(owners) < 2 {
+		problem(w, 409, "LAST_OWNER", "你是唯一的所有者，不能放弃；如不再需要可以删除作品")
+		return
+	}
+	e = tx.QueryRow(ctx, `UPDATE charts SET owner_ids=array_remove(owner_ids,$2::text) WHERE id=$1 RETURNING owner_ids`, r.PathValue("id"), u.User.ID).Scan(&owners)
+	if e == nil {
+		e = tx.Commit(ctx)
+	}
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	respond(w, 200, map[string][]string{"ownerIds": owners})
+}

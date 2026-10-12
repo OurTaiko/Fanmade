@@ -27,13 +27,13 @@ import {
   ArrowRightIcon as ArrowRight,
   WaveformIcon as AudioLines,
   FileAudioIcon as FileMusic,
-  FilmStripIcon,
   CheckIcon as Check,
   CircleNotchIcon as LoaderCircle,
   UploadSimpleIcon as Upload,
   WarningIcon,
 } from '@phosphor-icons/react'
 import { CoverPicker } from '@/components/cover-picker'
+import { MoviePicker } from '@/components/movie-picker'
 import { CategoryPicker } from './categories'
 import { api, uploadChart } from './api/client'
 import type { Chart } from './api/types'
@@ -185,12 +185,11 @@ export function UploadPage({ existing }: { existing?: Chart }) {
     }
     return true
   }
-  const choose = (kind: 'tja' | 'audio' | 'movie', e: ChangeEvent<HTMLInputElement>) => {
+  const choose = (kind: 'tja' | 'audio', e: ChangeEvent<HTMLInputElement>) => {
     reset()
     const file = e.target.files?.[0] ?? null
     if (kind === 'tja') setTja(file)
-    else if (kind === 'audio') setAudio(file)
-    else setMovie(file)
+    else setAudio(file)
   }
   const drop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -276,37 +275,21 @@ export function UploadPage({ existing }: { existing?: Chart }) {
       controller.current = null
     }
   }
-  const fileTile = (kind: 'tja' | 'audio' | 'movie') => {
-    const file = kind === 'tja' ? tja : kind === 'audio' ? audio : movie
+  const fileTile = (kind: 'tja' | 'audio') => {
+    const file = kind === 'tja' ? tja : audio
     return (
       <Label className="flex min-w-0 flex-col items-start gap-3 rounded-2xl border p-4 [&>span]:w-full [&_small]:mt-1 [&_small]:block [&_small]:truncate [&_small]:text-muted-foreground">
-        {kind === 'tja' ? (
-          <FileMusic size={24} />
-        ) : kind === 'audio' ? (
-          <AudioLines size={24} />
-        ) : (
-          <FilmStripIcon size={24} />
-        )}
+        {kind === 'tja' ? <FileMusic size={24} /> : <AudioLines size={24} />}
         <span>
-          <b>
-            {kind === 'tja'
-              ? t('messages.tjaChart')
-              : kind === 'audio'
-                ? t('messages.oggMp3Audio')
-                : t('messages.backgroundMovie')}
-          </b>
+          <b>{kind === 'tja' ? t('messages.tjaChart') : t('messages.oggMp3Audio')}</b>
           <small>
             {file
               ? file.name
               : kind === 'tja'
                 ? t('messages.tjaUpTo2Mib')
-                : kind === 'movie'
-                  ? hasStoredMovie
-                    ? t('messages.keepMovie')
-                    : t('messages.movieUpTo64Mib')
-                  : existing
-                    ? t('messages.keepAudio', { filename: existing.audioName })
-                    : t('messages.oggMp3UpTo100Mib')}
+                : existing
+                  ? t('messages.keepAudio', { filename: existing.audioName })
+                  : t('messages.oggMp3UpTo100Mib')}
           </small>
         </span>
         {file ? (
@@ -317,13 +300,9 @@ export function UploadPage({ existing }: { existing?: Chart }) {
         <Input
           type="file"
           aria-label={
-            kind === 'tja'
-              ? t('messages.chooseTjaChart')
-              : kind === 'audio'
-                ? t('messages.chooseOggOrMp3Audio')
-                : t('messages.chooseBackgroundMovie')
+            kind === 'tja' ? t('messages.chooseTjaChart') : t('messages.chooseOggOrMp3Audio')
           }
-          accept={kind === 'tja' ? '.tja' : kind === 'audio' ? '.ogg,.mp3' : '.mp4,.webm,.mov'}
+          accept={kind === 'tja' ? '.tja' : '.ogg,.mp3'}
           disabled={busy}
           onChange={(e) => choose(kind, e)}
         />
@@ -418,7 +397,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                   {fileTile('audio')}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="min-w-0 space-y-3 rounded-2xl border p-4">
+                  <div className="flex min-w-0 flex-col gap-3 rounded-2xl border p-4">
                     <h3 className="text-sm font-bold">{t('messages.songCover')}</h3>
                     {existing && (
                       <p className="text-sm leading-6 text-muted-foreground">
@@ -434,7 +413,18 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                       }}
                     />
                   </div>
-                  {fileTile('movie')}
+                  <div className="flex min-w-0 flex-col gap-3 rounded-2xl border p-4">
+                    <h3 className="text-sm font-bold">{t('messages.backgroundMovie')}</h3>
+                    <MoviePicker
+                      file={movie}
+                      disabled={busy}
+                      hint={hasStoredMovie ? t('messages.keepMovie') : t('messages.movieUpTo64Mib')}
+                      onChange={(file) => {
+                        reset()
+                        setMovie(file)
+                      }}
+                    />
+                  </div>
                 </div>
                 {existing && audio && (
                   <Button
@@ -449,23 +439,6 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                   >
                     {t('messages.currentAudio', { filename: existing.audioName })}
                   </Button>
-                )}
-                {movie && (
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                    <span>{t('messages.movieWillBeTranscoded')}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="default"
-                      disabled={busy}
-                      onClick={() => {
-                        reset()
-                        setMovie(null)
-                      }}
-                    >
-                      {t('messages.removeMovie')}
-                    </Button>
-                  </div>
                 )}
                 {validationError && (
                   <Notice title={t('messages.fileValidationFailed')}>{validationError}</Notice>

@@ -28,12 +28,12 @@ export function CoverPicker({
     return () => URL.revokeObjectURL(url)
   }, [file])
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="flex min-w-0 flex-1 flex-col gap-4">
       <Label htmlFor={id}>{t('messages.chooseJpgPngOrWebpCover')}</Label>
       <p id={`${id}-help`} className="text-sm leading-6 text-muted-foreground">
-        {t('messages.optionalUpTo8MibAnd16MegapixelsImagesAreScaledProportionally')}
+        {t('messages.upTo8MibAnd16MegapixelsImagesAreScaledProportionally')}
       </p>
-      <div className="flex min-h-36 items-center justify-center overflow-hidden rounded-2xl bg-[#f5f5f7] p-4 dark:bg-muted">
+      <div className="flex min-h-36 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-[#f5f5f7] p-4 dark:bg-muted">
         {file && preview?.file === file ? (
           <img
             src={preview.url}

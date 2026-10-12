@@ -117,6 +117,12 @@ var chartOwnersSchema string
 //go:embed 038_content_addressed_files.sql
 var contentAddressedFilesSchema string
 
+//go:embed 039_background_movies.sql
+var backgroundMoviesSchema string
+
+//go:embed 040_async_uploads.sql
+var asyncUploadsSchema string
+
 func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -146,13 +152,13 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 
 // Migrate applies the initial schema once, atomically, with a transaction lock.
 func Migrate(ctx context.Context, pool *pgxpool.Pool, storage string) error {
-	return migrateTo(ctx, pool, storage, 38)
+	return migrateTo(ctx, pool, storage, 40)
 }
 
 // MigrateS3 refuses to export legacy inline covers to an ephemeral local directory.
 // Migrate the local snapshot to S3 before starting an S3-only server.
 func MigrateS3(ctx context.Context, pool *pgxpool.Pool, storage string) error {
-	return migrateToMode(ctx, pool, storage, 38, true)
+	return migrateToMode(ctx, pool, storage, 40, true)
 }
 
 // The historical target supports testing upgrades before the schema flattening.
@@ -614,6 +620,32 @@ func migrateToMode(ctx context.Context, pool *pgxpool.Pool, storage string, targ
 				return fmt.Errorf("migration 038: %w", err)
 			}
 			if _, err = tx.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES(38)`); err != nil {
+				return err
+			}
+		}
+	}
+	if target >= 39 {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=39)`).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			if _, err = tx.Exec(ctx, backgroundMoviesSchema); err != nil {
+				return fmt.Errorf("migration 039: %w", err)
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES(39)`); err != nil {
+				return err
+			}
+		}
+	}
+	if target >= 40 {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=40)`).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			if _, err = tx.Exec(ctx, asyncUploadsSchema); err != nil {
+				return fmt.Errorf("migration 040: %w", err)
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES(40)`); err != nil {
 				return err
 			}
 		}

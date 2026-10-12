@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"ourtaiko.dev/fanmade/api/internal/audio"
 	"ourtaiko.dev/fanmade/api/internal/objectstore"
+	"ourtaiko.dev/fanmade/api/internal/video"
 	"time"
 )
 
@@ -97,6 +98,13 @@ func (s *Server) resourceLinks(w http.ResponseWriter, r *http.Request) {
 	}
 	if e == nil {
 		if e = add("preview", key, "preview.ogg", "audio/ogg", digest, size); e != nil {
+			internal(w, e)
+			return
+		}
+	}
+
+	if c.MovieKey != "" {
+		if e = add("movie", c.MovieKey, c.MovieHash+"."+video.Extension, video.MediaType, c.MovieHash, c.MovieSize); e != nil {
 			internal(w, e)
 			return
 		}

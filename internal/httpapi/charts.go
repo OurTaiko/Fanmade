@@ -16,6 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/fanmade/api/internal/video"
 )
 
 type Chart struct {
@@ -49,6 +50,12 @@ type Chart struct {
 	MyVote       int    `json:"myVote"`
 	TJAKey       string `json:"-"`
 	AudioKey     string `json:"-"`
+	// Background movie (BGMOVIE), transcoded; empty when the chart has none.
+	MovieHash string `json:"movieHash,omitempty"`
+	MovieSize int64  `json:"movieSize,omitempty"`
+	MovieKey  string `json:"-"`
+	// Only in an upload's own response: optional files that were left out.
+	FailedFiles []fileFailure `json:"failedFiles,omitempty"`
 	tja.Metadata
 }
 
@@ -60,14 +67,15 @@ const publishedChart = `c.status='published' AND NOT EXISTS (SELECT 1 FROM jsonb
 const chartSelect = `SELECT c.id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,c.is_single,
  c.difficulties,
  c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE id=c.preview_file),''),
+ c.movie_offset,COALESCE(mf.sha256,''),COALESCE(mf.byte_size,0),COALESCE(mf.storage_key,''),
  COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0)
- FROM charts c JOIN chart_resources tf ON tf.id=c.tja_file JOIN chart_resources af ON af.id=c.audio_file `
+ FROM charts c JOIN chart_resources tf ON tf.id=c.tja_file JOIN chart_resources af ON af.id=c.audio_file LEFT JOIN chart_resources mf ON mf.id=c.movie_file `
 
 func readChart(row pgx.Row) (Chart, error) {
 	c := Chart{Encoding: "utf-8"} // Compatibility field; stored TJA bytes are always UTF-8.
 	var difficulties []byte
 	var flags CategoryFlags
-	e := row.Scan(&c.ID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &c.IsSingle, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.Upvotes, &c.Downvotes, &c.CommentCount)
+	e := row.Scan(&c.ID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &c.IsSingle, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
 	if e == nil {
 		c.OwnerID = c.OwnerIDs[0]
 		c.Score = c.Upvotes - c.Downvotes
@@ -179,7 +187,7 @@ func (s *Server) deleteChart(ctx context.Context, chartID, ownerID string) ([]st
 	if _, e = tx.Exec(ctx, `DELETE FROM scores WHERE song_id=$1`, chartID); e != nil {
 		return nil, e
 	}
-	rows, e := tx.Query(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id IN (c.tja_file,c.audio_file,c.cover_file,c.preview_file) WHERE c.id=$1`, chartID)
+	rows, e := tx.Query(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id IN (c.tja_file,c.audio_file,c.cover_file,c.preview_file,c.movie_file) WHERE c.id=$1`, chartID)
 	if e != nil {
 		return nil, e
 	}
@@ -224,13 +232,26 @@ func (s *Server) download(w http.ResponseWriter, r *http.Request) {
 			internal(w, e)
 			return
 		}
+		entries := []struct {
+			name string
+			file io.Reader
+		}{{c.TJAName, bytes.NewReader(data)}, {tja.WaveName(data), af}}
+		if c.MovieKey != "" {
+			mf, e := s.Config.Objects.Open(r.Context(), c.MovieKey)
+			if e != nil {
+				internal(w, e)
+				return
+			}
+			defer mf.Close()
+			entries = append(entries, struct {
+				name string
+				file io.Reader
+			}{tja.MovieName(data), mf})
+		}
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": strings.TrimSuffix(c.TJAName, filepath.Ext(c.TJAName)) + ".zip"}))
 		z := zip.NewWriter(w)
-		for _, f := range []struct {
-			name string
-			file io.Reader
-		}{{c.TJAName, bytes.NewReader(data)}, {tja.WaveName(data), af}} {
+		for _, f := range entries {
 			dst, e := z.CreateHeader(&zip.FileHeader{Name: f.name, Method: zip.Store})
 			if e != nil {
 				return
@@ -246,6 +267,12 @@ func (s *Server) download(w http.ResponseWriter, r *http.Request) {
 	switch kind {
 	case "tja":
 		key, name, contentType, etag = c.TJAKey, c.TJAName, "application/octet-stream", c.TJAHash
+	case "movie":
+		if c.MovieKey == "" {
+			problem(w, 404, "RESOURCE_NOT_FOUND", "该谱面没有背景视频")
+			return
+		}
+		key, name, contentType, etag = c.MovieKey, c.MovieHash+"."+video.Extension, video.MediaType, c.MovieHash
 	default:
 		problem(w, 404, "RESOURCE_NOT_FOUND", "资源不存在")
 		return

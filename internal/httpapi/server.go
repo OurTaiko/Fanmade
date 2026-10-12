@@ -19,6 +19,7 @@ import (
 	"ourtaiko.dev/fanmade/api/internal/cover"
 	"ourtaiko.dev/fanmade/api/internal/objectstore"
 	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/fanmade/api/internal/video"
 )
 
 type Config struct {
@@ -33,6 +34,10 @@ type Server struct {
 	DB      *pgxpool.Pool
 	Config  Config
 	uploads chan struct{}
+	// Accepted uploads: pending bounds how many wait with staged files.
+	pending chan struct{}
+	jobs    chan *uploadJob
+	worker  sync.Once
 	mu      sync.Mutex
 	limits  map[string]window
 }
@@ -45,7 +50,7 @@ func New(pool *pgxpool.Pool, cfg Config) *Server {
 	if cfg.Objects == nil {
 		cfg.Objects = objectstore.Local{Root: cfg.Storage}
 	}
-	return &Server{DB: pool, Config: cfg, uploads: make(chan struct{}, 2), limits: map[string]window{}}
+	return &Server{DB: pool, Config: cfg, uploads: make(chan struct{}, 2), pending: make(chan struct{}, maxPendingUploads), jobs: make(chan *uploadJob, maxPendingUploads), limits: map[string]window{}}
 }
 func ID() string {
 	b := make([]byte, 16)
@@ -97,7 +102,9 @@ func (s *Server) Handler() http.Handler {
 		respond(w, 200, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("GET /api/v1/upload-rules", func(w http.ResponseWriter, r *http.Request) {
-		respond(w, 200, map[string]any{"validationVersion": tja.Version, "maxTjaBytes": tja.MaxTJA, "maxAudioBytes": tja.MaxAudio, "maxCoverBytes": cover.MaxBytes, "coverExtensions": []string{".jpg", ".png", ".webp"}, "encodings": []string{"utf-8", "shift-jis"}, "audioCodecs": []string{"vorbis", "mp3"}, "audioExtensions": []string{".ogg", ".mp3"}})
+		respond(w, 200, map[string]any{"validationVersion": tja.Version, "maxTjaBytes": tja.MaxTJA, "maxAudioBytes": tja.MaxAudio, "maxCoverBytes": cover.MaxBytes, "coverExtensions": []string{".jpg", ".png", ".webp"}, "encodings": []string{"utf-8", "shift-jis"}, "audioCodecs": []string{"vorbis", "mp3"}, "audioExtensions": []string{".ogg", ".mp3"},
+			"maxMovieBytes": video.MaxBytes, "movieExtensions": []string{".mp4", ".webm", ".mov"},
+			"movieOutput": map[string]any{"codec": "h264", "extension": "." + video.Extension, "maxWidth": video.MaxWidth, "maxHeight": video.MaxHeight, "maxFps": video.MaxFPS, "maxKbps": video.MaxKbps, "audio": false}})
 	})
 	mux.HandleFunc("POST /api/v1/game/login", s.login)
 	mux.HandleFunc("GET /api/v1/game/bootstrap", s.gameBootstrap)

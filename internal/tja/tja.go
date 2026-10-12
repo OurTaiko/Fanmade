@@ -10,9 +10,10 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 	"ourtaiko.dev/fanmade/api/internal/audio"
+	"ourtaiko.dev/fanmade/api/internal/video"
 )
 
-const Version = "tja-upload-v8"
+const Version = "tja-upload-v9"
 const MaxTJA = 2 * 1024 * 1024
 const MaxAudio = 100 * 1024 * 1024
 
@@ -53,6 +54,8 @@ type Metadata struct {
 	Offset               float64           `json:"offset"`
 	DemoStart            float64           `json:"demoStart"`
 	Wave                 string            `json:"wave"`
+	Movie                string            `json:"-"`
+	MovieOffset          float64           `json:"movieOffset"`
 	Difficulties         []Difficulty      `json:"difficulties"`
 }
 
@@ -218,10 +221,31 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 			m.Wave = value
 			continue
 		}
-		if upper == "LYRICS" || upper == "BGIMAGE" || upper == "BGMOVIE" {
+		if upper == "LYRICS" || upper == "BGIMAGE" {
 			if value != "" {
-				return m, fail("TJA_RESOURCE_UNSUPPORTED", "仅接受 TJA 与单个 OGG 或 MP3 音频", line)
+				return m, fail("TJA_RESOURCE_UNSUPPORTED", "不支持歌词或背景图片；仅接受 TJA、音频与可选的 BGMOVIE 视频", line)
 			}
+		}
+		if upper == "BGMOVIE" || upper == "MOVIEOFFSET" {
+			// Stored files have these headers rewritten or read back, so they
+			// must be as unambiguous as WAVE.
+			if key != upper || started || seen[key] {
+				return m, fail("TJA_MOVIE_INVALID", "请使用大写 "+upper+":，位于第一个 #START 之前且只声明一次", line)
+			}
+			seen[key] = true
+			if key == "BGMOVIE" {
+				if value != "" && (!SafeFilename(value) || !video.ValidExtension(value)) {
+					return m, fail("TJA_MOVIE_PATH_INVALID", "BGMOVIE 必须为不带路径、引号的 .mp4、.webm 或 .mov 文件名", line)
+				}
+				m.Movie = value
+			} else if value != "" {
+				n, valid := numeric(value)
+				if !valid || math.Abs(n) > video.MaxDuration {
+					return m, fail("TJA_MOVIE_OFFSET_INVALID", "MOVIEOFFSET 必须为秒数，绝对值不超过 1200", line)
+				}
+				m.MovieOffset = n
+			}
+			continue
 		}
 		if upper == "COURSE" {
 			normalized := strings.ToLower(value)
@@ -301,9 +325,9 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 	return m, nil
 }
 
-// waveHeader returns the byte range of the WAVE header line Parse accepts,
-// excluding its line ending, and the declared value.
-func waveHeader(data []byte) (start, end int, value string, ok bool) {
+// header returns the byte range of the named header line Parse accepts before
+// the first #START, excluding its line ending, and the declared value.
+func header(data []byte, name string) (start, end int, value string, ok bool) {
 	for pos := 0; pos <= len(data); {
 		stop := len(data)
 		if i := strings.IndexByte(string(data[pos:]), '\n'); i >= 0 {
@@ -314,7 +338,7 @@ func waveHeader(data []byte) (start, end int, value string, ok bool) {
 		if strings.HasPrefix(s, "#START") {
 			break
 		}
-		if key, v, found := strings.Cut(s, ":"); found && strings.TrimSpace(key) == "WAVE" {
+		if key, v, found := strings.Cut(s, ":"); found && strings.TrimSpace(key) == name {
 			return pos, pos + len(raw), strings.TrimSpace(v), true
 		}
 		pos = stop + 1
@@ -324,19 +348,30 @@ func waveHeader(data []byte) (start, end int, value string, ok bool) {
 
 // WaveName returns the audio file name declared by a stored UTF-8 TJA.
 func WaveName(data []byte) string {
-	_, _, value, _ := waveHeader(data)
+	_, _, value, _ := header(data, "WAVE")
+	return value
+}
+
+// MovieName returns the background movie file name declared by a stored TJA.
+func MovieName(data []byte) string {
+	_, _, value, _ := header(data, "BGMOVIE")
 	return value
 }
 
 // SetWave points the WAVE header at name, leaving every other byte unchanged.
 // Stored charts reference their audio by its content-addressed file name.
-func SetWave(data []byte, name string) ([]byte, bool) {
-	start, end, _, ok := waveHeader(data)
+func SetWave(data []byte, name string) ([]byte, bool) { return setHeader(data, "WAVE", name) }
+
+// SetMovie points the BGMOVIE header at the stored movie in the same way.
+func SetMovie(data []byte, name string) ([]byte, bool) { return setHeader(data, "BGMOVIE", name) }
+
+func setHeader(data []byte, key, value string) ([]byte, bool) {
+	start, end, _, ok := header(data, key)
 	if !ok {
 		return nil, false
 	}
-	out := make([]byte, 0, len(data)+len(name))
+	out := make([]byte, 0, len(data)+len(value))
 	out = append(out, data[:start]...)
-	out = append(out, "WAVE:"+name...)
+	out = append(out, key+":"+value...)
 	return append(out, data[end:]...), true
 }

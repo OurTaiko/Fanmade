@@ -2,7 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +15,7 @@ import (
 )
 
 // Matches a chart_resources row r that some chart still refers to.
-const referencedFile = `EXISTS(SELECT 1 FROM charts c WHERE c.tja_file=r.id OR c.audio_file=r.id OR c.cover_file=r.id OR c.preview_file=r.id)`
+const referencedFile = `EXISTS(SELECT 1 FROM charts c WHERE c.tja_file=r.id OR c.audio_file=r.id OR c.cover_file=r.id OR c.preview_file=r.id OR c.movie_file=r.id)`
 
 func (s *Server) remoteStorage() bool { _, ok := s.Config.Objects.(*objectstore.S3); return ok }
 
@@ -59,6 +62,18 @@ func (s *Server) storeFile(ctx context.Context, tx pgx.Tx, path, name, extension
 	e = tx.QueryRow(ctx, `INSERT INTO chart_resources(storage_key,original_filename,sha256,byte_size,extension) VALUES($1,$2,$3,$4,$5)
  ON CONFLICT(storage_key) DO UPDATE SET storage_key=EXCLUDED.storage_key RETURNING id`, key, name, digest, size, extension).Scan(&id)
 	return id, e
+}
+
+// fileDigest returns the SHA-256 and size of a staged file.
+func fileDigest(path string) (string, int64, error) {
+	f, e := os.Open(path)
+	if e != nil {
+		return "", 0, e
+	}
+	defer f.Close()
+	h := sha256.New()
+	n, e := io.Copy(h, f)
+	return hex.EncodeToString(h.Sum(nil)), n, e
 }
 
 // objectStored reports whether key already holds the complete object. The

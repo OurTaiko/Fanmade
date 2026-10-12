@@ -23,6 +23,12 @@ var notificationKinds = []string{
 	"comment_removed", // an administrator removed the recipient's comment
 }
 
+// Kinds about the recipient's own requests. They are not listed in the
+// settings and cannot be muted: the notice is the only report of the outcome.
+var systemNotificationKinds = []string{
+	"upload_result", // an upload the recipient did not wait for was published or failed
+}
+
 // Upvote counts that notify the author, as Reddit does, instead of every vote.
 var upvoteMilestones = []int{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000}
 
@@ -47,7 +53,7 @@ func notify(ctx context.Context, db activityWriter, n Notice) error {
 	if n.Recipient == "" || n.Recipient == n.Actor {
 		return nil
 	}
-	if !slices.Contains(notificationKinds, n.Kind) {
+	if !slices.Contains(notificationKinds, n.Kind) && !slices.Contains(systemNotificationKinds, n.Kind) {
 		return errors.New("unregistered notification kind " + n.Kind)
 	}
 	data := n.Data

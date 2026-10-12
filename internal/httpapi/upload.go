@@ -1,12 +1,11 @@
 package httpapi
 
 import (
-	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -15,12 +14,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
+	"golang.org/x/text/unicode/norm"
 	"ourtaiko.dev/fanmade/api/internal/audio"
 	"ourtaiko.dev/fanmade/api/internal/cover"
 	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/fanmade/api/internal/video"
 )
 
 type stagedFile struct {
@@ -75,7 +75,13 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	defer os.RemoveAll(dir)
+	// The staged files belong to the request until a job accepts them.
+	accepted := false
+	defer func() {
+		if !accepted {
+			os.RemoveAll(dir)
+		}
+	}()
 	files := map[string]*stagedFile{}
 	fields := map[string]string{}
 	for {
@@ -93,7 +99,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		field, name := params["name"], params["filename"]
-		if field == "tja" || field == "audio" || field == "cover" {
+		if field == "tja" || field == "audio" || field == "cover" || field == "movie" {
 			validExtension := strings.EqualFold(filepath.Ext(name), ".tja")
 			maxBytes := int64(tja.MaxTJA)
 			if field == "audio" {
@@ -104,8 +110,12 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 				validExtension = cover.ValidExtension(name)
 				maxBytes = cover.MaxBytes
 			}
+			if field == "movie" {
+				validExtension = video.ValidExtension(name)
+				maxBytes = video.MaxBytes
+			}
 			if files[field] != nil || !tja.SafeFilename(name) || !validExtension {
-				problem(w, 400, "UPLOAD_FILES_INVALID", "文件类型、数量或文件名无效；封面仅支持 JPG / PNG / WebP，文件名不能包含路径")
+				problem(w, 400, "UPLOAD_FILES_INVALID", "文件类型、数量或文件名无效；封面仅支持 JPG / PNG / WebP，视频仅支持 MP4 / WebM / MOV，文件名不能包含路径")
 				return
 			}
 			f := &stagedFile{name: name, path: filepath.Join(dir, field)}
@@ -171,21 +181,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		problem(w, 422, "CATEGORIES_INVALID", "包含不存在的分类，请刷新后重试")
 		return
 	}
-	cf := files["cover"]
-	delete(files, "cover") // Covers belong to charts, independently of TJA/audio replacements.
-	var coverData []byte
-	if cf != nil {
-		raw, err := os.ReadFile(cf.path)
-		if err != nil {
-			internal(w, err)
-			return
-		}
-		var ok bool
-		coverData, ok = encodeCover(w, r, cf.name, raw)
-		if !ok {
-			return
-		}
-	}
+	cf, mv := files["cover"], files["movie"]
 	tf, af := files["tja"], files["audio"]
 	if tf == nil || (af == nil && existing == nil) {
 		message := "必须同时选择 TJA 和一个 OGG 或 MP3 音频"
@@ -194,6 +190,9 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		}
 		problem(w, 400, "UPLOAD_FILES_INVALID", message)
 		return
+	}
+	invalid := func(issue *tja.Issue) {
+		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "requestId": w.Header().Get("X-Request-ID"), "validationVersion": tja.Version})
 	}
 	encoding := fields["encoding"]
 	if encoding == "" {
@@ -206,28 +205,33 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	normalized, issue := tja.NormalizeUTF8(data, encoding)
 	if issue != nil {
-		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "requestId": w.Header().Get("X-Request-ID"), "validationVersion": tja.Version})
+		invalid(issue)
 		return
 	}
-	if !bytes.Equal(data, normalized) {
-		if e = os.WriteFile(tf.path, normalized, 0600); e != nil {
-			internal(w, e)
-			return
-		}
-	}
-	encoding = "utf-8"
-	tf.size = int64(len(normalized))
 	tjaHash := sha256.Sum256(normalized)
 	tf.sha = hex.EncodeToString(tjaHash[:])
-	var tx pgx.Tx
-	var replacementDigest string
-	retained := false
-	if existing != nil {
-		if fields["confirmReset"] != "true" {
-			problem(w, 400, "REPLACEMENT_CONFIRMATION_REQUIRED", "替换需要确认删除旧文件和旧成绩")
-			return
+	encoding = "utf-8"
+	if existing != nil && fields["confirmReset"] != "true" {
+		problem(w, 400, "REPLACEMENT_CONFIRMATION_REQUIRED", "替换需要确认删除旧文件和旧成绩")
+		return
+	}
+	// Staged files wait on bounded temporary storage, so the queue is bounded too.
+	select {
+	case s.pending <- struct{}{}:
+	default:
+		problem(w, 503, "UPLOAD_BUSY", "当前排队处理的上传较多，请稍后重试")
+		return
+	}
+	defer func() {
+		if !accepted {
+			<-s.pending
 		}
-		// Hash only submitted data: a retry must work after the old audio was deleted.
+	}()
+	var tx pgx.Tx
+	var digest string
+	if existing != nil {
+		// Hash only submitted data: a retry must work after the old audio was
+		// deleted, and is answered before the new files are judged again.
 		parts := []string{existing.ID, tf.name, tf.sha}
 		if af != nil {
 			parts = append(parts, af.name, af.sha)
@@ -235,70 +239,52 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		if cf != nil {
 			parts = append(parts, "cover", cf.name, cf.sha)
 		}
+		if mv != nil {
+			parts = append(parts, "movie", mv.name, mv.sha)
+		}
 		encoded, _ := json.Marshal(struct {
 			Parts  []string
 			Fields map[string]string
 		}{parts, fields})
-		replacementDigest = hash("replace:" + string(encoded))
+		digest = hash("replace:" + string(encoded))
 		var proceed bool
-		tx, proceed = s.beginUpload(w, r, u.User.ID, key, replacementDigest)
-		if !proceed {
+		if tx, proceed = s.beginUpload(w, r, u.User.ID, key, digest); !proceed {
 			return
 		}
 		defer tx.Rollback(r.Context())
-		// Reload while holding the song lock so retained audio always belongs to
-		// the files currently being replaced, even after a concurrent upload.
-		var lockedID string
-		err := tx.QueryRow(r.Context(), `SELECT c.id FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE OF c`, existing.ID).Scan(&lockedID)
-		if errors.Is(err, pgx.ErrNoRows) {
-			problem(w, 404, "CHART_NOT_FOUND", "歌曲不存在或已下架")
-			return
-		}
-		if err != nil {
-			internal(w, err)
-			return
-		}
-		// Read resource rows in a fresh snapshot after any lock wait.
-		current, err := s.readChart(tx.QueryRow(r.Context(), chartSelect+` WHERE c.id=$1`, lockedID))
-		if err != nil {
-			internal(w, err)
-			return
-		}
-		if !current.hasOwner(u.User.ID) && !u.User.IsAdmin {
-			problem(w, 403, "FORBIDDEN", "只有所有者或管理员可以替换歌曲")
-			return
-		}
-		existing = &current
-		if af == nil {
-			af, e = s.copyAudio(r.Context(), existing, dir)
-			if e != nil {
-				internal(w, e)
-				return
-			}
-			files["audio"] = af
-			retained = true
-		}
 	}
 	// Retained audio is already identified; a shared file keeps the name it was
 	// first uploaded with, so the new TJA's WAVE need not match it.
-	waveSource := af.name
-	if retained {
-		waveSource = tja.WaveName(normalized)
+	waveSource := tja.WaveName(normalized)
+	if af != nil {
+		waveSource = af.name
 	}
-	meta, issue := tja.Parse(normalized, encoding, waveSource)
+	meta, issue := tja.Parse(normalized, "utf-8", waveSource)
 	if issue != nil {
-		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "requestId": w.Header().Get("X-Request-ID"), "validationVersion": tja.Version})
+		invalid(issue)
+		return
+	}
+	// A declared BGMOVIE needs its file; a replacement may keep the stored movie.
+	keepMovie := false
+	switch {
+	case meta.Movie == "" && mv != nil:
+		problem(w, 400, "UPLOAD_FILES_INVALID", "TJA 没有声明 BGMOVIE，不能上传视频")
+		return
+	case meta.Movie != "" && mv == nil:
+		if existing == nil || existing.MovieHash == "" {
+			invalid(&tja.Issue{Code: "TJA_MOVIE_MISSING", Message: fmt.Sprintf("TJA 的 BGMOVIE 引用了「%s」，请同时选择该视频文件，或删除 BGMOVIE 后重新上传。", meta.Movie), Expected: meta.Movie})
+			return
+		}
+		keepMovie = true
+	case mv != nil && norm.NFC.String(meta.Movie) != norm.NFC.String(mv.name):
+		invalid(&tja.Issue{Code: "TJA_MOVIE_MISMATCH", Message: fmt.Sprintf("BGMOVIE 引用了「%s」，但你选择的是「%s」。请选择对应文件，或修改 TJA 的 BGMOVIE 后重新选择。", meta.Movie, mv.name), Expected: meta.Movie, Actual: mv.name})
 		return
 	}
 	if e = applyDifficultyMakers(fields["difficultyMakers"], meta.Difficulties); e != nil {
 		problem(w, 422, "DIFFICULTY_MAKERS_INVALID", e.Error())
 		return
 	}
-	duration, e := audio.Validate(r.Context(), af.path, af.name)
-	if e != nil {
-		problem(w, 422, "AUDIO_INVALID", "音频未通过完整性检查，请使用完整的单音轨 Ogg Vorbis 或 MP3 文件（最长 20 分钟）")
-		return
-	}
+	// The range is checked against the audio's duration once it has been decoded.
 	demoStart := meta.DemoStart
 	if raw, ok := fields["demoStart"]; ok {
 		demoStart, e = strconv.ParseFloat(strings.TrimSpace(raw), 64)
@@ -315,134 +301,77 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if !audio.ValidPreviewRange(demoStart, demoEnd, duration) {
-		problem(w, 422, "PREVIEW_RANGE_INVALID", "试听起点必须位于音频范围内，终点须晚于起点且不超过 1215 秒")
-		return
-	}
-	digestData, _ := json.Marshal([]string{tf.name, tf.sha, af.name, af.sha, encoding, fields["description"]})
-	if demoStart != meta.DemoStart || demoEnd != meta.DemoStart+15 {
-		encoded, _ := json.Marshal([]any{"preview", demoStart, demoEnd})
-		digestData = append(digestData, encoded...)
-	}
-	if len(categoryIDs) != 1 || categoryIDs[0] != "variety" {
-		encoded, _ := json.Marshal(categoryIDs)
-		digestData = append(digestData, encoded...)
-	}
-	for _, d := range meta.Difficulties {
-		if d.Maker != meta.Maker {
-			encoded, _ := json.Marshal(meta.Difficulties)
+	if existing == nil {
+		digestData, _ := json.Marshal([]string{tf.name, tf.sha, af.name, af.sha, encoding, fields["description"]})
+		if demoStart != meta.DemoStart || demoEnd != meta.DemoStart+15 {
+			encoded, _ := json.Marshal([]any{"preview", demoStart, demoEnd})
 			digestData = append(digestData, encoded...)
-			break
 		}
+		if len(categoryIDs) != 1 || categoryIDs[0] != "variety" {
+			encoded, _ := json.Marshal(categoryIDs)
+			digestData = append(digestData, encoded...)
+		}
+		for _, d := range meta.Difficulties {
+			if d.Maker != meta.Maker {
+				encoded, _ := json.Marshal(meta.Difficulties)
+				digestData = append(digestData, encoded...)
+				break
+			}
+		}
+		if cf != nil {
+			encoded, _ := json.Marshal([]string{"cover", cf.name, cf.sha})
+			digestData = append(digestData, encoded...)
+		}
+		if mv != nil {
+			encoded, _ := json.Marshal([]string{"movie", mv.name, mv.sha})
+			digestData = append(digestData, encoded...)
+		}
+		digest = hash(string(digestData))
 	}
-	if cf != nil {
-		encoded, _ := json.Marshal([]string{"cover", cf.name, cf.sha})
-		digestData = append(digestData, encoded...)
+	job := &uploadJob{
+		user: u.User.ID, key: key, dir: dir, tja: tf, audio: af, cover: cf, movie: mv, normalized: normalized, meta: meta,
+		description: fields["description"], categoryIDs: categoryIDs, demoStart: demoStart, demoEnd: demoEnd, keepMovie: keepMovie,
+		// RFC 7240: the client asks not to wait for processing.
+		async: strings.Contains(strings.ToLower(r.Header.Get("Prefer")), "respond-async"), done: make(chan uploadResult, 1),
 	}
-	digest := hash(string(digestData))
 	if existing != nil {
-		digest = replacementDigest
+		job.existingID, job.audioHash, job.movieHash = existing.ID, existing.AudioHash, existing.MovieHash
 	}
 	if tx == nil {
 		var proceed bool
-		tx, proceed = s.beginUpload(w, r, u.User.ID, key, digest)
-		if !proceed {
+		if tx, proceed = s.beginUpload(w, r, u.User.ID, key, digest); !proceed {
 			return
 		}
 		defer tx.Rollback(r.Context())
 	}
-	chartID := ID()
-	if existing != nil {
-		chartID = existing.ID
+	_, e = tx.Exec(r.Context(), `INSERT INTO upload_requests(user_id,idempotency_key,payload_digest,chart_id,status,title) VALUES($1,$2,$3,$4,'processing',$5)`, u.User.ID, key, digest, nullable(job.existingID), meta.Title)
+	if e == nil {
+		e = tx.Commit(r.Context())
 	}
-	// The stored TJA names its audio by content, matching the audio object and
-	// the entry in the downloaded ZIP. Receipts and digests above keep the submitted TJA hash.
-	waveName := af.sha + "." + fileExtension(af.name)
-	stored, ok := tja.SetWave(normalized, waveName)
-	if !ok {
-		internal(w, errors.New("validated TJA has no WAVE header"))
-		return
-	}
-	if _, issue = tja.Parse(stored, encoding, waveName); issue != nil {
-		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "requestId": w.Header().Get("X-Request-ID"), "validationVersion": tja.Version})
-		return
-	}
-	if e = os.WriteFile(tf.path, stored, 0600); e != nil {
-		internal(w, e)
-		return
-	}
-	storedHash := sha256.Sum256(stored)
-	tjaSHA := hex.EncodeToString(storedHash[:])
-	tf.size = int64(len(stored))
-	committed := false
-	defer func() {
-		if !committed {
-			// Shared objects are never deleted directly; the cleaner removes
-			// these only if no chart refers to them.
-			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-			defer cancel()
-			_, _ = s.DB.Exec(ctx, `INSERT INTO retired_files(storage_key) VALUES($1),($2) ON CONFLICT DO NOTHING`, tjaSHA+".tja", waveName)
-		}
-	}()
-	// A fixed order keeps concurrent identical uploads from deadlocking.
-	tjaFile, e := s.storeFile(r.Context(), tx, tf.path, tf.name, "tja", "application/octet-stream", tjaSHA, tf.size)
 	if e != nil {
 		internal(w, e)
 		return
 	}
-	audioFile, e := s.storeFile(r.Context(), tx, af.path, af.name, fileExtension(af.name), audio.MediaType(af.name), af.sha, af.size)
-	if e != nil {
-		internal(w, e)
+	accepted = true
+	s.enqueue(job)
+	if job.async {
+		respond(w, 202, map[string]string{"status": "processing"})
 		return
 	}
-	if existing != nil {
-		if e = retireChart(r.Context(), tx, chartID, fields["description"]); e != nil {
-			internal(w, e)
-			return
+	result := <-job.done
+	if result.err != nil {
+		if result.err.cause != nil {
+			internal(w, result.err.cause)
+		} else {
+			problem(w, result.err.status, result.err.code, result.err.message)
 		}
-	}
-	if _, e = tx.Exec(r.Context(), `INSERT INTO charts(id,owner_ids,description,title,subtitle,bpm,offset_seconds,demo_start,duration,title_translations,subtitle_translations,is_single,difficulties,demo_end,tja_file,audio_file)
- VALUES($1,ARRAY[$2::text],$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
- ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,subtitle=EXCLUDED.subtitle,bpm=EXCLUDED.bpm,offset_seconds=EXCLUDED.offset_seconds,demo_start=EXCLUDED.demo_start,demo_end=EXCLUDED.demo_end,duration=EXCLUDED.duration,tja_file=EXCLUDED.tja_file,audio_file=EXCLUDED.audio_file,title_translations=EXCLUDED.title_translations,subtitle_translations=EXCLUDED.subtitle_translations,is_single=EXCLUDED.is_single,difficulties=EXCLUDED.difficulties`, chartID, u.User.ID, fields["description"], meta.Title, meta.Subtitle, meta.BPM, meta.Offset, demoStart, duration, meta.TitleTranslations, meta.SubtitleTranslations, meta.IsSingle, meta.Difficulties, demoEnd, tjaFile, audioFile); e != nil {
-		internal(w, e)
 		return
 	}
-	if e = s.savePreview(r.Context(), tx, chartID, af.path, demoStart, demoEnd, duration); e != nil {
-		internal(w, e)
-		return
-	}
-
-	if cf != nil {
-		if e = s.saveCover(r.Context(), tx, chartID, coverData); e != nil {
-			internal(w, e)
-			return
-		}
-	}
-	if e = setCategories(r.Context(), tx, chartID, categoryIDs); e != nil {
-		internal(w, e)
-		return
-	}
-	if _, e = tx.Exec(r.Context(), `INSERT INTO upload_requests(user_id,idempotency_key,payload_digest,chart_id,tja_sha256,audio_sha256) VALUES($1,$2,$3,$4,$5,$6)`, u.User.ID, key, digest, chartID, tjaSHA, af.sha); e != nil {
-		internal(w, e)
-		return
-	}
-	// A lost connection during COMMIT may have committed. Keep objects for reconciliation.
-	committed = true
-	if e = tx.Commit(r.Context()); e != nil {
-		internal(w, e)
-		return
-	}
-	c, e := s.chart(r.Context(), chartID)
-	if e != nil {
-		internal(w, e)
-		return
-	}
+	status := 201
 	if existing != nil {
-		s.cleanupReplacedFiles()
-		respond(w, 200, c)
-	} else {
-		respond(w, 201, c)
+		status = 200
 	}
+	respond(w, status, result.chart)
 }
 func uploadReadError(w http.ResponseWriter, e error) {
 	var max *http.MaxBytesError

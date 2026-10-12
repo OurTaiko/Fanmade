@@ -93,6 +93,9 @@ func main() {
 	}
 	cleanupCtx, stopCleanup := context.WithCancel(context.Background())
 	defer stopCleanup()
+	if err = app.FailInterruptedUploads(cleanupCtx); err != nil {
+		log.Fatal(err)
+	}
 	go app.RunFileCleanup(cleanupCtx)
 	go app.RunPreviewBackfill(cleanupCtx)
 	go app.RunFileRekey(cleanupCtx)

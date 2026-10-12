@@ -31,8 +31,8 @@ func (s *Server) beginUpload(w http.ResponseWriter, r *http.Request, user, key, 
 		internal(w, err)
 		return nil, false
 	}
-	var chartID, previousDigest, tjaHash, audioHash string
-	err = tx.QueryRow(r.Context(), `SELECT COALESCE(chart_id,''),payload_digest,tja_sha256,audio_sha256 FROM upload_requests WHERE user_id=$1 AND idempotency_key=$2`, user, key).Scan(&chartID, &previousDigest, &tjaHash, &audioHash)
+	var chartID, previousDigest, tjaHash, audioHash, status string
+	err = tx.QueryRow(r.Context(), `SELECT COALESCE(chart_id,''),payload_digest,tja_sha256,audio_sha256,status FROM upload_requests WHERE user_id=$1 AND idempotency_key=$2`, user, key).Scan(&chartID, &previousDigest, &tjaHash, &audioHash, &status)
 	if errors.Is(err, pgx.ErrNoRows) {
 		proceed = true
 		return tx, true
@@ -43,6 +43,10 @@ func (s *Server) beginUpload(w http.ResponseWriter, r *http.Request, user, key, 
 	}
 	if previousDigest != digest {
 		problem(w, 409, "IDEMPOTENCY_CONFLICT", "此请求标识已用于不同的内容，请重新选择后提交")
+		return nil, false
+	}
+	if status == "processing" {
+		respond(w, 202, map[string]string{"status": "processing"})
 		return nil, false
 	}
 	c, err := s.readChart(tx.QueryRow(r.Context(), chartSelect+` WHERE c.id=$1 AND `+publishedChart, chartID))
@@ -69,9 +73,9 @@ func (s *Server) beginUpload(w http.ResponseWriter, r *http.Request, user, key, 
 	return nil, false
 }
 
-// Stage retained audio for validation, preview and ZIP generation; the
-// replacement keeps referring to the same stored file.
-// The caller holds the chart lock so a concurrent replacement cannot remove it.
+// Stage retained audio for validation and preview generation; the replacement
+// keeps referring to the same stored file. The caller has no lock yet and
+// verifies the stored hash here and again before committing.
 func (s *Server) copyAudio(ctx context.Context, c *Chart, dir string) (*stagedFile, error) {
 	in, err := s.Config.Objects.Open(ctx, c.AudioKey)
 	if err != nil {

@@ -26,6 +26,14 @@ const aliases: Record<string, ErrorCode> = {
   FILE_SIZE_INVALID: 'FILE_TOO_LARGE',
 }
 
+/** Message for a stable protocol code that arrived without server text. */
+export function errorCodeMessage(code: string): string {
+  const key = aliases[code] ?? (code.startsWith('TJA_') ? 'TJA_INVALID' : code)
+  return i18n.exists(`errors.${key}`)
+    ? t(`errors.${key as ErrorCode}`)
+    : t('messages.requestFailed')
+}
+
 // Translate the stable protocol code, never use server-provided text as a key.
 export function apiErrorMessage(data: {
   code?: unknown

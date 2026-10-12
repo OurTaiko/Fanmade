@@ -4,9 +4,10 @@ import { normalizeTja } from './tja-encoding'
 import { ValidationError } from './validation-error'
 export { ValidationError } from './validation-error'
 
-export const validationVersion = 'tja-upload-v8'
+export const validationVersion = 'tja-upload-v9'
 export const maxTja = 2 * 1024 * 1024
 export const maxAudio = 100 * 1024 * 1024
+export const maxMovie = 64 * 1024 * 1024
 export type Difficulty = {
   course: string
   level: number
@@ -23,6 +24,10 @@ export type Metadata = {
   offset: number
   demoStart: number
   wave: string
+  /** BGMOVIE file name as declared; empty when the chart has no movie. */
+  movie: string
+  /** MOVIEOFFSET in seconds. */
+  movieOffset: number
   difficulties: Difficulty[]
 }
 const fail = (code: string, message: string, line = 0): never => {
@@ -30,6 +35,7 @@ const fail = (code: string, message: string, line = 0): never => {
 }
 const bytes = (s: string) => new TextEncoder().encode(s).length
 export const isAudioFilename = (name: string) => /\.(ogg|mp3)$/i.test(name)
+export const isMovieFilename = (name: string) => /\.(mp4|webm|mov)$/i.test(name)
 
 async function validateAudioHeader(audio: File) {
   const header = new Uint8Array(await audio.slice(0, 10).arrayBuffer())
@@ -88,6 +94,8 @@ export function parseTja(data: Uint8Array, encoding: string, audioName: string):
     offset: 0,
     demoStart: 0,
     wave: '',
+    movie: '',
+    movieOffset: 0,
     difficulties: [],
   }
   if (!data.length || data.length > maxTja)
@@ -168,8 +176,25 @@ export function parseTja(data: Uint8Array, encoding: string, audioName: string):
       m.wave = value
       continue
     }
-    if (['LYRICS', 'BGIMAGE', 'BGMOVIE'].includes(upper) && value)
+    if (['LYRICS', 'BGIMAGE'].includes(upper) && value)
       fail('TJA_RESOURCE_UNSUPPORTED', t('messages.onlyTjaWithASingleOggOrMp3IsAccepted'), line)
+    if (upper === 'BGMOVIE' || upper === 'MOVIEOFFSET') {
+      // The server rewrites or reads these headers back, so they must be unambiguous.
+      if (key !== upper || started || seen.has(key))
+        fail('TJA_MOVIE_INVALID', t('messages.movieHeaderScopeError', { field: upper }), line)
+      seen.add(key)
+      if (key === 'BGMOVIE') {
+        if (value && (!safeFilename(value) || !isMovieFilename(value)))
+          fail('TJA_MOVIE_PATH_INVALID', t('messages.movieFilenameInvalid'), line)
+        m.movie = value
+      } else if (value) {
+        const n = Number(value)
+        if (!/^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/.test(value) || !(Math.abs(n) <= 1200))
+          fail('TJA_MOVIE_OFFSET_INVALID', t('messages.movieOffsetInvalid'), line)
+        m.movieOffset = n
+      }
+      continue
+    }
     if (upper === 'STYLE') {
       const parsed = {
         single: 'Single',
@@ -291,6 +316,30 @@ export async function prepareTja(tja: File, audioName: string): Promise<Prepared
     sourceEncoding: normalized.sourceEncoding,
     file: new File([normalized.data], tja.name, { type: 'text/plain;charset=utf-8' }),
   }
+}
+
+/**
+ * A declared BGMOVIE needs its file, under the same name; a replacement may
+ * keep the movie the chart already has.
+ */
+export function validateMovie(metadata: Metadata, movie: File | null, hasStoredMovie = false) {
+  if (!movie) {
+    if (metadata.movie && !hasStoredMovie)
+      fail('TJA_MOVIE_MISSING', t('messages.movieFileRequired', { expected: metadata.movie }))
+    return
+  }
+  if (!metadata.movie) fail('UPLOAD_FILES_INVALID', t('messages.movieNotDeclared'))
+  if (!safeFilename(movie.name) || !isMovieFilename(movie.name) || !movie.size)
+    fail('UPLOAD_FILES_INVALID', t('messages.movieFileInvalid'))
+  if (movie.size > maxMovie) fail('FILE_SIZE_INVALID', t('messages.movieFileInvalid'))
+  if (metadata.movie.normalize('NFC') !== movie.name.normalize('NFC'))
+    throw new ValidationError(
+      'TJA_MOVIE_MISMATCH',
+      t('messages.movieFilenameMismatch', { expected: metadata.movie, actual: movie.name }),
+      0,
+      metadata.movie,
+      movie.name,
+    )
 }
 
 export async function validateFiles(tja: File, audio: File): Promise<PreparedTja> {

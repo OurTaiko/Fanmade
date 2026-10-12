@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import cases from '../contracts/validation.json'
-import { parseTja, ValidationError } from './tja'
+import { maxMovie, parseTja, validateMovie, ValidationError } from './tja'
 
 describe('shared TJA upload contract', () => {
   for (const c of cases)
@@ -55,4 +55,38 @@ it('enforces a single chart mode and uses course suffixes for double charts', ()
   expect(() => parse(p1 + single)).toThrow()
   expect(() => parse(p1 + p1)).toThrow()
   expect(() => parse('STYLE:Double\n' + single)).toThrow()
+})
+
+it('reads BGMOVIE and MOVIEOFFSET and matches the selected video to them', () => {
+  const text = (headers: string) =>
+    `TITLE:M\nBPM:120\nWAVE:a.ogg\n${headers}COURSE:Oni\nLEVEL:5\n#START\n1000,\n#END\n`
+  const parse = (headers: string) =>
+    parseTja(new TextEncoder().encode(text(headers)), 'utf-8', 'a.ogg')
+  const declared = parse('BGMOVIE:映像.mp4\nMOVIEOFFSET:-0.5\n')
+  expect([declared.movie, declared.movieOffset]).toEqual(['映像.mp4', -0.5])
+  const plain = parse('')
+  expect([plain.movie, plain.movieOffset]).toEqual(['', 0])
+
+  const file = (name: string, size = 10) => ({ name, size }) as File
+  const code = (run: () => void) => {
+    try {
+      run()
+      return ''
+    } catch (e) {
+      return (e as ValidationError).code
+    }
+  }
+  expect(code(() => validateMovie(declared, file('映像.mp4')))).toBe('')
+  expect(code(() => validateMovie(plain, null))).toBe('')
+  expect(code(() => validateMovie(declared, null))).toBe('TJA_MOVIE_MISSING')
+  // A replacement keeps the movie the chart already has.
+  expect(code(() => validateMovie(declared, null, true))).toBe('')
+  expect(code(() => validateMovie(declared, file('other.mp4')))).toBe('TJA_MOVIE_MISMATCH')
+  expect(code(() => validateMovie(plain, file('映像.mp4')))).toBe('UPLOAD_FILES_INVALID')
+  expect(code(() => validateMovie(parse('BGMOVIE:a.mov\n'), file('a.mov', 0)))).toBe(
+    'UPLOAD_FILES_INVALID',
+  )
+  expect(code(() => validateMovie(declared, file('映像.mp4', maxMovie + 1)))).toBe(
+    'FILE_SIZE_INVALID',
+  )
 })

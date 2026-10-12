@@ -105,6 +105,26 @@ describe('chart package', () => {
     )
   })
 
+  it('packs the background movie between the audio and the cover', async () => {
+    const movie = 'ftyp movie'
+    serve(
+      { ...stored, [`${cdn}/${hash(movie)}.mp4`]: movie },
+      manifest({
+        movie: resource(movie, 'mp4'),
+        cover: resource(cover, 'webp'),
+        audio: resource(audio, 'ogg'),
+        tja: resource(tja, 'tja'),
+      }),
+    )
+    const archive = await buildChartPackage(chart, new AbortController().signal)
+    expect(Object.keys(await entries(archive))).toEqual([
+      `${hash(tja)}.tja`,
+      `${hash(audio)}.ogg`,
+      `${hash(movie)}.mp4`,
+      `${hash(cover)}.webp`,
+    ])
+  })
+
   it('omits the cover when the chart has none', async () => {
     serve(stored, manifest({ audio: resource(audio, 'ogg'), tja: resource(tja, 'tja') }))
     const archive = await buildChartPackage(chart, new AbortController().signal)
@@ -115,12 +135,15 @@ describe('chart package', () => {
     serve({
       '/api/v1/charts/song/tja': tja,
       '/api/v1/charts/song/audio': audio,
+      '/api/v1/charts/song/movie': 'ftyp movie',
       [`/api/v1/charts/song/cover?v=${hash(cover)}`]: cover,
     })
-    const archive = await buildChartPackage(chart, new AbortController().signal)
+    const withMovie = { ...chart, movieHash: hash('ftyp movie') }
+    const archive = await buildChartPackage(withMovie, new AbortController().signal)
     expect(await entries(archive)).toEqual({
       [`${hash(tja)}.tja`]: tja,
       [`${hash(audio)}.ogg`]: audio,
+      [`${hash('ftyp movie')}.mp4`]: 'ftyp movie',
       [`${hash(cover)}.webp`]: cover,
     })
   })

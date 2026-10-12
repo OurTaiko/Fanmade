@@ -8,7 +8,7 @@ type Manifest = {
 }
 
 /** Stored files that make up a chart package, in archive order. */
-const packaged = ['tja', 'audio', 'cover'] as const
+const packaged = ['tja', 'audio', 'movie', 'cover'] as const
 
 /** Characters that Windows, macOS or Linux reject in a file name. */
 const unsafe = /[\\/:*?"<>|\p{Cc}]/gu
@@ -35,6 +35,12 @@ function apiFiles(chart: Chart): PackageFile[] {
     { url: endpoints.resource(chart, 'tja'), name: `${chart.tjaHash}.tja`, sha256: chart.tjaHash },
     { url: endpoints.resource(chart, 'audio'), name: chart.wave, sha256: chart.audioHash },
   ]
+  if (chart.movieHash)
+    files.push({
+      url: endpoints.resource(chart, 'movie'),
+      name: `${chart.movieHash}.mp4`,
+      sha256: chart.movieHash,
+    })
   if (chart.coverHash)
     files.push({
       url: endpoints.cover(chart.id, chart.coverHash),

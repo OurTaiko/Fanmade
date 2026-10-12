@@ -32,6 +32,9 @@ export type Chart = Metadata & {
   tjaHash: string
   audioHash: string
   audioSize: number
+  /** Transcoded background movie; absent when the chart has none. */
+  movieHash?: string
+  movieSize?: number
   titleTranslations: Partial<Record<Locale, string>>
   subtitleTranslations: Partial<Record<Locale, string>>
   score: number
@@ -83,7 +86,14 @@ export type AppNotification = {
   actor: { id: string; nickname: string; avatarUrl?: string } | null
   chart: { id: string; title: string } | null
   comment: { id: string; parentId: string | null; excerpt: string } | null
-  data: { upvotes?: number } & Record<string, unknown>
+  data: {
+    upvotes?: number
+    /** upload_result: outcome of an upload the user did not wait for. */
+    status?: 'published' | 'updated' | 'failed' | (string & {})
+    title?: string
+    code?: string
+    failedFiles?: { file: string; code: string }[]
+  } & Record<string, unknown>
 }
 export type NotificationPage = {
   items: AppNotification[]

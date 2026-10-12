@@ -27,6 +27,7 @@ import {
   ArrowRightIcon as ArrowRight,
   WaveformIcon as AudioLines,
   FileAudioIcon as FileMusic,
+  FilmStripIcon,
   CheckIcon as Check,
   CircleNotchIcon as LoaderCircle,
   UploadSimpleIcon as Upload,
@@ -40,7 +41,7 @@ import { useNotification } from './notification-context'
 import { courseNames, isSupportedCourse } from './courses'
 import { DifficultyBadges } from '@/components/difficulty-badges'
 import { useSession } from './session-context'
-import { isAudioFilename, prepareTja, validateFiles } from './tja'
+import { isAudioFilename, isMovieFilename, prepareTja, validateFiles, validateMovie } from './tja'
 import type { PreparedTja } from './tja'
 
 function createRequestKey() {
@@ -87,6 +88,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
   const [tja, setTja] = useState<File | null>(null),
     [audio, setAudio] = useState<File | null>(null)
   const [cover, setCover] = useState<File | null>(null)
+  const [movie, setMovie] = useState<File | null>(null)
   const [metadata, setMetadata] = useState<PreparedTja | null>(null),
     [validating, setValidating] = useState(false),
     [validationError, setValidationError] = useState('')
@@ -101,6 +103,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
   const [demoEnd, setDemoEnd] = useState('15')
   const [audioDuration, setAudioDuration] = useState<number | null>(null)
   const retainedAudioName = existing?.audioName
+  const hasStoredMovie = !!existing?.movieHash
   const requestKey = useRef(createRequestKey()),
     controller = useRef<AbortController | null>(null)
   const reset = () => {
@@ -120,6 +123,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
     const validation = audio ? validateFiles(tja, audio) : prepareTja(tja, retainedAudioName!)
     validation
       .then((m) => {
+        validateMovie(m, movie, hasStoredMovie)
         if (active) {
           setMetadata(m)
           setDemoStart(String(m.demoStart))
@@ -135,7 +139,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
     return () => {
       active = false
     }
-  }, [tja, audio, retainedAudioName])
+  }, [tja, audio, movie, retainedAudioName, hasStoredMovie])
   useEffect(() => {
     if (!audio) {
       setAudioUrl('')
@@ -180,25 +184,33 @@ export function UploadPage({ existing }: { existing?: Chart }) {
     }
     return true
   }
-  const choose = (kind: 'tja' | 'audio', e: ChangeEvent<HTMLInputElement>) => {
+  const choose = (kind: 'tja' | 'audio' | 'movie', e: ChangeEvent<HTMLInputElement>) => {
     reset()
     const file = e.target.files?.[0] ?? null
     if (kind === 'tja') setTja(file)
-    else setAudio(file)
+    else if (kind === 'audio') setAudio(file)
+    else setMovie(file)
   }
   const drop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     if (busy) return
     const files = Array.from(e.dataTransfer.files),
       charts = files.filter((f) => /\.tja$/i.test(f.name)),
-      tracks = files.filter((f) => isAudioFilename(f.name))
+      tracks = files.filter((f) => isAudioFilename(f.name)),
+      movies = files.filter((f) => isMovieFilename(f.name))
     reset()
-    if (charts.length > 1 || tracks.length > 1 || charts.length + tracks.length !== files.length) {
+    if (
+      charts.length > 1 ||
+      tracks.length > 1 ||
+      movies.length > 1 ||
+      charts.length + tracks.length + movies.length !== files.length
+    ) {
       notify(t('messages.dropOneTjaAndOneOggOrMp3NoAdditionalFiles'), 'error')
       return
     }
     if (charts[0]) setTja(charts[0])
     if (tracks[0]) setAudio(tracks[0])
+    if (movies[0]) setMovie(movies[0])
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -217,10 +229,12 @@ export function UploadPage({ existing }: { existing?: Chart }) {
       const prepared = audio
         ? await validateFiles(tja, audio)
         : await prepareTja(tja, existing!.audioName)
+      validateMovie(prepared, movie, hasStoredMovie)
       if (abort.signal.aborted) return
       const form = new FormData()
       form.append('tja', prepared.file)
       if (audio) form.append('audio', audio)
+      if (movie) form.append('movie', movie)
       if (cover) form.append('cover', cover)
       if (existing) {
         form.append('confirmReset', 'true')
@@ -242,6 +256,11 @@ export function UploadPage({ existing }: { existing?: Chart }) {
         setProgress,
         existing?.id,
       )
+      if ('status' in chart) {
+        navigate('/me/charts')
+        notify(t('messages.uploadAcceptedResultByNotification'), 'success')
+        return
+      }
       navigate(`/charts/${chart.id}`)
       notify(
         existing
@@ -331,27 +350,41 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                   <strong>{t('messages.dropChartAndAudioHere')}</strong>
                   <span>{t('messages.orChooseFilesBelow')}</span>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {(['tja', 'audio'] as const).map((kind) => {
-                    const file = kind === 'tja' ? tja : audio
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {(['tja', 'audio', 'movie'] as const).map((kind) => {
+                    const file = kind === 'tja' ? tja : kind === 'audio' ? audio : movie
                     return (
                       <Label
                         className="flex min-w-0 flex-col items-start gap-3 rounded-2xl border p-4 [&>span]:w-full [&_small]:mt-1 [&_small]:block [&_small]:truncate [&_small]:text-muted-foreground"
                         key={kind}
                       >
-                        {kind === 'tja' ? <FileMusic size={24} /> : <AudioLines size={24} />}
+                        {kind === 'tja' ? (
+                          <FileMusic size={24} />
+                        ) : kind === 'audio' ? (
+                          <AudioLines size={24} />
+                        ) : (
+                          <FilmStripIcon size={24} />
+                        )}
                         <span>
                           <b>
-                            {kind === 'tja' ? t('messages.tjaChart') : t('messages.oggMp3Audio')}
+                            {kind === 'tja'
+                              ? t('messages.tjaChart')
+                              : kind === 'audio'
+                                ? t('messages.oggMp3Audio')
+                                : t('messages.backgroundMovie')}
                           </b>
                           <small>
                             {file
                               ? file.name
                               : kind === 'tja'
                                 ? t('messages.tjaUpTo2Mib')
-                                : existing
-                                  ? t('messages.keepAudio', { filename: existing.audioName })
-                                  : t('messages.oggMp3UpTo100Mib')}
+                                : kind === 'movie'
+                                  ? hasStoredMovie
+                                    ? t('messages.keepMovie')
+                                    : t('messages.movieUpTo64Mib')
+                                  : existing
+                                    ? t('messages.keepAudio', { filename: existing.audioName })
+                                    : t('messages.oggMp3UpTo100Mib')}
                           </small>
                         </span>
                         {file ? (
@@ -366,9 +399,17 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                           aria-label={
                             kind === 'tja'
                               ? t('messages.chooseTjaChart')
-                              : t('messages.chooseOggOrMp3Audio')
+                              : kind === 'audio'
+                                ? t('messages.chooseOggOrMp3Audio')
+                                : t('messages.chooseBackgroundMovie')
                           }
-                          accept={kind === 'tja' ? '.tja' : '.ogg,.mp3'}
+                          accept={
+                            kind === 'tja'
+                              ? '.tja'
+                              : kind === 'audio'
+                                ? '.ogg,.mp3'
+                                : '.mp4,.webm,.mov'
+                          }
                           disabled={busy}
                           onChange={(e) => choose(kind, e)}
                         />
@@ -389,6 +430,23 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                   >
                     {t('messages.currentAudio', { filename: existing.audioName })}
                   </Button>
+                )}
+                {movie && (
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                    <span>{t('messages.movieWillBeTranscoded')}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="default"
+                      disabled={busy}
+                      onClick={() => {
+                        reset()
+                        setMovie(null)
+                      }}
+                    >
+                      {t('messages.removeMovie')}
+                    </Button>
+                  </div>
                 )}
                 {validationError && (
                   <Notice title={t('messages.fileValidationFailed')}>{validationError}</Notice>

@@ -56,5 +56,6 @@ export const endpoints = {
   notification: (id: string) => `${API_ROOT}/me/notifications/${encodeURIComponent(id)}`,
   notificationSettings: `${API_ROOT}/me/notification-settings`,
   resources: (id: string) => `${chartPath(id)}/resources`,
-  resource: (chart: Pick<Chart, 'id'>, kind: 'audio' | 'tja') => `${chartPath(chart.id)}/${kind}`,
+  resource: (chart: Pick<Chart, 'id'>, kind: 'audio' | 'tja' | 'movie') =>
+    `${chartPath(chart.id)}/${kind}`,
 } as const

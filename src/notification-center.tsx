@@ -11,10 +11,12 @@ import {
   CheckIcon,
   EnvelopeSimpleIcon,
   ShieldWarningIcon,
+  UploadSimpleIcon,
   XIcon,
 } from '@phosphor-icons/react'
 import { api, jsonRequest } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
+import { errorCodeMessage } from '@/api/error-message'
 import type { AppNotification, NotificationPage, NotificationSetting } from '@/api/types'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -39,7 +41,7 @@ const changedEvent = 'ourtaiko:notifications-changed'
 const announceChange = () => window.dispatchEvent(new Event(changedEvent))
 
 function useNotificationText() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   return (n: AppNotification) => {
     const actor = n.actor?.nickname || t('messages.unknownMember')
     const chart = n.chart?.title ?? ''
@@ -57,6 +59,34 @@ function useNotificationText() {
         return t('notificationCenter.text.comment_upvotes', { chart, count })
       case 'comment_removed':
         return t('notificationCenter.text.comment_removed', { chart })
+      case 'upload_result': {
+        const title = n.data.title || chart
+        if (n.data.status === 'failed')
+          return t('notificationCenter.text.upload_failed', {
+            title,
+            reason: errorCodeMessage(n.data.code ?? ''),
+          })
+        const updated = n.data.status === 'updated'
+        const skipped = (n.data.failedFiles ?? []).map(({ file, code }) =>
+          t('notificationCenter.text.upload_skipped_file', {
+            file:
+              file === 'cover'
+                ? t('notificationCenter.file.cover')
+                : file === 'movie'
+                  ? t('notificationCenter.file.movie')
+                  : file,
+            reason: errorCodeMessage(code),
+          }),
+        )
+        if (!skipped.length)
+          return t(`notificationCenter.text.${updated ? 'upload_updated' : 'upload_published'}`, {
+            title,
+          })
+        return t(
+          `notificationCenter.text.${updated ? 'upload_updated_partial' : 'upload_published_partial'}`,
+          { title, files: new Intl.ListFormat(i18n.resolvedLanguage).format(skipped) },
+        )
+      }
       default:
         return t('notificationCenter.text.unknown')
     }
@@ -76,6 +106,7 @@ const kindIcons: Record<string, ReactNode> = {
   chart_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
   comment_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
   comment_removed: <ShieldWarningIcon className="text-destructive" />,
+  upload_result: <UploadSimpleIcon />,
 }
 
 function NotificationIcon({ n }: { n: AppNotification }) {

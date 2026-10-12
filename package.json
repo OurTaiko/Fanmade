@@ -7,7 +7,7 @@
   "scripts": {
     "icons": "node scripts/generate-icons.mjs",
     "dev": "node scripts/generate-icons.mjs && vite --host 127.0.0.1 --port 5173 --strictPort",
-    "build": "node scripts/generate-icons.mjs && tsc -b && vite build",
+    "build": "node scripts/generate-icons.mjs && node scripts/verify-editor.mjs && tsc -b && vite build",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "preview": "vite preview --host 127.0.0.1",

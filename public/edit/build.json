@@ -1,0 +1,109 @@
+{
+  "version": "0f8e5e14f3c74a4c",
+  "entry": {
+    "bytes": 1658,
+    "sha256": "745923a601a0d439e642e285e133c30bcb4510fbaa864f8bf9d1a854d09625d8"
+  },
+  "files": [
+    {
+      "path": "Build/Web.data",
+      "bytes": 53591392,
+      "sha256": "d74bd1124eda0e4250f824596591e6efa238d17ecea364376919449fb1e42afa"
+    },
+    {
+      "path": "Build/Web.framework.js",
+      "bytes": 504987,
+      "sha256": "871f857728524dedec0ce2aed7c02c4eca9ec79bd1ce7a798db9828326df8aea"
+    },
+    {
+      "path": "Build/Web.loader.js",
+      "bytes": 25779,
+      "sha256": "5a789ecc2843f67d8ce48045d6814ac5d993b8ac1f2b9a79b2963ebab18e7405"
+    },
+    {
+      "path": "Build/Web.wasm",
+      "bytes": 58040477,
+      "sha256": "92ac0e8e663fd2bd45f76bd1efe8785bf9e89c6425d9056ea7aeb7f219fb8cc8"
+    },
+    {
+      "path": "audio/decode.js",
+      "bytes": 3886,
+      "sha256": "252967d38c6e21dc148d99a956e4c0faa4eb08d1dd26308f1868e40e710818fd"
+    },
+    {
+      "path": "audio/ogg-worker.js",
+      "bytes": 1497,
+      "sha256": "a19aad68fddbeef39982d1743c3a7203785b7f9bd5158157e2baebcf3bc59b65"
+    },
+    {
+      "path": "audio/vendor/GPL-3.0.txt",
+      "bytes": 35149,
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "audio/vendor/README.txt",
+      "bytes": 1552,
+      "sha256": "f182f547a00a1d8db67586ed5807d4900e9a152513c0e48147a1993e2e8a4382"
+    },
+    {
+      "path": "audio/vendor/codec-parser-LICENSE.txt",
+      "bytes": 7652,
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+    },
+    {
+      "path": "audio/vendor/ogg-COPYING.txt",
+      "bytes": 1466,
+      "sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814"
+    },
+    {
+      "path": "audio/vendor/ogg-opus-decoder.min.js",
+      "bytes": 117567,
+      "sha256": "e46f8e634f7859090c7ca35cff2c398539066ff2683dc42d65096705acb25b60"
+    },
+    {
+      "path": "audio/vendor/ogg-opus-decoder.min.js.map",
+      "bytes": 353085,
+      "sha256": "f871956f2c9415555468d54f385ff79a6b5d32de400f36ae7d542d195b069b5b"
+    },
+    {
+      "path": "audio/vendor/ogg-vorbis-decoder.min.js",
+      "bytes": 101765,
+      "sha256": "ad421badcc1b5899a4c982a79c9abfc13f91e3ceee3cab14dba2d1dbeb31b30c"
+    },
+    {
+      "path": "audio/vendor/ogg-vorbis-decoder.min.js.map",
+      "bytes": 63134,
+      "sha256": "d3c6210d50bfd7032e5424251dc97596d5b748e6cfb52b76aa757c488ea0c5c0"
+    },
+    {
+      "path": "audio/vendor/opus-COPYING.txt",
+      "bytes": 1945,
+      "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"
+    },
+    {
+      "path": "audio/vendor/puff-LICENSE.txt",
+      "bytes": 1033,
+      "sha256": "671cb6988484d8ff368c8a0ba61356eeb8f66eb76cb148e3a6875ba5011d7fea"
+    },
+    {
+      "path": "audio/vendor/simple-yenc-LICENSE.txt",
+      "bytes": 1058,
+      "sha256": "ce44a03cf2ded9cf1d326c5ffb20a29245375dd1b9f1e95e59cd275c24c00533"
+    },
+    {
+      "path": "audio/vendor/vorbis-COPYING.txt",
+      "bytes": 1470,
+      "sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a"
+    },
+    {
+      "path": "audio/vendor/wasm-audio-decoders-LICENSE.txt",
+      "bytes": 1058,
+      "sha256": "a2655946f8400c942c3ac963baed3ee39b149a0754cd5b5582164df5685ec9fa"
+    },
+    {
+      "path": "index.html",
+      "bytes": 1614,
+      "sha256": "4d43153831a6a90e3c3ee3bc8922ea2d09ee2bebb028ff46699e10ddff330589"
+    }
+  ]
+}

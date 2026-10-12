@@ -27,6 +27,7 @@ fi
 git merge --ff-only "$revision"
 test "$(git rev-parse HEAD)" = "$revision" || { echo 'Frontend checkout differs from requested revision'; exit 1; }
 git submodule update --init --recursive
+git lfs pull --include="public/edit/**"
 pnpm install --frozen-lockfile
 pnpm build
 test -s dist/index.html || { echo 'Build did not produce dist/index.html'; exit 1; }

@@ -132,6 +132,8 @@
     "chartCreator": "채보 제작자",
     "duration": "곡 길이",
     "downloadChartPackage": "채보 패키지 다운로드",
+    "packagingChart": "패키지 만드는 중…",
+    "chartPackageDownloadFailed": "채보 패키지를 다운로드하지 못했습니다. 다시 시도해 주세요.",
     "listen": "미리 듣기",
     "sourceFiles": "원본 파일",
     "updateSongAndCharts": "곡 및 채보 업데이트",

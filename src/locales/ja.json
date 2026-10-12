@@ -132,6 +132,8 @@
     "chartCreator": "譜面制作者",
     "duration": "再生時間",
     "downloadChartPackage": "譜面パッケージをダウンロード",
+    "packagingChart": "パッケージを作成中…",
+    "chartPackageDownloadFailed": "譜面パッケージをダウンロードできませんでした。もう一度お試しください。",
     "listen": "試聴",
     "sourceFiles": "元ファイル",
     "updateSongAndCharts": "楽曲と譜面を更新",

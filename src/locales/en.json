@@ -132,6 +132,8 @@
     "chartCreator": "Chart creator",
     "duration": "Duration",
     "downloadChartPackage": "Download chart package",
+    "packagingChart": "Packaging…",
+    "chartPackageDownloadFailed": "The chart package could not be downloaded. Please try again.",
     "listen": "Listen",
     "sourceFiles": "Source files",
     "updateSongAndCharts": "Update song and charts",

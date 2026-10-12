@@ -132,6 +132,8 @@
     "chartCreator": "谱师",
     "duration": "歌曲时长",
     "downloadChartPackage": "下载谱面包",
+    "packagingChart": "正在打包…",
+    "chartPackageDownloadFailed": "谱面包下载失败，请重试。",
     "listen": "试听",
     "sourceFiles": "源文件",
     "updateSongAndCharts": "更新歌曲与谱面",

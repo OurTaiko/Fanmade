@@ -2,6 +2,7 @@ import { chartOwners, isChartOwner } from './chart-owners'
 import { CollaborationDialog } from './collaborations'
 import { formatLocale } from '@/i18n'
 import { chartText } from '@/chart-language'
+import { buildChartPackage, packageFilename, saveBlob } from '@/chart-package'
 import { i18n } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
@@ -321,7 +322,8 @@ export function Detail() {
   const [chart, setChart] = useState<Chart | null>(null),
     [error, setError] = useState(''),
     [confirm, setConfirm] = useState(false),
-    [busy, setBusy] = useState(false)
+    [busy, setBusy] = useState(false),
+    [packaging, setPackaging] = useState(false)
   const [editing, setEditing] = useState(false)
   const [coverEditing, setCoverEditing] = useState(false)
   const [collaborating, setCollaborating] = useState(false)
@@ -351,6 +353,23 @@ export function Detail() {
   useEffect(() => {
     setSection(commentId || location.hash === '#comments' ? 'comments' : 'info')
   }, [id, commentId, location.hash])
+  // The archive is built here from the stored files; leaving the page cancels it.
+  const packageRequest = useRef<AbortController | null>(null)
+  useEffect(() => () => packageRequest.current?.abort(), [id])
+  const downloadPackage = async () => {
+    if (!chart) return
+    const controller = new AbortController()
+    packageRequest.current = controller
+    setPackaging(true)
+    try {
+      const archive = await buildChartPackage(chart, controller.signal)
+      saveBlob(archive, packageFilename(chartText(chart, i18n.resolvedLanguage).title))
+    } catch {
+      if (!controller.signal.aborted) notify(t('messages.chartPackageDownloadFailed'), 'error')
+    } finally {
+      if (packageRequest.current === controller) setPackaging(false)
+    }
+  }
   const remove = async () => {
     if (!chart) return
     setError('')
@@ -436,16 +455,15 @@ export function Detail() {
             )}
           </dl>
           <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-1 sm:col-start-2 sm:gap-3">
-            <a
-              className={cn(
-                buttonVariants({ variant: 'default', size: 'lg' }),
-                'h-11 flex-1 px-5 sm:flex-none',
-              )}
-              href={endpoints.resource(chart, 'download')}
+            <Button
+              size="lg"
+              className="h-11 flex-1 px-5 sm:flex-none"
+              disabled={packaging}
+              onClick={downloadPackage}
             >
               <Download size={18} aria-hidden="true" />
-              {t('messages.downloadChartPackage')}
-            </a>
+              {t(packaging ? 'messages.packagingChart' : 'messages.downloadChartPackage')}
+            </Button>
             <a
               className={cn(
                 buttonVariants({ variant: 'secondary', size: 'lg' }),

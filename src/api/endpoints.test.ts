@@ -11,7 +11,8 @@ describe('API addresses', () => {
     const cover = new URL(endpoints.cover(id, 'hash+/?='), 'http://127.0.0.1:5173')
     expect(cover.pathname).toBe(`${path}/cover`)
     expect(cover.searchParams.get('v')).toBe('hash+/?=')
-    expect(endpoints.resource({ id }, 'download')).toBe(`${path}/download`)
+    expect(endpoints.resource({ id }, 'tja')).toBe(`${path}/tja`)
+    expect(endpoints.resources(id)).toBe(`${path}/resources`)
   })
 
   it('preserves nested return URLs and search text without injecting query parameters', () => {

@@ -5,13 +5,9 @@ import { endpoints } from '@/api/endpoints'
 import { useState } from 'react'
 import { ImageIcon } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { CoverPicker } from './cover-picker'
-import { Modal } from '../notifications'
-import { api } from '../api/client'
+import { CoverUploadDialog } from './cover-dialog'
 import type { Chart } from '../api/types'
 import { coverSource } from '../cover'
-import { useSession } from '../session-context'
 
 export function ChartCover({ chart, className }: { chart: Chart; className?: string }) {
   const { t } = useTranslation()
@@ -56,58 +52,13 @@ export function CoverDialog({
   onDismiss: () => void
 }) {
   const { t } = useTranslation()
-
-  const session = useSession()
-  const [file, setFile] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const save = async () => {
-    if (!file || busy) return
-    setBusy(true)
-    setError('')
-    try {
-      const form = new FormData()
-      form.append('cover', file)
-      const result = await api<{ coverHash: string }>(endpoints.cover(chart.id), {
-        method: 'PUT',
-        headers: { 'X-CSRF-Token': session.csrfToken },
-        body: form,
-      })
-      onSaved(result.coverHash)
-      onDismiss()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
   return (
-    <Modal
+    <CoverUploadDialog
       title={t('messages.changeSongCover')}
-      busy={busy}
+      endpoint={endpoints.cover(chart.id)}
+      note={t('messages.savingReplacesTheCoverChartsAudioAndScoresStayIntact')}
+      onSaved={onSaved}
       onDismiss={onDismiss}
-      actions={
-        <Button disabled={!file || busy} onClick={() => void save()}>
-          {busy ? t('messages.saving') : t('messages.saveCover')}
-        </Button>
-      }
-    >
-      <CoverPicker
-        file={file}
-        onChange={(file) => {
-          setFile(file)
-          setError('')
-        }}
-        disabled={busy}
-      />
-      <p className="text-sm text-muted-foreground">
-        {t('messages.savingReplacesTheCoverChartsAudioAndScoresStayIntact')}
-      </p>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </Modal>
+    />
   )
 }

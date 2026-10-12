@@ -1,6 +1,6 @@
 import { chartOwners, isChartOwner } from './chart-owners'
 import { CollaborationDialog } from './collaborations'
-import { AddToPlaylistDialog } from './playlists'
+import { AddToPlaylistDialog } from './playlist-dialogs'
 import { formatLocale } from '@/i18n'
 import { chartText } from '@/chart-language'
 import { buildChartPackage, packageFilename, saveBlob } from '@/chart-package'

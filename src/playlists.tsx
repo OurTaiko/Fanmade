@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
@@ -7,10 +6,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ArrowUpIcon,
-  CheckIcon,
   HeartIcon,
-  LockSimpleIcon,
-  MusicNotesIcon,
   PlaylistIcon,
   PlusIcon,
   SortDescendingIcon,
@@ -19,184 +15,34 @@ import {
 import { api, jsonRequest } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, MyPlaylists, Playlist, PlaylistPage as PlaylistList } from '@/api/types'
-import { CategoryLabels, CategorySelect } from '@/categories'
 import { chartText } from '@/chart-language'
 import { ChartCard } from '@/components/chart-card'
 import { ChoiceSelect } from '@/components/choice-select'
-import { CoverPicker } from '@/components/cover-picker'
 import { SearchInput } from '@/components/search-input'
-import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { DialogClose } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Textarea } from '@/components/ui/textarea'
 import { UserAvatar } from '@/components/user-avatar'
 import { cn } from '@/lib/utils'
 import { Modal, Notice } from '@/notifications'
 import { useNotification } from '@/notification-context'
 import { useSession } from '@/session-context'
+import {
+  usePlaylistText,
+  playlistCoverSource,
+  PlaylistFacts,
+  PlaylistCard,
+  PlaylistGrid,
+  PlaylistGridSkeleton,
+  emptyStateClassName,
+} from '@/components/playlist-card'
+import { PlaylistDialog, PlaylistCoverDialog } from '@/playlist-dialogs'
 
-const systemIds = ['liked', 'popular', 'acclaimed', 'daily'] as const
 const sorts = ['updated', 'newest', 'favorites'] as const
 type Sort = (typeof sorts)[number]
 
-const emptyStateClassName =
-  'flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground'
 const panelClassName = 'rounded-2xl bg-white p-6 shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:bg-card'
-
-// The server names system playlists in English; show them in the page language.
-function usePlaylistText() {
-  const { t } = useTranslation()
-  return (playlist: Pick<Playlist, 'id' | 'name' | 'description' | 'system'>) => {
-    const id = systemIds.find((value) => playlist.system && value === playlist.id)
-    return id
-      ? {
-          name: t(`playlists.system.${id}.name`),
-          description: t(`playlists.system.${id}.description`),
-        }
-      : { name: playlist.name, description: playlist.description }
-  }
-}
-
-const coverSource = (playlist: Pick<Playlist, 'id' | 'coverHash'>) =>
-  playlist.coverHash ? endpoints.playlistCover(playlist.id, playlist.coverHash) : undefined
-
-function PlaylistFacts({ playlist }: { playlist: Playlist }) {
-  const { t } = useTranslation()
-  return (
-    <CategoryLabels ids={[playlist.categoryId]}>
-      <li>
-        <Badge variant="outline" className="tabular-nums">
-          <MusicNotesIcon aria-hidden="true" />
-          {t('playlists.songCount', { count: playlist.chartCount })}
-        </Badge>
-      </li>
-      {playlist.system ? (
-        <li>
-          <Badge variant="secondary">{t('playlists.systemBadge')}</Badge>
-        </li>
-      ) : (
-        <>
-          <li>
-            <Badge variant="outline" className="tabular-nums">
-              <HeartIcon aria-hidden="true" />
-              {t('playlists.favoriteCount', { count: playlist.favoriteCount })}
-            </Badge>
-          </li>
-          {!playlist.public && (
-            <li>
-              <Badge variant="secondary">
-                <LockSimpleIcon aria-hidden="true" />
-                {t('playlists.private')}
-              </Badge>
-            </li>
-          )}
-        </>
-      )}
-    </CategoryLabels>
-  )
-}
-
-function PlaylistCard({ playlist }: { playlist: Playlist }) {
-  const { t } = useTranslation()
-  const text = usePlaylistText()(playlist)
-  const [failedSource, setFailedSource] = useState('')
-  const source = coverSource(playlist)
-  const hasCover = !!source && failedSource !== source
-  return (
-    <Link
-      className="group block min-w-0 rounded-2xl outline-none transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:ring-offset-4 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none"
-      data-testid="playlist-card"
-      to={`/playlists/${encodeURIComponent(playlist.id)}`}
-    >
-      <Card
-        size="sm"
-        className="relative isolate h-44 gap-3 rounded-2xl bg-white px-6 py-5 shadow-[0_4px_12px_rgba(0,0,0,0.08)] ring-0 dark:bg-card"
-      >
-        {hasCover && (
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
-            <img
-              src={source}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="size-full object-cover transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] group-hover:scale-105 motion-reduce:transform-none motion-reduce:transition-none"
-              onError={() => setFailedSource(source)}
-            />
-            <div className="absolute inset-0 bg-white/60 dark:bg-black/60" />
-          </div>
-        )}
-        <div
-          className={cn(
-            'min-w-0 space-y-1',
-            hasCover &&
-              '[text-shadow:0_1px_3px_rgb(255_255_255/0.9)] dark:[text-shadow:0_1px_3px_rgb(0_0_0/0.9)]',
-          )}
-        >
-          <h3 className="truncate text-lg font-semibold tracking-tight" title={text.name}>
-            {text.name}
-          </h3>
-          <p
-            className={cn(
-              'line-clamp-2 min-h-10 text-sm',
-              hasCover ? 'text-foreground/80' : 'text-muted-foreground',
-            )}
-          >
-            {text.description}
-          </p>
-        </div>
-        <div className="mt-auto space-y-3">
-          {playlist.owner && (
-            <p className="flex min-w-0 items-center gap-2 text-sm">
-              <UserAvatar
-                nickname={playlist.owner.nickname || t('messages.unknownMember')}
-                avatarUrl={playlist.owner.avatarUrl}
-                className="size-5 shrink-0"
-                fallbackClassName="text-[10px]"
-              />
-              <span className="truncate">
-                {playlist.owner.nickname || t('messages.unknownMember')}
-              </span>
-            </p>
-          )}
-          <div className="max-h-5 overflow-hidden">
-            <PlaylistFacts playlist={playlist} />
-          </div>
-        </div>
-      </Card>
-    </Link>
-  )
-}
-
-function PlaylistGrid({ items, empty }: { items: Playlist[]; empty: ReactNode }) {
-  if (!items.length) return <div className={emptyStateClassName}>{empty}</div>
-  return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {items.map((playlist) => (
-        <PlaylistCard key={playlist.id} playlist={playlist} />
-      ))}
-    </div>
-  )
-}
-
-function LoadingGrid() {
-  const { t } = useTranslation()
-  return (
-    <div
-      className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-      role="status"
-      aria-label={t('playlists.loading')}
-    >
-      {[0, 1, 2].map((n) => (
-        <Skeleton className="h-44 rounded-2xl" key={n} />
-      ))}
-    </div>
-  )
-}
 
 // Public playlists, optionally of one user, with search, order and paging kept
 // in the address unless the list is embedded in another page.
@@ -296,7 +142,7 @@ function PublicPlaylists({ ownerId, refresh = 0 }: { ownerId?: string; refresh?:
       {error ? (
         <Notice>{error}</Notice>
       ) : busy || !data ? (
-        <LoadingGrid />
+        <PlaylistGridSkeleton />
       ) : (
         <>
           <PlaylistGrid
@@ -477,7 +323,7 @@ export function MyPlaylistsPage() {
       {error ? (
         <Notice>{error}</Notice>
       ) : !data ? (
-        <LoadingGrid />
+        <PlaylistGridSkeleton />
       ) : (
         <>
           <section className="space-y-4" aria-labelledby="owned-playlists-heading">
@@ -512,183 +358,69 @@ export function MyPlaylistsPage() {
   )
 }
 
-// Creates a playlist, or edits the one given.
-function PlaylistDialog({
-  playlist,
-  onSaved,
-  onDismiss,
+// The owner's view for arranging: one row per song with move and remove buttons.
+function PlaylistSongOrder({
+  charts,
+  disabled,
+  onMove,
+  onRemove,
 }: {
-  playlist?: Playlist
-  onSaved: (playlist: Playlist) => void
-  onDismiss: () => void
+  charts: Chart[]
+  disabled: boolean
+  onMove: (index: number, offset: number) => void
+  onRemove: (chart: Chart) => void
 }) {
-  const { t } = useTranslation()
-  const { csrfToken } = useSession()
-  const id = useId()
-  const [name, setName] = useState(playlist?.name ?? '')
-  const [description, setDescription] = useState(playlist?.description ?? '')
-  const [categoryId, setCategoryId] = useState(playlist?.categoryId ?? 'variety')
-  const [isPublic, setIsPublic] = useState(playlist?.public ?? false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const save = async () => {
-    setBusy(true)
-    setError('')
-    try {
-      const body = { name, description, categoryId, public: isPublic }
-      const saved = await api<Playlist>(
-        playlist ? endpoints.playlist(playlist.id) : endpoints.playlists,
-        jsonRequest(playlist ? 'PATCH' : 'POST', body, csrfToken),
-      )
-      onSaved(saved)
-      onDismiss()
-    } catch (e) {
-      setError((e as Error).message)
-      setBusy(false)
-    }
-  }
+  const { t, i18n } = useTranslation()
   return (
-    <Modal
-      title={playlist ? t('playlists.edit') : t('playlists.create')}
-      busy={busy}
-      onDismiss={onDismiss}
-      actions={
-        <>
-          <DialogClose render={<Button type="button" variant="outline" />} disabled={busy}>
-            {t('messages.cancel')}
-          </DialogClose>
-          <Button disabled={busy || !name.trim()} onClick={() => void save()}>
-            {busy
-              ? t('messages.saving')
-              : playlist
-                ? t('messages.saveChanges')
-                : t('playlists.create')}
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-2">
-        <Label htmlFor={`${id}-name`}>{t('playlists.name')}</Label>
-        <Input
-          id={`${id}-name`}
-          value={name}
-          maxLength={50}
-          disabled={busy}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={`${id}-description`}>{t('playlists.description')}</Label>
-        <Textarea
-          id={`${id}-description`}
-          value={description}
-          maxLength={500}
-          disabled={busy}
-          placeholder={t('playlists.descriptionPlaceholder')}
-          onChange={(event) => setDescription(event.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <p className="text-sm font-medium">{t('playlists.category')}</p>
-        <CategorySelect
-          label={t('playlists.category')}
-          value={categoryId}
-          onChange={setCategoryId}
-          disabled={busy}
-        />
-        <p className="text-muted-foreground">{t('playlists.categoryHelp')}</p>
-      </div>
-      <div className="space-y-2">
-        <Label className="inline-flex items-center gap-2">
-          <Checkbox
-            checked={isPublic}
-            disabled={busy}
-            onCheckedChange={(checked) => setIsPublic(checked === true)}
-          />
-          <span>{t('playlists.public')}</span>
-        </Label>
-        <p className="text-muted-foreground">{t('playlists.publicHelp')}</p>
-      </div>
-      {error && (
-        <p role="alert" className="text-destructive">
-          {error}
-        </p>
-      )}
-    </Modal>
-  )
-}
-
-function PlaylistCoverDialog({
-  playlist,
-  onSaved,
-  onDismiss,
-}: {
-  playlist: Playlist
-  onSaved: (coverHash: string) => void
-  onDismiss: () => void
-}) {
-  const { t } = useTranslation()
-  const { csrfToken } = useSession()
-  const [file, setFile] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const send = async (remove: boolean) => {
-    setBusy(true)
-    setError('')
-    try {
-      const form = new FormData()
-      if (file) form.append('cover', file)
-      const result = await api<{ coverHash: string }>(endpoints.playlistCover(playlist.id), {
-        method: remove ? 'DELETE' : 'PUT',
-        headers: { 'X-CSRF-Token': csrfToken },
-        ...(remove ? {} : { body: form }),
-      })
-      onSaved(result.coverHash)
-      onDismiss()
-    } catch (e) {
-      setError((e as Error).message)
-      setBusy(false)
-    }
-  }
-  return (
-    <Modal
-      title={t('playlists.changeCover')}
-      busy={busy}
-      onDismiss={onDismiss}
-      actions={
-        <>
-          {playlist.coverHash && (
-            <Button variant="outline" disabled={busy} onClick={() => void send(true)}>
-              {t('playlists.removeCover')}
+    <ol className={cn(panelClassName, 'divide-y py-2')}>
+      {charts.map((chart, index) => {
+        const title = chartText(chart, i18n.resolvedLanguage).title
+        return (
+          <li key={chart.id} className="flex min-h-14 items-center gap-3">
+            <span className="w-8 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+              {index + 1}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium" title={title}>
+              {title}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={disabled || index === 0}
+              aria-label={t('playlists.moveUp', { title })}
+              onClick={() => onMove(index, -1)}
+            >
+              <ArrowUpIcon aria-hidden="true" />
             </Button>
-          )}
-          <Button disabled={!file || busy} onClick={() => void send(false)}>
-            {busy ? t('messages.saving') : t('messages.saveCover')}
-          </Button>
-        </>
-      }
-    >
-      <CoverPicker
-        file={file}
-        onChange={(chosen) => {
-          setFile(chosen)
-          setError('')
-        }}
-        disabled={busy}
-      />
-      <p className="text-muted-foreground">{t('playlists.coverHelp')}</p>
-      {error && (
-        <p role="alert" className="text-destructive">
-          {error}
-        </p>
-      )}
-    </Modal>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={disabled || index === charts.length - 1}
+              aria-label={t('playlists.moveDown', { title })}
+              onClick={() => onMove(index, 1)}
+            >
+              <ArrowDownIcon aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-destructive hover:text-destructive"
+              disabled={disabled}
+              aria-label={t('playlists.removeSong', { title })}
+              onClick={() => onRemove(chart)}
+            >
+              <XIcon aria-hidden="true" />
+            </Button>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
 export function PlaylistPage() {
   const { id = '' } = useParams()
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const session = useSession()
   const navigate = useNavigate()
   const { notify } = useNotification()
@@ -740,13 +472,13 @@ export function PlaylistPage() {
       <section className="space-y-6" role="status" aria-label={t('playlists.loading')}>
         {back}
         <Skeleton className="h-56 rounded-2xl" />
-        <LoadingGrid />
+        <PlaylistGridSkeleton />
       </section>
     )
   const text = playlistText(playlist)
   const charts = playlist.charts ?? []
   const owned = !playlist.system && !!userId && playlist.ownerId === userId
-  const source = coverSource(playlist)
+  const source = playlistCoverSource(playlist)
   // Each change is sent at once; a failure restores what the server holds.
   const change = async (next: Chart[], request: () => Promise<unknown>) => {
     setBusy(true)
@@ -921,49 +653,7 @@ export function PlaylistPage() {
           )}
         </div>
       ) : arranging ? (
-        <ol className={cn(panelClassName, 'divide-y py-2')}>
-          {charts.map((chart, index) => {
-            const title = chartText(chart, i18n.resolvedLanguage).title
-            return (
-              <li key={chart.id} className="flex min-h-14 items-center gap-3">
-                <span className="w-8 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium" title={title}>
-                  {title}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={busy || index === 0}
-                  aria-label={t('playlists.moveUp', { title })}
-                  onClick={() => move(index, -1)}
-                >
-                  <ArrowUpIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={busy || index === charts.length - 1}
-                  aria-label={t('playlists.moveDown', { title })}
-                  onClick={() => move(index, 1)}
-                >
-                  <ArrowDownIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-destructive hover:text-destructive"
-                  disabled={busy}
-                  aria-label={t('playlists.removeSong', { title })}
-                  onClick={() => removeSong(chart)}
-                >
-                  <XIcon aria-hidden="true" />
-                </Button>
-              </li>
-            )
-          })}
-        </ol>
+        <PlaylistSongOrder charts={charts} disabled={busy} onMove={move} onRemove={removeSong} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {charts.map((chart) => (
@@ -1006,156 +696,5 @@ export function PlaylistPage() {
         </Modal>
       )}
     </section>
-  )
-}
-
-// Lists the viewer's playlists; selecting one adds the song or takes it out.
-export function AddToPlaylistDialog({ chart, onDismiss }: { chart: Chart; onDismiss: () => void }) {
-  const { t } = useTranslation()
-  const { csrfToken } = useSession()
-  const id = useId()
-  const [data, setData] = useState<MyPlaylists | null>(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [name, setName] = useState('')
-  useEffect(() => {
-    const controller = new AbortController()
-    api<MyPlaylists>(endpoints.myPlaylists(chart.id), { signal: controller.signal })
-      .then(setData)
-      .catch((e: Error) => {
-        if (!controller.signal.aborted) setError(e.message)
-      })
-    return () => controller.abort()
-  }, [chart.id])
-  const run = async (action: () => Promise<void>) => {
-    setBusy(true)
-    setError('')
-    try {
-      await action()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-  const setContained = (playlistId: string, contained: boolean) =>
-    setData(
-      (current) =>
-        current && {
-          ...current,
-          owned: current.owned.map((item) =>
-            item.id === playlistId
-              ? {
-                  ...item,
-                  containsChart: contained,
-                  chartCount: item.chartCount + (contained ? 1 : -1),
-                }
-              : item,
-          ),
-        },
-    )
-  const toggle = (playlist: Playlist) =>
-    run(async () => {
-      await api(endpoints.playlistItem(playlist.id, chart.id), {
-        method: playlist.containsChart ? 'DELETE' : 'PUT',
-        headers: { 'X-CSRF-Token': csrfToken },
-      })
-      setContained(playlist.id, !playlist.containsChart)
-    })
-  const create = () =>
-    run(async () => {
-      const created = await api<Playlist>(
-        endpoints.playlists,
-        jsonRequest('POST', { name }, csrfToken),
-      )
-      setData(
-        (current) =>
-          current && {
-            ...current,
-            owned: [{ ...created, containsChart: false }, ...current.owned],
-          },
-      )
-      setName('')
-      await api(endpoints.playlistItem(created.id, chart.id), {
-        method: 'PUT',
-        headers: { 'X-CSRF-Token': csrfToken },
-      })
-      setContained(created.id, true)
-    })
-  return (
-    <Modal title={t('playlists.addToPlaylist')} busy={busy} onDismiss={onDismiss}>
-      <p className="text-muted-foreground">{t('playlists.addHelp')}</p>
-      {error && (
-        <p role="alert" className="text-destructive">
-          {error}
-        </p>
-      )}
-      {!data && !error && <p role="status">{t('playlists.loading')}</p>}
-      {data && (
-        <>
-          <div
-            className="max-h-72 space-y-2 overflow-y-auto"
-            role="group"
-            aria-label={t('playlists.owned')}
-          >
-            {data.owned.length === 0 && (
-              <p className="text-muted-foreground">{t('playlists.emptyOwned')}</p>
-            )}
-            {data.owned.map((playlist) => (
-              <button
-                key={playlist.id}
-                type="button"
-                disabled={busy || (!playlist.containsChart && playlist.chartCount >= data.maxItems)}
-                aria-pressed={!!playlist.containsChart}
-                onClick={() => void toggle(playlist)}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-xl border p-3 text-left active:scale-[0.98] disabled:opacity-50',
-                  playlist.containsChart
-                    ? 'border-primary bg-primary/5'
-                    : 'border-transparent bg-muted/40',
-                )}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{playlist.name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {t('playlists.songCount', { count: playlist.chartCount })}
-                    {' · '}
-                    {playlist.public ? t('playlists.public') : t('playlists.private')}
-                  </span>
-                </span>
-                {playlist.containsChart && (
-                  <span className="flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-primary">
-                    <CheckIcon aria-hidden="true" />
-                    {t('playlists.inPlaylist')}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          {data.owned.length < data.maxPlaylists && (
-            <div className="flex gap-2">
-              <Input
-                id={`${id}-name`}
-                value={name}
-                maxLength={50}
-                disabled={busy}
-                aria-label={t('playlists.newPlaylistName')}
-                placeholder={t('playlists.newPlaylistName')}
-                onChange={(event) => setName(event.target.value)}
-              />
-              <Button
-                variant="outline"
-                className="shrink-0"
-                disabled={busy || !name.trim()}
-                onClick={() => void create()}
-              >
-                <PlusIcon aria-hidden="true" />
-                {t('playlists.createAndAdd')}
-              </Button>
-            </div>
-          )}
-        </>
-      )}
-    </Modal>
   )
 }

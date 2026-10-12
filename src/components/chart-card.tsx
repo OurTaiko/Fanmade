@@ -2,7 +2,6 @@ import { chartText } from '@/chart-language'
 import { i18n } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { useState } from 'react'
 import type { Chart } from '@/api/types'
 import { coverSource } from '@/cover'
 import { CategoryLabels } from '@/categories'
@@ -13,13 +12,13 @@ import { DifficultyBadges } from '@/components/difficulty-badges'
 import { compactNumber } from '@/components/vote-control'
 import { ArrowFatUpIcon, ChatCircleIcon } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { CardCoverBackdrop, coveredTextClassName, useCardCover } from '@/components/card-cover'
 
 export function ChartCard({ chart }: { chart: Chart }) {
   const { t } = useTranslation()
 
-  const [failedSource, setFailedSource] = useState('')
-  const source = coverSource(chart)
-  const hasCover = !!source && failedSource !== source
+  const cover = useCardCover(coverSource(chart))
+  const hasCover = !!cover.source
   if (!supportsChart(chart.difficulties)) return null
   return (
     <Link
@@ -32,28 +31,10 @@ export function ChartCard({ chart }: { chart: Chart }) {
         size="sm"
         className="isolate relative bg-white dark:bg-card shadow-[0_4px_12px_rgba(0,0,0,0.08)] py-5 rounded-2xl ring-0 h-56"
       >
-        {hasCover && (
-          <div aria-hidden="true" className="absolute inset-0 pointer-events-none">
-            <img
-              src={source}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className="size-full object-cover motion-reduce:transform-none group-hover:scale-105 transition-transform motion-reduce:transition-none duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-              onError={() => setFailedSource(source)}
-            />
-            <div className="absolute inset-0 bg-white/55 dark:bg-black/55 group-hover:bg-white/45 dark:group-hover:bg-black/45 transition-colors motion-reduce:transition-none duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]" />
-          </div>
-        )}
+        {cover.source && <CardCoverBackdrop source={cover.source} onError={cover.onError} />}
         <CardContent className="relative flex gap-4 pr-0 pl-6 h-full min-h-0">
           <div className="flex flex-col flex-1 gap-4 min-w-0 min-h-0">
-            <div
-              className={cn(
-                'space-y-0.5 min-w-0',
-                hasCover &&
-                  '[text-shadow:0_1px_3px_rgb(255_255_255/0.9)] dark:[text-shadow:0_1px_3px_rgb(0_0_0/0.9)]',
-              )}
-            >
+            <div className={cn('space-y-0.5 min-w-0', hasCover && coveredTextClassName)}>
               <h3
                 className="font-semibold text-lg truncate tracking-tight"
                 title={chartText(chart, i18n.resolvedLanguage).title}

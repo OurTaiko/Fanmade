@@ -202,7 +202,7 @@
     "songUpdatedAllPreviousChartsAndScoresHaveBeenDeleted": "楽曲を更新しました。以前の譜面とスコアはすべて削除されました。",
     "chartPublished": "譜面を投稿しました。",
     "publishYourChart": "自分の譜面を投稿",
-    "prepareATjaAndMatchingOggOrMp3EasyNormalHardOni": "TJA と対応する OGG または MP3 を用意してください。かんたん・ふつう・むずかしい・おに・裏おにに対応しています。",
+    "doNotSubmitOfficialBandaiNamcoChartsOrAudio": "本プロジェクトを守るため、バンダイナムコ公式の著作権のある譜面や音源は投稿しないでください。",
     "signInToPublish": "ログインして投稿",
     "youCanCheckYourFilesFirstSignInOrRegisterAtThe": "先にファイルの整合性を確認できます。投稿前に右上からログインまたは登録してください。",
     "beforeUpdating": "更新前の確認",

@@ -202,7 +202,7 @@
     "songUpdatedAllPreviousChartsAndScoresHaveBeenDeleted": "歌曲已更新，全部旧谱面和旧成绩已删除。",
     "chartPublished": "谱面已发布。",
     "publishYourChart": "发布你的谱面",
-    "prepareATjaAndMatchingOggOrMp3EasyNormalHardOni": "准备好 TJA 和对应的 OGG 或 MP3 音频，支持简单、普通、困难、魔王和里谱。",
+    "doNotSubmitOfficialBandaiNamcoChartsOrAudio": "为保护本项目，请勿提交万代南梦宫官方的版权谱面与音频资源。",
     "signInToPublish": "登录后即可发布",
     "youCanCheckYourFilesFirstSignInOrRegisterAtThe": "你可以先选择文件检查谱面与音频是否匹配，发布前请通过右上角登录或注册。",
     "beforeUpdating": "更新须知",

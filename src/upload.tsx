@@ -31,6 +31,7 @@ import {
   CheckIcon as Check,
   CircleNotchIcon as LoaderCircle,
   UploadSimpleIcon as Upload,
+  WarningIcon,
 } from '@phosphor-icons/react'
 import { CoverPicker } from '@/components/cover-picker'
 import { CategoryPicker } from './categories'
@@ -275,6 +276,61 @@ export function UploadPage({ existing }: { existing?: Chart }) {
       controller.current = null
     }
   }
+  const fileTile = (kind: 'tja' | 'audio' | 'movie') => {
+    const file = kind === 'tja' ? tja : kind === 'audio' ? audio : movie
+    return (
+      <Label className="flex min-w-0 flex-col items-start gap-3 rounded-2xl border p-4 [&>span]:w-full [&_small]:mt-1 [&_small]:block [&_small]:truncate [&_small]:text-muted-foreground">
+        {kind === 'tja' ? (
+          <FileMusic size={24} />
+        ) : kind === 'audio' ? (
+          <AudioLines size={24} />
+        ) : (
+          <FilmStripIcon size={24} />
+        )}
+        <span>
+          <b>
+            {kind === 'tja'
+              ? t('messages.tjaChart')
+              : kind === 'audio'
+                ? t('messages.oggMp3Audio')
+                : t('messages.backgroundMovie')}
+          </b>
+          <small>
+            {file
+              ? file.name
+              : kind === 'tja'
+                ? t('messages.tjaUpTo2Mib')
+                : kind === 'movie'
+                  ? hasStoredMovie
+                    ? t('messages.keepMovie')
+                    : t('messages.movieUpTo64Mib')
+                  : existing
+                    ? t('messages.keepAudio', { filename: existing.audioName })
+                    : t('messages.oggMp3UpTo100Mib')}
+          </small>
+        </span>
+        {file ? (
+          <Check size={18} />
+        ) : (
+          <span className="text-xs text-muted-foreground">{t('messages.choose')}</span>
+        )}
+        <Input
+          type="file"
+          aria-label={
+            kind === 'tja'
+              ? t('messages.chooseTjaChart')
+              : kind === 'audio'
+                ? t('messages.chooseOggOrMp3Audio')
+                : t('messages.chooseBackgroundMovie')
+          }
+          accept={kind === 'tja' ? '.tja' : kind === 'audio' ? '.ogg,.mp3' : '.mp4,.webm,.mov'}
+          disabled={busy}
+          onChange={(e) => choose(kind, e)}
+        />
+      </Label>
+    )
+  }
+
   return (
     <>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center [&_p]:mt-2 [&_p]:text-sm [&_p]:text-muted-foreground">
@@ -282,13 +338,20 @@ export function UploadPage({ existing }: { existing?: Chart }) {
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             {existing ? t('messages.updateSongAndCharts') : t('messages.publishYourChart')}
           </h1>
-          <p>
-            {existing
-              ? t('messages.replaceSongHint', {
-                  title: chartText(existing, i18n.resolvedLanguage).title,
-                })
-              : t('messages.prepareATjaAndMatchingOggOrMp3EasyNormalHardOni')}
-          </p>
+          {existing && (
+            <p>
+              {t('messages.replaceSongHint', {
+                title: chartText(existing, i18n.resolvedLanguage).title,
+              })}
+            </p>
+          )}
+          <div
+            role="note"
+            className="mt-3 flex items-start gap-2 rounded-2xl bg-yellow-100 px-4 py-3 text-sm font-medium text-yellow-800 dark:bg-[#393a21] dark:text-[#d7d887]"
+          >
+            <WarningIcon size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+            <span>{t('messages.doNotSubmitOfficialBandaiNamcoChartsOrAudio')}</span>
+          </div>
         </div>
       </div>
       {!session.loading && !session.user && (
@@ -350,72 +413,28 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                   <strong>{t('messages.dropChartAndAudioHere')}</strong>
                   <span>{t('messages.orChooseFilesBelow')}</span>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {(['tja', 'audio', 'movie'] as const).map((kind) => {
-                    const file = kind === 'tja' ? tja : kind === 'audio' ? audio : movie
-                    return (
-                      <Label
-                        className="flex min-w-0 flex-col items-start gap-3 rounded-2xl border p-4 [&>span]:w-full [&_small]:mt-1 [&_small]:block [&_small]:truncate [&_small]:text-muted-foreground"
-                        key={kind}
-                      >
-                        {kind === 'tja' ? (
-                          <FileMusic size={24} />
-                        ) : kind === 'audio' ? (
-                          <AudioLines size={24} />
-                        ) : (
-                          <FilmStripIcon size={24} />
-                        )}
-                        <span>
-                          <b>
-                            {kind === 'tja'
-                              ? t('messages.tjaChart')
-                              : kind === 'audio'
-                                ? t('messages.oggMp3Audio')
-                                : t('messages.backgroundMovie')}
-                          </b>
-                          <small>
-                            {file
-                              ? file.name
-                              : kind === 'tja'
-                                ? t('messages.tjaUpTo2Mib')
-                                : kind === 'movie'
-                                  ? hasStoredMovie
-                                    ? t('messages.keepMovie')
-                                    : t('messages.movieUpTo64Mib')
-                                  : existing
-                                    ? t('messages.keepAudio', { filename: existing.audioName })
-                                    : t('messages.oggMp3UpTo100Mib')}
-                          </small>
-                        </span>
-                        {file ? (
-                          <Check size={18} />
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            {t('messages.choose')}
-                          </span>
-                        )}
-                        <Input
-                          type="file"
-                          aria-label={
-                            kind === 'tja'
-                              ? t('messages.chooseTjaChart')
-                              : kind === 'audio'
-                                ? t('messages.chooseOggOrMp3Audio')
-                                : t('messages.chooseBackgroundMovie')
-                          }
-                          accept={
-                            kind === 'tja'
-                              ? '.tja'
-                              : kind === 'audio'
-                                ? '.ogg,.mp3'
-                                : '.mp4,.webm,.mov'
-                          }
-                          disabled={busy}
-                          onChange={(e) => choose(kind, e)}
-                        />
-                      </Label>
-                    )
-                  })}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {fileTile('tja')}
+                  {fileTile('audio')}
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="min-w-0 space-y-3 rounded-2xl border p-4">
+                    <h3 className="text-sm font-bold">{t('messages.songCover')}</h3>
+                    {existing && (
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        {t('messages.keepCoverUnlessSelected')}
+                      </p>
+                    )}
+                    <CoverPicker
+                      file={cover}
+                      disabled={busy}
+                      onChange={(file) => {
+                        setCover(file)
+                        requestKey.current = createRequestKey()
+                      }}
+                    />
+                  </div>
+                  {fileTile('movie')}
                 </div>
                 {existing && audio && (
                   <Button
@@ -459,22 +478,6 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                     })}
                   </Notice>
                 )}
-              </Card>
-              <Card className="min-w-0 gap-4 rounded-2xl p-6 shadow-none ring-0">
-                <h2 className="text-base font-semibold">{t('messages.songCover')}</h2>
-                {existing && (
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    {t('messages.keepCoverUnlessSelected')}
-                  </p>
-                )}
-                <CoverPicker
-                  file={cover}
-                  disabled={busy}
-                  onChange={(file) => {
-                    setCover(file)
-                    requestKey.current = createRequestKey()
-                  }}
-                />
               </Card>
             </TabsContent>
             <TabsContent value="categories" className="pt-4">

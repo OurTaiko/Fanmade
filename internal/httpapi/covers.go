@@ -85,6 +85,11 @@ func (s *Server) getCover(w http.ResponseWriter, r *http.Request) {
 		problem(w, 404, "COVER_NOT_FOUND", "该封面已被替换")
 		return
 	}
+	s.serveCover(w, r, digest, key)
+}
+
+// serveCover sends a stored WebP cover, or redirects to its public address.
+func (s *Server) serveCover(w http.ResponseWriter, r *http.Request, digest, key string) {
 	if s.redirectResource(w, r, key, "") {
 		return
 	}

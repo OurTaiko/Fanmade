@@ -51,6 +51,16 @@ func categoryFlag(id string) (CategoryFlags, bool) {
 	return 0, false
 }
 
+// categoryByFlag finds the category of a single flag.
+func categoryByFlag(flag CategoryFlags) Category {
+	for _, category := range categoryCatalog {
+		if category.Flag == flag {
+			return category.Category
+		}
+	}
+	return Category{}
+}
+
 func encodeCategories(ids []string) (CategoryFlags, error) {
 	var flags CategoryFlags
 	for _, id := range ids {

@@ -1,8 +1,12 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { i18n } from '../i18n'
 import { api, ApiError, jsonRequest } from './client'
 import { endpoints } from './endpoints'
 
 afterEach(() => vi.unstubAllGlobals())
+beforeEach(async () => {
+  await i18n.changeLanguage('zh-Hans')
+})
 
 it('requests the endpoint once with cookies, CSRF and cancellation intact', async () => {
   const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'song' })))

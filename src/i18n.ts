@@ -22,8 +22,23 @@ export function formatLocale(language?: string): string {
   return normalizeLanguage(language) === 'zh-Hans' ? 'zh-CN' : normalizeLanguage(language)
 }
 
-// Account data is the only language source. Do not infer it from the browser or
-// persist a separate preference in localStorage; missing preferences use Chinese.
+export function browserLanguage(): Language {
+  const languages =
+    typeof navigator === 'undefined'
+      ? []
+      : navigator.languages?.length
+        ? navigator.languages
+        : [navigator.language]
+  for (const language of languages) {
+    const base = language.trim().toLowerCase().replaceAll('_', '-').split('-')[0]
+    if (base === 'zh') return 'zh-Hans'
+    if (base === 'en' || base === 'ja' || base === 'ko') return base
+  }
+  return 'en'
+}
+
+// Start with the browser language; LanguageProvider applies the SSO preference
+// once the session is available. No separate preference is stored locally.
 export const i18n = i18next.createInstance()
 void i18n.use(initReactI18next).init({
   resources: {
@@ -32,7 +47,7 @@ void i18n.use(initReactI18next).init({
     ja: { translation: ja },
     ko: { translation: ko },
   },
-  lng: 'zh-Hans',
+  lng: browserLanguage(),
   fallbackLng: 'zh-Hans',
   supportedLngs: Object.keys(languageNames),
   load: 'currentOnly',

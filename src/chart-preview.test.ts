@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { i18n } from './i18n'
 import { courseNames, supportsChart } from './courses'
 import { defaultDifficulty } from './chart-difficulty'
 import { parsePreviewTja } from './preview-tja'
 import type { Difficulty } from './tja'
+
+beforeEach(async () => {
+  await i18n.changeLanguage('zh-Hans')
+})
 
 describe('detail difficulty selection', () => {
   const courses = ['Easy', 'Normal', 'Hard', 'Edit', 'Oni']

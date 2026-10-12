@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import type { Chart, User } from '../src/api/types'
 
+test.use({ locale: 'en-US' })
+
 const chart: Chart = {
   id: 'language-chart',
   title: 'Original title',
@@ -59,6 +61,8 @@ async function fixture(page: Page, language?: string, loggedIn = true) {
       return route.fulfill({ json: {} })
     }
     if (path.endsWith('/categories')) return route.fulfill({ json: { items: [] } })
+    if (path.endsWith('/comments'))
+      return route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } })
     if (path.endsWith('/tja'))
       return route.fulfill({
         body: 'TITLE:Original title\nBPM:120\nCOURSE:Oni\nLEVEL:5\n#START\n1000,\n#END\n',
@@ -106,22 +110,25 @@ for (const [language, htmlLanguage, heading, title, subtitle] of [
   })
 }
 
-test('refreshes account language on focus, keeps edit draft and resets after logout', async ({
+test('refreshes account language on focus, keeps edit draft and follows browser after logout', async ({
   page,
 }) => {
   const account = await fixture(page, 'en')
   await page.goto('/charts/language-chart')
   await page.getByRole('button', { name: 'Edit information', exact: true }).click()
+  await page.getByRole('tab', { name: 'Translations', exact: true }).click()
   await page.locator('#edit-ja-title').fill('Unsaved draft')
   account.setLanguage('ja')
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
+  await page.evaluate(() => window.dispatchEvent(new Event('languagechange')))
   await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
   await expect(page.getByRole('dialog')).toContainText('譜面情報を編集')
   await expect(page.locator('#edit-ja-title')).toHaveValue('Unsaved draft')
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click()
   await page.getByRole('button', { name: 'ログアウト', exact: true }).click()
-  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
-  await expect(page.getByRole('heading', { name: '中文曲名', exact: true })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(page.getByRole('heading', { name: 'English title', exact: true })).toBeVisible()
 })
 
 test('saving a translated title keeps the cover and returns focus to edit information', async ({
@@ -154,6 +161,7 @@ test('saving a translated title keeps the cover and returns focus to edit inform
   const source = await cover.getAttribute('src')
   const edit = page.getByRole('button', { name: '编辑信息', exact: true })
   await edit.click()
+  await page.getByRole('tab', { name: '译名', exact: true }).click()
   await page.getByLabel('中文歌名', { exact: true }).fill('保存后的译名')
   await page.getByRole('button', { name: '保存修改', exact: true }).click()
   const success = page.getByRole('dialog', { name: '操作成功' })
@@ -167,6 +175,7 @@ test('saving a translated title keeps the cover and returns focus to edit inform
   await expect(page.getByText('暂无封面', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('link', { name: '跳到主要内容', includeHidden: true })).toHaveCount(0)
   await edit.click()
+  await page.getByRole('tab', { name: '译名', exact: true }).click()
   await expect(page.getByLabel('中文歌名', { exact: true })).toHaveValue('保存后的译名')
   await page.keyboard.press('Escape')
   await expect(edit).toBeFocused()
@@ -182,11 +191,43 @@ for (const language of [undefined, 'invalid-language']) {
   })
 }
 
-test('anonymous visitors use Chinese even with an English browser preference', async ({ page }) => {
+for (const [locale, htmlLanguage, title] of [
+  ['en-US', 'en', 'English title'],
+  ['zh-TW', 'zh-CN', '中文曲名'],
+  ['ja-JP', 'ja', '日本語の曲名'],
+  ['ko-KR', 'ko', '한국어 곡명'],
+  ['de-DE', 'en', 'English title'],
+]) {
+  test.describe(`browser language ${locale}`, () => {
+    test.use({ locale })
+    test('anonymous visitors follow the browser language', async ({ page }) => {
+      await fixture(page, undefined, false)
+      await page.goto('/')
+      await expect(page.locator('html')).toHaveAttribute('lang', htmlLanguage)
+      await expect(page.getByTestId('chart-card')).toContainText(title)
+    })
+  })
+}
+
+test('anonymous visitors match browser preferences in order and react to language changes', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'languages', {
+      configurable: true,
+      value: ['de-DE', 'ja-JP', 'ko-KR'],
+    })
+  })
   await fixture(page, undefined, false)
   await page.goto('/')
-  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN')
-  await expect(page.getByTestId('chart-card')).toContainText('中文曲名')
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
+  await expect(page.getByTestId('chart-card')).toContainText('日本語の曲名')
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'languages', { configurable: true, value: ['ko-KR', 'en-US'] })
+    window.dispatchEvent(new Event('languagechange'))
+  })
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ko')
+  await expect(page.getByTestId('chart-card')).toContainText('한국어 곡명')
 })
 
 test('English edits use the same translation dictionary and preserve other languages', async ({
@@ -208,6 +249,7 @@ test('English edits use the same translation dictionary and preserve other langu
   await page.goto('/charts/language-chart')
   await expect(page.getByRole('heading', { name: 'English title', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Edit information', exact: true }).click()
+  await page.getByRole('tab', { name: 'Translations', exact: true }).click()
   await expect(page.locator('#edit-en-title')).toHaveValue('English title')
   await page.locator('#edit-en-title').fill('Edited English')
   await page.getByRole('button', { name: 'Save changes', exact: true }).click()

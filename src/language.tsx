@@ -1,14 +1,20 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { i18n, normalizeLanguage, formatLocale } from './i18n'
+import { i18n, normalizeLanguage, formatLocale, browserLanguage } from './i18n'
 import { useSession } from './session-context'
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const { user } = useSession()
-  const language = normalizeLanguage(user?.preferredLanguage)
+  const language = user ? normalizeLanguage(user.preferredLanguage) : null
   useEffect(() => {
-    void i18n.changeLanguage(language)
+    const updateLanguage = () => {
+      void i18n.changeLanguage(language ?? browserLanguage())
+    }
+    updateLanguage()
+    if (language !== null) return
+    window.addEventListener('languagechange', updateLanguage)
+    return () => window.removeEventListener('languagechange', updateLanguage)
   }, [language])
   return children
 }

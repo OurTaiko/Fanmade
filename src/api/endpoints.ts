@@ -8,6 +8,7 @@ function withQuery(url: string, values: Record<string, string | number>): string
 }
 
 const chartPath = (id: string) => `${API_ROOT}/charts/${encodeURIComponent(id)}`
+const playlistPath = (id: string) => `${API_ROOT}/playlists/${encodeURIComponent(id)}`
 
 export const endpoints = {
   me: `${API_ROOT}/me`,
@@ -57,6 +58,18 @@ export const endpoints = {
   notification: (id: string) => `${API_ROOT}/me/notifications/${encodeURIComponent(id)}`,
   notificationSettings: `${API_ROOT}/me/notification-settings`,
   resources: (id: string) => `${chartPath(id)}/resources`,
+  playlists: `${API_ROOT}/playlists`,
+  playlistList: (query: { q: string; sort: string; page: number; owner?: string }) =>
+    withQuery(`${API_ROOT}/playlists`, query),
+  systemPlaylists: `${API_ROOT}/playlists/system`,
+  myPlaylists: (chart?: string) => withQuery(`${API_ROOT}/me/playlists`, chart ? { chart } : {}),
+  playlist: playlistPath,
+  playlistCover: (id: string, hash?: string) =>
+    withQuery(`${playlistPath(id)}/cover`, hash ? { v: hash } : {}),
+  playlistItem: (id: string, chart: string) =>
+    `${playlistPath(id)}/items/${encodeURIComponent(chart)}`,
+  playlistOrder: (id: string) => `${playlistPath(id)}/order`,
+  playlistFavorite: (id: string) => `${playlistPath(id)}/favorite`,
   resource: (chart: Pick<Chart, 'id'>, kind: 'audio' | 'tja' | 'movie') =>
     `${chartPath(chart.id)}/${kind}`,
 } as const

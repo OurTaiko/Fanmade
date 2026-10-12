@@ -460,7 +460,12 @@
     "NOTIFICATION_KIND_INVALID": "未知的通知类型",
     "PREVIEW_RANGE_INVALID": "试听范围无效：起点必须位于音频范围内，终点须晚于起点。",
     "CHART_FILES_CHANGED": "歌曲文件已被其他更新替换，请重新打开歌曲页面后上传。",
-    "LAST_OWNER": "你是唯一的所有者，不能放弃；如不再需要可以删除作品。"
+    "LAST_OWNER": "你是唯一的所有者，不能放弃；如不再需要可以删除作品。",
+    "PLAYLIST_LIMIT": "每位用户最多创建 100 个歌单。",
+    "PLAYLIST_FULL": "每个歌单最多收录 500 首歌曲。",
+    "PLAYLIST_CHANGED": "歌单内容已变化，请刷新后重试。",
+    "OWN_PLAYLIST": "不能收藏自己的歌单。",
+    "FAVORITE_LIMIT": "最多收藏 200 个歌单。"
   },
   "interactions": {
     "upvote": "赞",
@@ -558,7 +563,8 @@
       "upload_updated_partial": "《{{title}}》已更新，但有文件未能处理、已被略过：{{files}}",
       "upload_failed": "《{{title}}》上传失败，没有保存任何文件：{{reason}}",
       "upload_skipped_file": "{{file}}（{{reason}}）",
-      "unknown": "你有一条新通知"
+      "unknown": "你有一条新通知",
+      "playlist_removed": "你的歌单“{{name}}”已被管理员删除"
     },
     "file": {
       "cover": "封面",
@@ -595,5 +601,85 @@
     "leaveConfirm": "确认放弃",
     "leavingNow": "正在处理…",
     "left": "你已不再是这首谱面的所有者。"
+  },
+  "playlists": {
+    "plaza": "歌单广场",
+    "plazaDescription": "浏览大家整理的歌单。收藏的歌单会作为文件夹出现在游戏的选曲界面。",
+    "mine": "我的歌单",
+    "mineDescription": "你创建和收藏的歌单会作为文件夹出现在游戏的选曲界面。",
+    "signInToManage": "登录后可以创建和收藏歌单。",
+    "create": "新建歌单",
+    "edit": "编辑歌单",
+    "name": "歌单名称",
+    "description": "简介",
+    "descriptionPlaceholder": "可选，最多 500 字",
+    "category": "分类",
+    "categoryHelp": "游戏按所选分类的配色显示这个歌单的文件夹。",
+    "public": "公开",
+    "publicHelp": "公开后任何人都能查看和收藏，并出现在歌单广场。",
+    "private": "私有",
+    "delete": "删除歌单",
+    "deleteTitle": "删除这个歌单？",
+    "deleteDescription": "歌单和它的收藏记录会被删除，歌曲本身不受影响。",
+    "deleted": "歌单已删除。",
+    "changeCover": "更换封面",
+    "removeCover": "移除封面",
+    "coverAlt": "歌单“{{name}}”的封面",
+    "coverHelp": "封面显示在歌单广场和歌单页面。",
+    "favorite": "收藏",
+    "unfavorite": "取消收藏",
+    "favoriteCount_other": "{{count}} 人收藏",
+    "songCount_other": "{{count}} 首歌曲",
+    "creator": "创建者",
+    "systemBadge": "系统歌单",
+    "systemSection": "系统歌单",
+    "owned": "我创建的",
+    "favorites": "我收藏的",
+    "search": "搜索歌单",
+    "searchPlaceholder": "歌单名称或简介",
+    "sort": "歌单排序",
+    "sortUpdated": "最近更新",
+    "sortNewest": "最新创建",
+    "sortFavorites": "最多收藏",
+    "total": "共 {{total}} 个歌单",
+    "loading": "正在加载歌单…",
+    "pagination": "歌单分页",
+    "empty": "还没有公开的歌单。",
+    "emptySearch": "没有匹配的歌单。",
+    "emptyOwned": "你还没有创建歌单。",
+    "emptyFavorites": "你还没有收藏歌单。",
+    "emptySongs": "这个歌单还没有歌曲。",
+    "emptySongsOwner": "在歌曲页面点击“加入歌单”，把歌曲收录进来。",
+    "emptyUser": "这位用户还没有公开的歌单。",
+    "addToPlaylist": "加入歌单",
+    "addHelp": "选择要收录这首歌曲的歌单，再次点击可以移出。",
+    "inPlaylist": "已收录",
+    "newPlaylistName": "新歌单名称",
+    "createAndAdd": "新建并加入",
+    "arrange": "调整歌曲",
+    "done": "完成",
+    "moveUp": "上移“{{title}}”",
+    "moveDown": "下移“{{title}}”",
+    "removeSong": "从歌单移除“{{title}}”",
+    "userPlaylists": "公开歌单",
+    "back": "返回歌单广场",
+    "system": {
+      "liked": {
+        "name": "我赞过的",
+        "description": "你点过赞的歌曲，最近的排在前面。"
+      },
+      "popular": {
+        "name": "大家都在玩",
+        "description": "最近 7 天游玩次数最多的 20 首歌曲。"
+      },
+      "acclaimed": {
+        "name": "近期好评",
+        "description": "最近 30 天上传的歌曲中评价最高的 20 首。"
+      },
+      "daily": {
+        "name": "今日课题",
+        "description": "每天随机抽取的 10 首歌曲。"
+      }
+    }
   }
 }

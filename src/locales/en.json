@@ -463,7 +463,12 @@
     "NOTIFICATION_KIND_INVALID": "Unknown notification type.",
     "PREVIEW_RANGE_INVALID": "The preview range is invalid: it must start inside the audio and end after it starts.",
     "CHART_FILES_CHANGED": "The song files were replaced by another update. Reopen the song page and upload again.",
-    "LAST_OWNER": "You are the only owner and cannot give up the chart. Delete it if you no longer want it."
+    "LAST_OWNER": "You are the only owner and cannot give up the chart. Delete it if you no longer want it.",
+    "PLAYLIST_LIMIT": "You can create up to 100 playlists.",
+    "PLAYLIST_FULL": "A playlist can hold up to 500 songs.",
+    "PLAYLIST_CHANGED": "The playlist has changed. Refresh and try again.",
+    "OWN_PLAYLIST": "You cannot favorite your own playlist.",
+    "FAVORITE_LIMIT": "You can favorite up to 200 playlists."
   },
   "interactions": {
     "upvote": "Upvote",
@@ -568,7 +573,8 @@
       "upload_updated_partial": "\"{{title}}\" has been updated, but some files could not be processed and were left out: {{files}}",
       "upload_failed": "Uploading \"{{title}}\" failed and nothing was saved: {{reason}}",
       "upload_skipped_file": "{{file}} ({{reason}})",
-      "unknown": "You have a new notification"
+      "unknown": "You have a new notification",
+      "playlist_removed": "An administrator deleted your playlist \"{{name}}\""
     },
     "file": {
       "cover": "Cover",
@@ -605,5 +611,87 @@
     "leaveConfirm": "Give up ownership",
     "leavingNow": "Working…",
     "left": "You are no longer an owner of this chart."
+  },
+  "playlists": {
+    "plaza": "Playlists",
+    "plazaDescription": "Browse playlists curated by the community. Playlists you favorite appear as folders in the game's song select.",
+    "mine": "My playlists",
+    "mineDescription": "Playlists you create or favorite appear as folders in the game's song select.",
+    "signInToManage": "Sign in to create and favorite playlists.",
+    "create": "New playlist",
+    "edit": "Edit playlist",
+    "name": "Playlist name",
+    "description": "Description",
+    "descriptionPlaceholder": "Optional, up to 500 characters",
+    "category": "Category",
+    "categoryHelp": "The game draws this playlist's folder in the colours of the chosen category.",
+    "public": "Public",
+    "publicHelp": "Anyone can view and favorite a public playlist, and it is listed on the playlists page.",
+    "private": "Private",
+    "delete": "Delete playlist",
+    "deleteTitle": "Delete this playlist?",
+    "deleteDescription": "The playlist and its favorites are deleted. The songs themselves are not affected.",
+    "deleted": "Playlist deleted.",
+    "changeCover": "Change cover",
+    "removeCover": "Remove cover",
+    "coverAlt": "Cover of the playlist \"{{name}}\"",
+    "coverHelp": "The cover is shown on the playlists page and on the playlist itself.",
+    "favorite": "Favorite",
+    "unfavorite": "Unfavorite",
+    "favoriteCount_one": "{{count}} favorite",
+    "favoriteCount_other": "{{count}} favorites",
+    "songCount_one": "{{count}} song",
+    "songCount_other": "{{count}} songs",
+    "creator": "Created by",
+    "systemBadge": "System playlist",
+    "systemSection": "System playlists",
+    "owned": "Created by me",
+    "favorites": "My favorites",
+    "search": "Search playlists",
+    "searchPlaceholder": "Playlist name or description",
+    "sort": "Sort playlists",
+    "sortUpdated": "Recently updated",
+    "sortNewest": "Newest",
+    "sortFavorites": "Most favorited",
+    "total": "{{total}} playlists",
+    "loading": "Loading playlists…",
+    "pagination": "Playlist pagination",
+    "empty": "There are no public playlists yet.",
+    "emptySearch": "No playlists match.",
+    "emptyOwned": "You have not created a playlist yet.",
+    "emptyFavorites": "You have not favorited a playlist yet.",
+    "emptySongs": "This playlist has no songs yet.",
+    "emptySongsOwner": "Use \"Add to playlist\" on a song's page to collect songs here.",
+    "emptyUser": "This member has no public playlists yet.",
+    "addToPlaylist": "Add to playlist",
+    "addHelp": "Choose the playlists that should include this song. Select one again to take the song out.",
+    "inPlaylist": "Added",
+    "newPlaylistName": "New playlist name",
+    "createAndAdd": "Create and add",
+    "arrange": "Arrange songs",
+    "done": "Done",
+    "moveUp": "Move \"{{title}}\" up",
+    "moveDown": "Move \"{{title}}\" down",
+    "removeSong": "Remove \"{{title}}\" from the playlist",
+    "userPlaylists": "Public playlists",
+    "back": "Back to playlists",
+    "system": {
+      "liked": {
+        "name": "Liked Songs",
+        "description": "Songs you upvoted, newest first."
+      },
+      "popular": {
+        "name": "Popular This Week",
+        "description": "The 20 most played songs of the last 7 days."
+      },
+      "acclaimed": {
+        "name": "Recently Acclaimed",
+        "description": "The 20 best rated songs uploaded in the last 30 days."
+      },
+      "daily": {
+        "name": "Daily Challenge",
+        "description": "Ten songs drawn at random every day."
+      }
+    }
   }
 }

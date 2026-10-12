@@ -460,7 +460,12 @@
     "NOTIFICATION_KIND_INVALID": "不明な通知の種類です。",
     "PREVIEW_RANGE_INVALID": "試聴範囲が無効です。開始位置は音源の範囲内、終了位置は開始より後にしてください。",
     "CHART_FILES_CHANGED": "曲のファイルは別の更新で置き換えられました。曲のページを開き直してアップロードしてください。",
-    "LAST_OWNER": "唯一の所有者のため放棄できません。不要な場合は作品を削除してください。"
+    "LAST_OWNER": "唯一の所有者のため放棄できません。不要な場合は作品を削除してください。",
+    "PLAYLIST_LIMIT": "プレイリストは 100 個まで作成できます。",
+    "PLAYLIST_FULL": "1 つのプレイリストに登録できるのは 500 曲までです。",
+    "PLAYLIST_CHANGED": "プレイリストの内容が変更されました。更新してからもう一度お試しください。",
+    "OWN_PLAYLIST": "自分のプレイリストはお気に入りに追加できません。",
+    "FAVORITE_LIMIT": "お気に入りに追加できるプレイリストは 200 個までです。"
   },
   "interactions": {
     "upvote": "高評価",
@@ -558,7 +563,8 @@
       "upload_updated_partial": "「{{title}}」を更新しましたが、処理できなかったファイルは除外されました：{{files}}",
       "upload_failed": "「{{title}}」のアップロードに失敗し、何も保存されませんでした：{{reason}}",
       "upload_skipped_file": "{{file}}（{{reason}}）",
-      "unknown": "新しい通知があります"
+      "unknown": "新しい通知があります",
+      "playlist_removed": "あなたのプレイリスト「{{name}}」は管理者によって削除されました"
     },
     "file": {
       "cover": "カバー",
@@ -595,5 +601,85 @@
     "leaveConfirm": "放棄する",
     "leavingNow": "処理中…",
     "left": "この譜面の所有者ではなくなりました。"
+  },
+  "playlists": {
+    "plaza": "プレイリスト広場",
+    "plazaDescription": "みんなが作ったプレイリストを探せます。お気に入りに追加したプレイリストは、ゲームの選曲画面にフォルダとして表示されます。",
+    "mine": "マイプレイリスト",
+    "mineDescription": "作成したプレイリストとお気に入りのプレイリストは、ゲームの選曲画面にフォルダとして表示されます。",
+    "signInToManage": "ログインするとプレイリストの作成とお気に入り登録ができます。",
+    "create": "プレイリストを作成",
+    "edit": "プレイリストを編集",
+    "name": "プレイリスト名",
+    "description": "説明",
+    "descriptionPlaceholder": "任意、500 文字まで",
+    "category": "カテゴリ",
+    "categoryHelp": "ゲームでは、選んだカテゴリの配色でこのプレイリストのフォルダが表示されます。",
+    "public": "公開",
+    "publicHelp": "公開すると誰でも閲覧・お気に入り登録でき、プレイリスト広場に表示されます。",
+    "private": "非公開",
+    "delete": "プレイリストを削除",
+    "deleteTitle": "このプレイリストを削除しますか？",
+    "deleteDescription": "プレイリストとそのお気に入り登録が削除されます。曲そのものには影響しません。",
+    "deleted": "プレイリストを削除しました。",
+    "changeCover": "カバーを変更",
+    "removeCover": "カバーを削除",
+    "coverAlt": "プレイリスト「{{name}}」のカバー",
+    "coverHelp": "カバーはプレイリスト広場とプレイリストのページに表示されます。",
+    "favorite": "お気に入り",
+    "unfavorite": "お気に入り解除",
+    "favoriteCount_other": "お気に入り {{count}} 人",
+    "songCount_other": "{{count}} 曲",
+    "creator": "作成者",
+    "systemBadge": "システムプレイリスト",
+    "systemSection": "システムプレイリスト",
+    "owned": "作成したプレイリスト",
+    "favorites": "お気に入り",
+    "search": "プレイリストを検索",
+    "searchPlaceholder": "プレイリスト名または説明",
+    "sort": "プレイリストの並び順",
+    "sortUpdated": "更新順",
+    "sortNewest": "新着順",
+    "sortFavorites": "お気に入り数順",
+    "total": "プレイリスト {{total}} 件",
+    "loading": "プレイリストを読み込んでいます…",
+    "pagination": "プレイリストのページ送り",
+    "empty": "公開されているプレイリストはまだありません。",
+    "emptySearch": "一致するプレイリストがありません。",
+    "emptyOwned": "まだプレイリストを作成していません。",
+    "emptyFavorites": "お気に入りのプレイリストはまだありません。",
+    "emptySongs": "このプレイリストにはまだ曲がありません。",
+    "emptySongsOwner": "曲のページで「プレイリストに追加」を押して曲を登録してください。",
+    "emptyUser": "このユーザーには公開プレイリストがまだありません。",
+    "addToPlaylist": "プレイリストに追加",
+    "addHelp": "この曲を登録するプレイリストを選んでください。もう一度押すと外せます。",
+    "inPlaylist": "登録済み",
+    "newPlaylistName": "新しいプレイリスト名",
+    "createAndAdd": "作成して追加",
+    "arrange": "曲を並べ替え",
+    "done": "完了",
+    "moveUp": "「{{title}}」を上へ移動",
+    "moveDown": "「{{title}}」を下へ移動",
+    "removeSong": "「{{title}}」をプレイリストから外す",
+    "userPlaylists": "公開プレイリスト",
+    "back": "プレイリスト広場に戻る",
+    "system": {
+      "liked": {
+        "name": "高評価した曲",
+        "description": "あなたが高評価した曲を新しい順に表示します。"
+      },
+      "popular": {
+        "name": "みんなが遊んでいる曲",
+        "description": "直近 7 日間で最も遊ばれた 20 曲。"
+      },
+      "acclaimed": {
+        "name": "最近の高評価",
+        "description": "直近 30 日間に投稿された曲のうち評価の高い 20 曲。"
+      },
+      "daily": {
+        "name": "今日の課題",
+        "description": "毎日ランダムに選ばれる 10 曲。"
+      }
+    }
   }
 }

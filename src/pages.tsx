@@ -1,5 +1,6 @@
 import { chartOwners, isChartOwner } from './chart-owners'
 import { CollaborationDialog } from './collaborations'
+import { AddToPlaylistDialog } from './playlists'
 import { formatLocale } from '@/i18n'
 import { chartText } from '@/chart-language'
 import { buildChartPackage, packageFilename, saveBlob } from '@/chart-package'
@@ -24,6 +25,7 @@ import {
   ArrowSquareOutIcon,
   ChatCircleIcon,
   CaretRightIcon,
+  PlaylistIcon,
 } from '@phosphor-icons/react'
 import { api, jsonRequest } from './api/client'
 import type { Chart, ChartList } from './api/types'
@@ -328,6 +330,7 @@ export function Detail() {
   const [editing, setEditing] = useState(false)
   const [coverEditing, setCoverEditing] = useState(false)
   const [collaborating, setCollaborating] = useState(false)
+  const [collecting, setCollecting] = useState(false)
   const [saved, setSaved] = useState(false)
   const editButton = useRef<HTMLButtonElement>(null)
   // Below lg the page shows one section at a time; wider screens show them all.
@@ -340,6 +343,7 @@ export function Detail() {
     setEditing(false)
     setCoverEditing(false)
     setCollaborating(false)
+    setCollecting(false)
     setSaved(false)
     setConfirm(false)
     setLeaving(false)
@@ -492,6 +496,18 @@ export function Detail() {
               <ArrowSquareOutIcon size={17} aria-hidden="true" />
               {t('messages.sourceFiles')}
             </a>
+            {session.user && (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="h-11"
+                aria-label={t('playlists.addToPlaylist')}
+                onClick={() => setCollecting(true)}
+              >
+                <PlaylistIcon size={17} aria-hidden="true" />
+                <span className="max-sm:hidden">{t('playlists.addToPlaylist')}</span>
+              </Button>
+            )}
             <div className="hidden flex-1 sm:block" />
             <VoteControl
               className="rounded-full bg-[#f5f5f7] px-1 py-0.5 dark:bg-muted"
@@ -551,6 +567,9 @@ export function Detail() {
             setSaved(true)
           }}
         />
+      )}
+      {collecting && session.user && (
+        <AddToPlaylistDialog chart={chart} onDismiss={() => setCollecting(false)} />
       )}
       {collaborating && isOwner && (
         <CollaborationDialog chart={chart} onDismiss={() => setCollaborating(false)} />

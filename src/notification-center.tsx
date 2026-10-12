@@ -59,6 +59,8 @@ function useNotificationText() {
         return t('notificationCenter.text.comment_upvotes', { chart, count })
       case 'comment_removed':
         return t('notificationCenter.text.comment_removed', { chart })
+      case 'playlist_removed':
+        return t('notificationCenter.text.playlist_removed', { name: n.data.name ?? '' })
       case 'upload_result': {
         const title = n.data.title || chart
         if (n.data.status === 'failed')
@@ -107,6 +109,7 @@ const kindIcons: Record<string, ReactNode> = {
   comment_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
   comment_removed: <ShieldWarningIcon className="text-destructive" />,
   upload_result: <UploadSimpleIcon />,
+  playlist_removed: <ShieldWarningIcon className="text-destructive" />,
 }
 
 function NotificationIcon({ n }: { n: AppNotification }) {

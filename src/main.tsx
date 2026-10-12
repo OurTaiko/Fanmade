@@ -16,6 +16,7 @@ import { ProfilePage } from './profile'
 import { UsersPage } from './users'
 import { UserSpacePage } from './user-space'
 import { NotificationsPage } from './notification-center'
+import { MyPlaylistsPage, PlaylistPage, PlaylistsPage } from './playlists'
 import './styles.css'
 import { ThemeProvider } from './theme'
 function App() {
@@ -38,6 +39,9 @@ function App() {
                         <Route path="users/:id" element={<UserSpacePage />} />
                         <Route path="me/profile" element={<ProfilePage />} />
                         <Route path="me/charts" element={<Library mine />} />
+                        <Route path="playlists" element={<PlaylistsPage />} />
+                        <Route path="playlists/:id" element={<PlaylistPage />} />
+                        <Route path="me/playlists" element={<MyPlaylistsPage />} />
                         <Route path="upload" element={<UploadPage />} />
                         <Route path="charts/:id/update" element={<UpdatePage />} />
                         <Route path="charts/:id" element={<Detail />} />

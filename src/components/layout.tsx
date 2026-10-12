@@ -10,6 +10,7 @@ import {
   UserIcon as UserRound,
   ListIcon as Menu,
   GameControllerIcon,
+  PlaylistIcon,
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Notice } from '@/notifications'
@@ -34,6 +35,7 @@ export function Layout() {
   const [error, setError] = useState('')
   const links = [
     { to: '/', label: t('messages.exploreCharts'), icon: Compass },
+    { to: '/playlists', label: t('playlists.plaza'), icon: PlaylistIcon },
     { to: '/users', label: t('messages.userSquare'), icon: UsersIcon },
     {
       to: 'https://play.ourtaiko.org/',

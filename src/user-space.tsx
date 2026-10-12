@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ChoiceSelect } from '@/components/choice-select'
 import { CommentListView } from '@/comments'
 import type { CommentList } from '@/api/types'
+import { UserPlaylists } from '@/playlists'
 
 export function UserSpacePage() {
   const { id = '' } = useParams()
@@ -101,6 +102,7 @@ export function UserSpacePage() {
             <Tabs defaultValue="charts" className="min-w-0 gap-6">
               <TabsList aria-label={t('interactions.userSpaceSections')}>
                 <TabsTrigger value="charts">{t('messages.publicChartCount')}</TabsTrigger>
+                <TabsTrigger value="playlists">{t('playlists.userPlaylists')}</TabsTrigger>
                 <TabsTrigger value="comments">{t('interactions.publicCommentCount')}</TabsTrigger>
               </TabsList>
               <TabsContent value="charts">
@@ -110,6 +112,9 @@ export function UserSpacePage() {
                 >
                   <Library key={`${id}:${refresh}`} ownerId={id} embedded />
                 </section>
+              </TabsContent>
+              <TabsContent value="playlists">
+                <UserPlaylists key={`${id}:${refresh}`} ownerId={id} />
               </TabsContent>
               <TabsContent value="comments">
                 <UserComments key={`${id}:${refresh}`} id={id} />

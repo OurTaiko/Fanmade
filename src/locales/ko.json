@@ -460,7 +460,12 @@
     "NOTIFICATION_KIND_INVALID": "알 수 없는 알림 유형입니다.",
     "PREVIEW_RANGE_INVALID": "미리듣기 범위가 잘못되었습니다. 시작은 오디오 범위 안이어야 하고 끝은 시작보다 뒤여야 합니다.",
     "CHART_FILES_CHANGED": "곡 파일이 다른 업데이트로 교체되었습니다. 곡 페이지를 다시 열고 업로드하세요.",
-    "LAST_OWNER": "유일한 소유자이므로 포기할 수 없습니다. 필요 없다면 작품을 삭제하세요."
+    "LAST_OWNER": "유일한 소유자이므로 포기할 수 없습니다. 필요 없다면 작품을 삭제하세요.",
+    "PLAYLIST_LIMIT": "플레이리스트는 최대 100개까지 만들 수 있습니다.",
+    "PLAYLIST_FULL": "플레이리스트 하나에는 최대 500곡까지 담을 수 있습니다.",
+    "PLAYLIST_CHANGED": "플레이리스트 내용이 변경되었습니다. 새로고침한 뒤 다시 시도해 주세요.",
+    "OWN_PLAYLIST": "자신의 플레이리스트는 즐겨찾기에 추가할 수 없습니다.",
+    "FAVORITE_LIMIT": "플레이리스트는 최대 200개까지 즐겨찾기에 추가할 수 있습니다."
   },
   "interactions": {
     "upvote": "추천",
@@ -558,7 +563,8 @@
       "upload_updated_partial": "\"{{title}}\"이(가) 업데이트되었지만 처리하지 못한 파일은 제외되었습니다: {{files}}",
       "upload_failed": "\"{{title}}\" 업로드에 실패했으며 아무것도 저장되지 않았습니다: {{reason}}",
       "upload_skipped_file": "{{file}}({{reason}})",
-      "unknown": "새 알림이 있습니다"
+      "unknown": "새 알림이 있습니다",
+      "playlist_removed": "회원님의 플레이리스트 \"{{name}}\"이(가) 관리자에 의해 삭제되었습니다"
     },
     "file": {
       "cover": "커버",
@@ -595,5 +601,85 @@
     "leaveConfirm": "포기하기",
     "leavingNow": "처리 중…",
     "left": "더 이상 이 채보의 소유자가 아닙니다."
+  },
+  "playlists": {
+    "plaza": "플레이리스트 광장",
+    "plazaDescription": "다른 사용자들이 만든 플레이리스트를 둘러보세요. 즐겨찾기한 플레이리스트는 게임의 선곡 화면에 폴더로 표시됩니다.",
+    "mine": "내 플레이리스트",
+    "mineDescription": "직접 만들거나 즐겨찾기한 플레이리스트는 게임의 선곡 화면에 폴더로 표시됩니다.",
+    "signInToManage": "로그인하면 플레이리스트를 만들고 즐겨찾기할 수 있습니다.",
+    "create": "새 플레이리스트",
+    "edit": "플레이리스트 편집",
+    "name": "플레이리스트 이름",
+    "description": "소개",
+    "descriptionPlaceholder": "선택 사항, 최대 500자",
+    "category": "분류",
+    "categoryHelp": "게임에서는 선택한 분류의 색상으로 이 플레이리스트의 폴더를 표시합니다.",
+    "public": "공개",
+    "publicHelp": "공개하면 누구나 보고 즐겨찾기할 수 있으며 플레이리스트 광장에 표시됩니다.",
+    "private": "비공개",
+    "delete": "플레이리스트 삭제",
+    "deleteTitle": "이 플레이리스트를 삭제할까요?",
+    "deleteDescription": "플레이리스트와 즐겨찾기 기록이 삭제됩니다. 곡 자체에는 영향이 없습니다.",
+    "deleted": "플레이리스트를 삭제했습니다.",
+    "changeCover": "커버 변경",
+    "removeCover": "커버 제거",
+    "coverAlt": "플레이리스트 \"{{name}}\"의 커버",
+    "coverHelp": "커버는 플레이리스트 광장과 플레이리스트 페이지에 표시됩니다.",
+    "favorite": "즐겨찾기",
+    "unfavorite": "즐겨찾기 해제",
+    "favoriteCount_other": "즐겨찾기 {{count}}명",
+    "songCount_other": "{{count}}곡",
+    "creator": "만든 사람",
+    "systemBadge": "시스템 플레이리스트",
+    "systemSection": "시스템 플레이리스트",
+    "owned": "내가 만든 플레이리스트",
+    "favorites": "즐겨찾기한 플레이리스트",
+    "search": "플레이리스트 검색",
+    "searchPlaceholder": "플레이리스트 이름 또는 소개",
+    "sort": "플레이리스트 정렬",
+    "sortUpdated": "최근 업데이트순",
+    "sortNewest": "최신순",
+    "sortFavorites": "즐겨찾기 많은 순",
+    "total": "플레이리스트 {{total}}개",
+    "loading": "플레이리스트를 불러오는 중…",
+    "pagination": "플레이리스트 페이지 이동",
+    "empty": "아직 공개된 플레이리스트가 없습니다.",
+    "emptySearch": "일치하는 플레이리스트가 없습니다.",
+    "emptyOwned": "아직 만든 플레이리스트가 없습니다.",
+    "emptyFavorites": "아직 즐겨찾기한 플레이리스트가 없습니다.",
+    "emptySongs": "이 플레이리스트에는 아직 곡이 없습니다.",
+    "emptySongsOwner": "곡 페이지에서 \"플레이리스트에 추가\"를 눌러 곡을 담아 보세요.",
+    "emptyUser": "이 사용자는 아직 공개 플레이리스트가 없습니다.",
+    "addToPlaylist": "플레이리스트에 추가",
+    "addHelp": "이 곡을 담을 플레이리스트를 선택하세요. 다시 누르면 뺄 수 있습니다.",
+    "inPlaylist": "추가됨",
+    "newPlaylistName": "새 플레이리스트 이름",
+    "createAndAdd": "만들고 추가",
+    "arrange": "곡 정리",
+    "done": "완료",
+    "moveUp": "\"{{title}}\" 위로 이동",
+    "moveDown": "\"{{title}}\" 아래로 이동",
+    "removeSong": "\"{{title}}\"을(를) 플레이리스트에서 제거",
+    "userPlaylists": "공개 플레이리스트",
+    "back": "플레이리스트 광장으로 돌아가기",
+    "system": {
+      "liked": {
+        "name": "내가 추천한 곡",
+        "description": "추천한 곡을 최신순으로 보여 줍니다."
+      },
+      "popular": {
+        "name": "모두가 플레이하는 곡",
+        "description": "최근 7일 동안 가장 많이 플레이된 20곡."
+      },
+      "acclaimed": {
+        "name": "최근 호평",
+        "description": "최근 30일 동안 업로드된 곡 중 평가가 높은 20곡."
+      },
+      "daily": {
+        "name": "오늘의 과제",
+        "description": "매일 무작위로 뽑는 10곡."
+      }
+    }
   }
 }

@@ -461,7 +461,8 @@
     "COMMENT_TOO_DEEP": "This thread is nested too deeply to reply.",
     "NOTIFICATION_KIND_INVALID": "Unknown notification type.",
     "PREVIEW_RANGE_INVALID": "The preview range is invalid: it must start inside the audio and end after it starts.",
-    "CHART_FILES_CHANGED": "The song files were replaced by another update. Reopen the song page and upload again."
+    "CHART_FILES_CHANGED": "The song files were replaced by another update. Reopen the song page and upload again.",
+    "LAST_OWNER": "You are the only owner and cannot give up the chart. Delete it if you no longer want it."
   },
   "interactions": {
     "upvote": "Upvote",
@@ -596,6 +597,12 @@
     "decline": "Decline",
     "accepted": "Accepted. You are now an owner.",
     "declined": "Declined",
-    "ownerBadgeTitle": "An owner of this chart"
+    "ownerBadgeTitle": "An owner of this chart",
+    "leave": "Give up ownership",
+    "leaveTitle": "Give up ownership of this chart?",
+    "leaveDescription": "You will no longer be an owner and cannot edit it, replace its files or delete it. The other owners are not affected. An owner must invite you again to restore this.",
+    "leaveConfirm": "Give up ownership",
+    "leavingNow": "Working…",
+    "left": "You are no longer an owner of this chart."
   }
 }

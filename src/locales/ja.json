@@ -458,7 +458,8 @@
     "COMMENT_TOO_DEEP": "返信の階層が深すぎます。",
     "NOTIFICATION_KIND_INVALID": "不明な通知の種類です。",
     "PREVIEW_RANGE_INVALID": "試聴範囲が無効です。開始位置は音源の範囲内、終了位置は開始より後にしてください。",
-    "CHART_FILES_CHANGED": "曲のファイルは別の更新で置き換えられました。曲のページを開き直してアップロードしてください。"
+    "CHART_FILES_CHANGED": "曲のファイルは別の更新で置き換えられました。曲のページを開き直してアップロードしてください。",
+    "LAST_OWNER": "唯一の所有者のため放棄できません。不要な場合は作品を削除してください。"
   },
   "interactions": {
     "upvote": "高評価",
@@ -586,6 +587,12 @@
     "decline": "辞退",
     "accepted": "承認済み。所有者になりました。",
     "declined": "辞退済み",
-    "ownerBadgeTitle": "この譜面の所有者"
+    "ownerBadgeTitle": "この譜面の所有者",
+    "leave": "所有権を放棄",
+    "leaveTitle": "この譜面の所有権を放棄しますか？",
+    "leaveDescription": "所有者ではなくなり、編集・ファイルの差し替え・削除ができなくなります。他の所有者には影響しません。元に戻すには所有者から再度招待してもらう必要があります。",
+    "leaveConfirm": "放棄する",
+    "leavingNow": "処理中…",
+    "left": "この譜面の所有者ではなくなりました。"
   }
 }

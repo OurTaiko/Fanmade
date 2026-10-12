@@ -322,6 +322,7 @@ export function Detail() {
   const [chart, setChart] = useState<Chart | null>(null),
     [error, setError] = useState(''),
     [confirm, setConfirm] = useState(false),
+    [leaving, setLeaving] = useState(false),
     [busy, setBusy] = useState(false),
     [packaging, setPackaging] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -341,6 +342,7 @@ export function Detail() {
     setCollaborating(false)
     setSaved(false)
     setConfirm(false)
+    setLeaving(false)
     setActivityTab('image')
     if (!id) return
     api<Chart>(endpoints.chart(id), { signal: controller.signal })
@@ -368,6 +370,22 @@ export function Detail() {
       if (!controller.signal.aborted) notify(t('messages.chartPackageDownloadFailed'), 'error')
     } finally {
       if (packageRequest.current === controller) setPackaging(false)
+    }
+  }
+  // Give up one's share of a co-owned chart; the other owners keep it.
+  const leave = async () => {
+    if (!chart) return
+    setBusy(true)
+    try {
+      await api(endpoints.chartOwnership(chart.id), jsonRequest('DELETE', {}, session.csrfToken))
+      setLeaving(false)
+      setChart(await api<Chart>(endpoints.chart(chart.id)))
+      notify(t('collaboration.left'), 'success')
+    } catch (e) {
+      setLeaving(false)
+      notify((e as Error).message, 'error')
+    } finally {
+      setBusy(false)
     }
   }
   const remove = async () => {
@@ -723,6 +741,17 @@ export function Detail() {
                     </button>
                   </li>
                 )}
+                {isOwner && chartOwners(chart).length > 1 && (
+                  <li>
+                    <button
+                      type="button"
+                      className={manageItemClassName}
+                      onClick={() => setLeaving(true)}
+                    >
+                      {t('collaboration.leave')}
+                    </button>
+                  </li>
+                )}
                 {isOwner && (
                   <li>
                     <button
@@ -735,6 +764,34 @@ export function Detail() {
                   </li>
                 )}
               </ul>
+              {leaving && (
+                <Modal
+                  title={t('collaboration.leaveTitle')}
+                  busy={busy}
+                  onDismiss={() => setLeaving(false)}
+                  actions={
+                    <>
+                      <DialogClose
+                        render={<Button type="button" variant="outline" size="default" />}
+                        disabled={busy}
+                      >
+                        {t('messages.cancel')}
+                      </DialogClose>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="default"
+                        disabled={busy}
+                        onClick={leave}
+                      >
+                        {busy ? t('collaboration.leavingNow') : t('collaboration.leaveConfirm')}
+                      </Button>
+                    </>
+                  }
+                >
+                  {t('collaboration.leaveDescription')}
+                </Modal>
+              )}
               {confirm && (
                 <Modal
                   title={t('messages.deleteThisChart')}

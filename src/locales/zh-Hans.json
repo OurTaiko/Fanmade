@@ -458,7 +458,8 @@
     "COMMENT_TOO_DEEP": "回复层级过深",
     "NOTIFICATION_KIND_INVALID": "未知的通知类型",
     "PREVIEW_RANGE_INVALID": "试听范围无效：起点必须位于音频范围内，终点须晚于起点。",
-    "CHART_FILES_CHANGED": "歌曲文件已被其他更新替换，请重新打开歌曲页面后上传。"
+    "CHART_FILES_CHANGED": "歌曲文件已被其他更新替换，请重新打开歌曲页面后上传。",
+    "LAST_OWNER": "你是唯一的所有者，不能放弃；如不再需要可以删除作品。"
   },
   "interactions": {
     "upvote": "赞",
@@ -586,6 +587,12 @@
     "decline": "拒绝",
     "accepted": "已同意，你已成为所有者之一。",
     "declined": "已拒绝",
-    "ownerBadgeTitle": "这首谱面的所有者"
+    "ownerBadgeTitle": "这首谱面的所有者",
+    "leave": "放弃所有权",
+    "leaveTitle": "放弃这首谱面的所有权？",
+    "leaveDescription": "你将不再是所有者，无法再编辑、替换文件或删除这首谱面，其他所有者不受影响。之后需要现有所有者重新邀请才能恢复。",
+    "leaveConfirm": "确认放弃",
+    "leavingNow": "正在处理…",
+    "left": "你已不再是这首谱面的所有者。"
   }
 }

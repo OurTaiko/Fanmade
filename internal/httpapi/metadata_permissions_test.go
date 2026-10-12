@@ -30,8 +30,7 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback(ctx)
-	_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,wave_filename) VALUES('chart',ARRAY['d46774d30dd13b92d9e536808da468a4'],'Original',120,10,'a.ogg');
- INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES('chart','tja','t','t.tja',repeat('a',64),1,'application/octet-stream'),('chart','audio','a','a.ogg',repeat('b',64),1,'audio/ogg');`)
+	_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) VALUES('chart',ARRAY['d46774d30dd13b92d9e536808da468a4'],'Original',120,10,test_file('t','t.tja',repeat('a',64),1),test_file('a','a.ogg',repeat('b',64),1));`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +97,7 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(storage, "cover.webp"), coverBytes, 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES('chart','cover','cover.webp','cover.webp',$2,octet_length($1::bytea),'image/webp')`, coverBytes, coverHash); err != nil {
+	if _, err = pool.Exec(ctx, `UPDATE charts SET cover_file=test_file('cover.webp','cover.webp',$2,octet_length($1::bytea)) WHERE id='chart'`, coverBytes, coverHash); err != nil {
 		t.Fatal(err)
 	}
 	editedResponse := call("d46774d30dd13b92d9e536808da468a4", "csrf", `{"titleTranslations":{"zh":"新译名"}}`)

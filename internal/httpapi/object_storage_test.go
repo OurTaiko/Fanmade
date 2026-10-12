@@ -32,7 +32,8 @@ func verifyResourceLinks(t *testing.T, h http.Handler, chartID string, audio []b
 	if payload.ChartID != chartID {
 		t.Fatal("resource identity must be chart only")
 	}
-	if len(payload.Resources) != 4 {
+	// TJA, audio and preview; the ZIP is built on request, not stored.
+	if _, stored := payload.Resources["download"]; stored || len(payload.Resources) != 3 {
 		t.Fatal("missing direct resources")
 	}
 	for kind, v := range payload.Resources {
@@ -71,8 +72,7 @@ func TestS3PendingRecoveryAndGameIsolation(t *testing.T) {
 		teststore.Seed(t, store, key, []byte("test"))
 	}
 	_, e := pool.Exec(ctx, `INSERT INTO pending_objects(storage_key,created_at) VALUES('abandoned',now()-interval '2 days'),('recent',now()),('referenced',now()-interval '2 days'); INSERT INTO retired_files(storage_key) VALUES('referenced'); BEGIN; INSERT INTO users(id) VALUES('u');
- INSERT INTO charts(id,owner_ids,title,bpm,duration,wave_filename) VALUES('c',ARRAY['u'],'Recovery',120,10,'test.ogg');
- INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) SELECT 'c',kind,'referenced','test',repeat('a',64),4,'test' FROM unnest(ARRAY['tja','audio']) kind; COMMIT;`)
+ INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) VALUES('c',ARRAY['u'],'Recovery',120,10,test_file('referenced','test',repeat('a',64),4),test_file('referenced','test',repeat('a',64),4)); COMMIT;`)
 	if e != nil {
 		t.Fatal(e)
 	}

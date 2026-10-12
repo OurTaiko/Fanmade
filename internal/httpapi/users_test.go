@@ -172,10 +172,7 @@ func TestUserDirectoryPublicScopeAndStatistics(t *testing.T) {
 	defer tx.Rollback(ctx)
 	for i, status := range []string{"published", "published", "hidden", "deleted"} {
 		song := fmt.Sprintf("%032x", i+200)
-		if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,status,title,bpm,duration,wave_filename) VALUES($1,ARRAY[$2],$3,'Public chart',120,10,'fixture')`, song, ids[0], status); err != nil {
-			t.Fatal(err)
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) SELECT $1,kind,$1||kind,'fixture',repeat('a',64),1,'test' FROM unnest(ARRAY['tja','audio']) kind`, song); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,status,title,bpm,duration,tja_file,audio_file) VALUES($1,ARRAY[$2],$3,'Public chart',120,10,test_file($1||'tja','fixture',repeat('a',64),1),test_file($1||'audio','fixture',repeat('a',64),1))`, song, ids[0], status); err != nil {
 			t.Fatal(err)
 		}
 		if _, err = tx.Exec(ctx, `UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ($1,'Oni',1,'')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id`, song); err != nil {

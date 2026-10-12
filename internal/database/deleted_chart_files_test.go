@@ -63,16 +63,18 @@ func TestDeletedChartsMigration(t *testing.T) {
 	var ok bool
 	err = pool.QueryRow(ctx, `SELECT
 	 (SELECT array_agg(song_id) FROM scores)=ARRAY['live'] AND
-	 (SELECT count(*) FROM chart_resources WHERE chart_id='gone')=0 AND
-	 (SELECT count(*) FROM chart_resources WHERE chart_id='live')=2 AND
+	 (SELECT array_agg(storage_key ORDER BY storage_key) FROM chart_resources)=ARRAY['live/tja','shared'] AND
+	 (SELECT t.storage_key='live/tja' AND a.storage_key='shared' FROM charts c JOIN chart_resources t ON t.id=c.tja_file JOIN chart_resources a ON a.id=c.audio_file WHERE c.id='live') AND
 	 (SELECT array_agg(id) FROM charts)=ARRAY['live'] AND
 	 (SELECT count(*) FROM upload_requests WHERE chart_id IS NULL)=1 AND
 	 (SELECT array_agg(storage_key ORDER BY storage_key) FROM retired_files)=ARRAY['gone/tja','gone/zip','shared']`).Scan(&ok)
 	if err != nil || !ok {
 		t.Fatal("purge", ok, err)
 	}
-	// The live song still needs both files; only deleted songs are exempt.
-	if _, err = pool.Exec(ctx, `DELETE FROM chart_resources WHERE chart_id='live' AND kind='tja'`); err == nil {
-		t.Fatal("live song lost its TJA")
+	// A song always needs both files, and a referenced file cannot be removed.
+	for _, sql := range []string{`UPDATE charts SET tja_file=NULL WHERE id='live'`, `DELETE FROM chart_resources WHERE storage_key='live/tja'`} {
+		if _, err = pool.Exec(ctx, sql); err == nil {
+			t.Fatal("live song lost its TJA", sql)
+		}
 	}
 }

@@ -22,10 +22,7 @@ func TestPublicGameSearch(t *testing.T) {
 			t.Fatal(err)
 		}
 		id := fmt.Sprintf("%032d", i)
-		_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,wave_filename,title_translations) VALUES($1,ARRAY['eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],'Search Song',120,10,'test.ogg','{"ja":"検索曲"}')`, id)
-		if err == nil {
-			_, err = tx.Exec(ctx, `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES($1,'tja','tja','test.tja',repeat('a',64),1,'application/octet-stream'),($1,'audio','ogg','test.ogg',repeat('b',64),1,'audio/ogg')`, id)
-		}
+		_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,title_translations) VALUES($1,ARRAY['eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],'Search Song',120,10,test_file('tja','test.tja',repeat('a',64),1),test_file('ogg','test.ogg',repeat('b',64),1),'{"ja":"検索曲"}')`, id)
 
 		if err == nil {
 			_, err = tx.Exec(ctx, `UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ($1,'Easy',3,'Composer'),($1,'Oni',8,'Artist')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id;`, id)

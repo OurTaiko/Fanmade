@@ -51,7 +51,8 @@ func (s *S3) Put(ctx context.Context, key string, body io.ReadSeeker, size int64
 	if e != nil || len(sum) != 32 {
 		return errors.New("SHA-256 required")
 	}
-	_, e = s.Client.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(s.Bucket), Key: k, Body: body, ContentLength: aws.Int64(size), CacheControl: aws.String("public, max-age=60"), ContentType: aws.String(media), ChecksumSHA256: aws.String(base64.StdEncoding.EncodeToString(sum)), Metadata: map[string]string{"sha256": digest}, IfNoneMatch: aws.String("*")})
+	// Keys are content-addressed, so the bytes behind one never change.
+	_, e = s.Client.PutObject(ctx, &s3.PutObjectInput{Bucket: aws.String(s.Bucket), Key: k, Body: body, ContentLength: aws.Int64(size), CacheControl: aws.String("public, max-age=31536000, immutable"), ContentType: aws.String(media), ChecksumSHA256: aws.String(base64.StdEncoding.EncodeToString(sum)), Metadata: map[string]string{"sha256": digest}, IfNoneMatch: aws.String("*")})
 	return e
 }
 func (s *S3) Delete(ctx context.Context, key string) error {

@@ -53,6 +53,13 @@ func scoreTestDB(t *testing.T) *pgxpool.Pool {
 			t.Fatal(err)
 		}
 	}
+	// Fixtures register a file under an arbitrary key and reference its ID.
+	if _, err = pool.Exec(ctx, `CREATE FUNCTION test_file(key text, name text, digest text, size bigint) RETURNS bigint LANGUAGE sql AS $$
+ INSERT INTO chart_resources(storage_key,original_filename,sha256,byte_size,extension)
+ VALUES(key,name,digest,size,COALESCE(lower(substring(name from '\.([A-Za-z0-9]+)$')),'bin'))
+ ON CONFLICT(storage_key) DO UPDATE SET storage_key=EXCLUDED.storage_key RETURNING id $$`); err != nil {
+		t.Fatal(err)
+	}
 	return pool
 }
 
@@ -78,9 +85,7 @@ func TestSubmitScore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback(ctx)
-	_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,wave_filename) VALUES('11111111111111111111111111111111',ARRAY['89b6ef3a5cb57b6e04f74711d15a8a5f'],'Test',120,10,'test.ogg');
- INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES
- ('11111111111111111111111111111111','tja','tja','test.tja',repeat('a',64),1,'application/octet-stream'),('11111111111111111111111111111111','audio','ogg','test.ogg',repeat('b',64),1,'audio/ogg');
+	_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) VALUES('11111111111111111111111111111111',ARRAY['89b6ef3a5cb57b6e04f74711d15a8a5f'],'Test',120,10,test_file('tja','test.tja',repeat('a',64),1),test_file('ogg','test.ogg',repeat('b',64),1));
  UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ('11111111111111111111111111111111','Oni',5,''),('11111111111111111111111111111111','Easy',5,''),('11111111111111111111111111111111','Edit',5,'')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id;`)
 	if err != nil {
 		t.Fatal(err)

@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"ourtaiko.dev/fanmade/api/internal/audio"
 	"ourtaiko.dev/fanmade/api/internal/objectstore"
-	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -64,7 +62,7 @@ func (s *Server) resourceLinks(w http.ResponseWriter, r *http.Request) {
 		return nil
 	}
 	var tjaSize int64
-	if e = tx.QueryRow(r.Context(), `SELECT byte_size FROM chart_resources WHERE chart_id=$1 AND kind='tja'`, c.ID).Scan(&tjaSize); e != nil {
+	if e = tx.QueryRow(r.Context(), `SELECT r.byte_size FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, c.ID).Scan(&tjaSize); e != nil {
 		internal(w, e)
 		return
 	}
@@ -78,18 +76,10 @@ func (s *Server) resourceLinks(w http.ResponseWriter, r *http.Request) {
 	}
 	var key, digest string
 	var size int64
-	if e = tx.QueryRow(r.Context(), `SELECT storage_key,sha256,byte_size FROM chart_resources WHERE kind='archive' AND chart_id=$1`, c.ID).Scan(&key, &digest, &size); e != nil {
-		internal(w, e)
-		return
-	}
-	if e = add("download", key, strings.TrimSuffix(c.TJAName, filepath.Ext(c.TJAName))+".zip", "application/zip", digest, size); e != nil {
-		internal(w, e)
-		return
-	}
 	var coverKey *string
 	var coverHash string
 	var coverSize *int64
-	e = tx.QueryRow(r.Context(), `SELECT storage_key,sha256,byte_size FROM chart_resources WHERE kind='cover' AND chart_id=$1`, c.ID).Scan(&coverKey, &coverHash, &coverSize)
+	e = tx.QueryRow(r.Context(), `SELECT r.storage_key,r.sha256,r.byte_size FROM charts c JOIN chart_resources r ON r.id=c.cover_file WHERE c.id=$1`, c.ID).Scan(&coverKey, &coverHash, &coverSize)
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 		internal(w, e)
 		return
@@ -100,7 +90,7 @@ func (s *Server) resourceLinks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	e = tx.QueryRow(r.Context(), `SELECT storage_key,sha256,byte_size FROM chart_resources WHERE kind='preview' AND chart_id=$1`, c.ID).Scan(&key, &digest, &size)
+	e = tx.QueryRow(r.Context(), `SELECT r.storage_key,r.sha256,r.byte_size FROM charts c JOIN chart_resources r ON r.id=c.preview_file WHERE c.id=$1`, c.ID).Scan(&key, &digest, &size)
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 		internal(w, e)
 		return

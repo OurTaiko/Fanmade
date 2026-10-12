@@ -300,3 +300,43 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 	}
 	return m, nil
 }
+
+// waveHeader returns the byte range of the WAVE header line Parse accepts,
+// excluding its line ending, and the declared value.
+func waveHeader(data []byte) (start, end int, value string, ok bool) {
+	for pos := 0; pos <= len(data); {
+		stop := len(data)
+		if i := strings.IndexByte(string(data[pos:]), '\n'); i >= 0 {
+			stop = pos + i
+		}
+		raw := strings.TrimSuffix(string(data[pos:stop]), "\r")
+		s := strings.TrimSpace(strings.SplitN(raw, "//", 2)[0])
+		if strings.HasPrefix(s, "#START") {
+			break
+		}
+		if key, v, found := strings.Cut(s, ":"); found && strings.TrimSpace(key) == "WAVE" {
+			return pos, pos + len(raw), strings.TrimSpace(v), true
+		}
+		pos = stop + 1
+	}
+	return 0, 0, "", false
+}
+
+// WaveName returns the audio file name declared by a stored UTF-8 TJA.
+func WaveName(data []byte) string {
+	_, _, value, _ := waveHeader(data)
+	return value
+}
+
+// SetWave points the WAVE header at name, leaving every other byte unchanged.
+// Stored charts reference their audio by its content-addressed file name.
+func SetWave(data []byte, name string) ([]byte, bool) {
+	start, end, _, ok := waveHeader(data)
+	if !ok {
+		return nil, false
+	}
+	out := make([]byte, 0, len(data)+len(name))
+	out = append(out, data[:start]...)
+	out = append(out, "WAVE:"+name...)
+	return append(out, data[end:]...), true
+}

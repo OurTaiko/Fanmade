@@ -32,11 +32,7 @@ func TestSupportedCoursesAPI(t *testing.T) {
 	}
 	defer tx.Rollback(ctx)
 	for i, id := range ids {
-		_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,wave_filename) VALUES($1,ARRAY['89b6ef3a5cb57b6e04f74711d15a8a5f'],$2,120,10,'music.ogg')`, id, "Chart "+courses[i])
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES($1,'tja','chart.tja','chart.tja',repeat('a',64),1,'application/octet-stream'),($1,'audio','music.ogg','music.ogg',repeat('b',64),1,'audio/ogg')`, id)
+		_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) VALUES($1,ARRAY['89b6ef3a5cb57b6e04f74711d15a8a5f'],$2,120,10,test_file('chart.tja','chart.tja',repeat('a',64),1),test_file('music.ogg','music.ogg',repeat('b',64),1))`, id, "Chart "+courses[i])
 		if err != nil {
 			t.Fatal(err)
 		}

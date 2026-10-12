@@ -145,7 +145,7 @@ func testChartReplacement(t *testing.T, remote bool) {
 		if err != nil || c.TJAHash != original.TJAHash || count(`SELECT count(*) FROM scores WHERE song_id=$1`, original.ID) != 2 {
 			t.Fatal("failed update changed original", c.TJAHash, err)
 		}
-		if b, err := readObject(original.TJAKey); err != nil || string(b) != source {
+		if b, err := readObject(original.TJAKey); err != nil || string(b) != strings.Replace(source, "cbr.mp3", hash(string(audio))+".mp3", 1) {
 			t.Fatal("old TJA lost", err)
 		}
 		if b, err := readObject(original.AudioKey); err != nil || !bytes.Equal(b, audio) {
@@ -186,13 +186,20 @@ func testChartReplacement(t *testing.T, remote bool) {
 	if count(`SELECT count(*) FROM scores WHERE song_id=$1`, original.ID) != 0 || count(`SELECT count(*) FROM charts WHERE id=$1`, original.ID) != 1 || count(`SELECT jsonb_array_length(difficulties) FROM charts WHERE id=$1`, original.ID) != 2 {
 		t.Fatal("old rows remain")
 	}
-	if count(`SELECT count(*) FROM scores WHERE song_id=$1`, unrelated.ID) != 1 || count(`SELECT count(*) FROM chart_resources WHERE kind IN ('tja','audio')`) != 4 {
+	if count(`SELECT count(*) FROM scores WHERE song_id=$1`, unrelated.ID) != 1 || count(`SELECT count(*) FROM chart_resources WHERE extension='tja'`) != 2 || count(`SELECT count(*) FROM chart_resources WHERE extension='mp3'`) != 1 {
 		t.Fatal("unrelated data changed or old file rows remain")
 	}
+	// The unrelated chart was uploaded from the same files and still uses them.
+	if original.TJAHash != unrelated.TJAHash || original.AudioHash != unrelated.AudioHash || updated.AudioHash != original.AudioHash {
+		t.Fatal("identical files are not shared")
+	}
 	for _, key := range []string{original.TJAKey, original.AudioKey} {
-		if _, err := readObject(key); !os.IsNotExist(err) {
-			t.Fatal("old file remains", key, err)
+		if _, err := readObject(key); err != nil {
+			t.Fatal("shared file lost", key, err)
 		}
+	}
+	if count(`SELECT count(*) FROM retired_files`) != 0 {
+		t.Fatal("cleanup incomplete")
 	}
 
 	status(get("/api/v1/charts/"+updated.ID+"/audio"), 200)
@@ -220,7 +227,8 @@ func testChartReplacement(t *testing.T, remote bool) {
 	status(request("d46774d30dd13b92d9e536808da468a4", "PUT", path, ID(), replacement, "", nil, fields), 200)
 	// Independent replacement requests serialize; both may replace current files.
 	nextFields := map[string]string{"confirmReset": "true"}
-	nextSource := strings.Replace(replacement, "cbr.mp3", "next.mp3", 1)
+	// Renaming the audio alone would store an identical TJA; change its content too.
+	nextSource := strings.Replace(strings.Replace(replacement, "cbr.mp3", "next.mp3", 1), "TITLE:Updated", "TITLE:Next", 1)
 	var wg sync.WaitGroup
 	replies := make(chan *httptest.ResponseRecorder, 2)
 	for i := 0; i < 2; i++ {
@@ -246,11 +254,12 @@ func testChartReplacement(t *testing.T, remote bool) {
 		t.Fatal("concurrent replacement", successes, conflicts)
 	}
 	final, err := app.chart(ctx, original.ID)
-	if err != nil || final.AudioName != "next.mp3" || final.OwnerID != "d46774d30dd13b92d9e536808da468a4" || count(`SELECT count(*) FROM scores WHERE song_id=$1`, original.ID) != 0 {
+	// The same audio bytes keep the name they were first registered with.
+	if err != nil || final.AudioName != "cbr.mp3" || final.Wave != hash(string(audio))+".mp3" || final.OwnerID != "d46774d30dd13b92d9e536808da468a4" || count(`SELECT count(*) FROM scores WHERE song_id=$1`, original.ID) != 0 {
 		t.Fatal("admin replacement", final, err)
 	}
 	status(request("d46774d30dd13b92d9e536808da468a4", "PUT", path, key, replacement, "", nil, fields), 409)
-	if count(`SELECT count(*) FROM retired_files`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE kind IN ('tja','audio')`) != 4 {
+	if count(`SELECT count(*) FROM retired_files`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE extension='tja'`) != 2 || count(`SELECT count(*) FROM chart_resources WHERE extension='mp3'`) != 1 {
 		t.Fatal("cleanup incomplete")
 	}
 	// Co-owners can replace files, and replacement preserves the entire owner set.

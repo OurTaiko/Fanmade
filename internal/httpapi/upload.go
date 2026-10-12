@@ -24,8 +24,8 @@ import (
 )
 
 type stagedFile struct {
-	name, path, sha, id, key string
-	size                     int64
+	name, path, sha string
+	size            int64
 }
 
 var keyPattern = regexp.MustCompile(`^[a-zA-Z0-9-]{16,80}$`)
@@ -108,7 +108,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 				problem(w, 400, "UPLOAD_FILES_INVALID", "文件类型、数量或文件名无效；封面仅支持 JPG / PNG / WebP，文件名不能包含路径")
 				return
 			}
-			f := &stagedFile{name: name, path: filepath.Join(dir, field), id: ID()}
+			f := &stagedFile{name: name, path: filepath.Join(dir, field)}
 			out, e := os.OpenFile(f.path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 			if e != nil {
 				internal(w, e)
@@ -221,6 +221,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	tf.sha = hex.EncodeToString(tjaHash[:])
 	var tx pgx.Tx
 	var replacementDigest string
+	retained := false
 	if existing != nil {
 		if fields["confirmReset"] != "true" {
 			problem(w, 400, "REPLACEMENT_CONFIRMATION_REQUIRED", "替换需要确认删除旧文件和旧成绩")
@@ -275,9 +276,16 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			files["audio"] = af
+			retained = true
 		}
 	}
-	meta, issue := tja.Parse(normalized, encoding, af.name)
+	// Retained audio is already identified; a shared file keeps the name it was
+	// first uploaded with, so the new TJA's WAVE need not match it.
+	waveSource := af.name
+	if retained {
+		waveSource = tja.WaveName(normalized)
+	}
+	meta, issue := tja.Parse(normalized, encoding, waveSource)
 	if issue != nil {
 		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "requestId": w.Header().Get("X-Request-ID"), "validationVersion": tja.Version})
 		return
@@ -347,28 +355,45 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	if existing != nil {
 		chartID = existing.ID
 	}
+	// The stored TJA names its audio by content, matching the audio object and
+	// the entry in the downloaded ZIP. Receipts and digests above keep the submitted TJA hash.
+	waveName := af.sha + "." + fileExtension(af.name)
+	stored, ok := tja.SetWave(normalized, waveName)
+	if !ok {
+		internal(w, errors.New("validated TJA has no WAVE header"))
+		return
+	}
+	if _, issue = tja.Parse(stored, encoding, waveName); issue != nil {
+		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "requestId": w.Header().Get("X-Request-ID"), "validationVersion": tja.Version})
+		return
+	}
+	if e = os.WriteFile(tf.path, stored, 0600); e != nil {
+		internal(w, e)
+		return
+	}
+	storedHash := sha256.Sum256(stored)
+	tjaSHA := hex.EncodeToString(storedHash[:])
+	tf.size = int64(len(stored))
 	committed := false
 	defer func() {
 		if !committed {
+			// Shared objects are never deleted directly; the cleaner removes
+			// these only if no chart refers to them.
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			for _, f := range files {
-				if f.key != "" {
-					_ = s.Config.Objects.Delete(ctx, f.key)
-				}
-			}
+			_, _ = s.DB.Exec(ctx, `INSERT INTO retired_files(storage_key) VALUES($1),($2) ON CONFLICT DO NOTHING`, tjaSHA+".tja", waveName)
 		}
 	}()
-	for field, f := range files {
-		f.key = filepath.ToSlash(filepath.Join("objects", chartID, f.id, field))
-		media := "application/octet-stream"
-		if field == "audio" {
-			media = audio.MediaType(f.name)
-		}
-		if e = s.storeFile(r.Context(), f.key, f.path, f.size, media, f.sha); e != nil {
-			internal(w, e)
-			return
-		}
+	// A fixed order keeps concurrent identical uploads from deadlocking.
+	tjaFile, e := s.storeFile(r.Context(), tx, tf.path, tf.name, "tja", "application/octet-stream", tjaSHA, tf.size)
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	audioFile, e := s.storeFile(r.Context(), tx, af.path, af.name, fileExtension(af.name), audio.MediaType(af.name), af.sha, af.size)
+	if e != nil {
+		internal(w, e)
+		return
 	}
 	if existing != nil {
 		if e = retireChart(r.Context(), tx, chartID, fields["description"]); e != nil {
@@ -376,21 +401,11 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, e = tx.Exec(r.Context(), `INSERT INTO charts(id,owner_ids,description,title,subtitle,bpm,offset_seconds,demo_start,duration,wave_filename,title_translations,subtitle_translations,is_single,difficulties,demo_end)
- VALUES($1,ARRAY[$2::text],$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
- ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,subtitle=EXCLUDED.subtitle,bpm=EXCLUDED.bpm,offset_seconds=EXCLUDED.offset_seconds,demo_start=EXCLUDED.demo_start,demo_end=EXCLUDED.demo_end,duration=EXCLUDED.duration,wave_filename=EXCLUDED.wave_filename,title_translations=EXCLUDED.title_translations,subtitle_translations=EXCLUDED.subtitle_translations,is_single=EXCLUDED.is_single,difficulties=EXCLUDED.difficulties`, chartID, u.User.ID, fields["description"], meta.Title, meta.Subtitle, meta.BPM, meta.Offset, demoStart, duration, meta.Wave, meta.TitleTranslations, meta.SubtitleTranslations, meta.IsSingle, meta.Difficulties, demoEnd); e != nil {
+	if _, e = tx.Exec(r.Context(), `INSERT INTO charts(id,owner_ids,description,title,subtitle,bpm,offset_seconds,demo_start,duration,title_translations,subtitle_translations,is_single,difficulties,demo_end,tja_file,audio_file)
+ VALUES($1,ARRAY[$2::text],$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+ ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,subtitle=EXCLUDED.subtitle,bpm=EXCLUDED.bpm,offset_seconds=EXCLUDED.offset_seconds,demo_start=EXCLUDED.demo_start,demo_end=EXCLUDED.demo_end,duration=EXCLUDED.duration,tja_file=EXCLUDED.tja_file,audio_file=EXCLUDED.audio_file,title_translations=EXCLUDED.title_translations,subtitle_translations=EXCLUDED.subtitle_translations,is_single=EXCLUDED.is_single,difficulties=EXCLUDED.difficulties`, chartID, u.User.ID, fields["description"], meta.Title, meta.Subtitle, meta.BPM, meta.Offset, demoStart, duration, meta.TitleTranslations, meta.SubtitleTranslations, meta.IsSingle, meta.Difficulties, demoEnd, tjaFile, audioFile); e != nil {
 		internal(w, e)
 		return
-	}
-	for field, f := range files {
-		media := "application/octet-stream"
-		if field == "audio" {
-			media = audio.MediaType(f.name)
-		}
-		if _, e = tx.Exec(r.Context(), `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES($1,$2,$3,$4,$5,$6,$7)`, chartID, field, f.key, f.name, f.sha, f.size, media); e != nil {
-			internal(w, e)
-			return
-		}
 	}
 	if e = s.savePreview(r.Context(), tx, chartID, af.path, demoStart, demoEnd, duration); e != nil {
 		internal(w, e)
@@ -407,13 +422,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	if s.remoteStorage() {
-		if e = s.saveArchive(r.Context(), tx, chartID, tf.path, af.path, tf.name, meta.Wave, dir); e != nil {
-			internal(w, e)
-			return
-		}
-	}
-	if _, e = tx.Exec(r.Context(), `INSERT INTO upload_requests(user_id,idempotency_key,payload_digest,chart_id,tja_sha256,audio_sha256) VALUES($1,$2,$3,$4,$5,$6)`, u.User.ID, key, digest, chartID, tf.sha, af.sha); e != nil {
+	if _, e = tx.Exec(r.Context(), `INSERT INTO upload_requests(user_id,idempotency_key,payload_digest,chart_id,tja_sha256,audio_sha256) VALUES($1,$2,$3,$4,$5,$6)`, u.User.ID, key, digest, chartID, tjaSHA, af.sha); e != nil {
 		internal(w, e)
 		return
 	}

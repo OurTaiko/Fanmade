@@ -69,16 +69,17 @@ func testAudioUploadAndDownload(t *testing.T, remote bool) {
 				t.Fatal(w.Code, w.Body.String())
 			}
 			digest := sha256.Sum256(data)
-			if chart.AudioName != name || chart.Wave != name || chart.AudioHash != hex.EncodeToString(digest[:]) {
+			stored := hex.EncodeToString(digest[:]) + "." + name[len(name)-3:]
+			if chart.AudioName != name || chart.Wave != stored || chart.AudioHash != hex.EncodeToString(digest[:]) {
 				t.Fatal("original filename/hash lost")
 			}
 			media := "audio/mpeg"
 			if strings.HasSuffix(name, ".ogg") {
 				media = "audio/ogg"
 			}
-			var storedMedia string
-			if err := pool.QueryRow(ctx, `SELECT media_type FROM chart_resources WHERE chart_id=$1 AND kind='audio'`, chart.ID).Scan(&storedMedia); err != nil || storedMedia != media {
-				t.Fatal("incorrect stored MIME", storedMedia, err)
+			var storedKey string
+			if err := pool.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.audio_file WHERE c.id=$1`, chart.ID).Scan(&storedKey); err != nil || storedKey != stored {
+				t.Fatal("incorrect stored key", storedKey, err)
 			}
 			base := "/api/v1/charts/" + chart.ID + "/"
 			get := func(kind, rangeValue string) *httptest.ResponseRecorder {
@@ -104,9 +105,9 @@ func testAudioUploadAndDownload(t *testing.T, remote bool) {
 			if err != nil || len(z.File) != 2 {
 				t.Fatal("invalid zip", err)
 			}
-			f, err := z.Open(name)
+			f, err := z.Open(stored)
 			if err != nil {
-				t.Fatal("MP3 filename not preserved in zip", err)
+				t.Fatal("ZIP audio is not named as the stored TJA declares", err)
 			}
 			zipped, err := io.ReadAll(f)
 			f.Close()

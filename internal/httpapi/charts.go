@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -56,11 +57,11 @@ const supportedCoursesSQL = "('Easy','Normal','Hard','Oni','Edit','Easy_1p','Eas
 const publishedChart = `c.status='published' AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(c.difficulties) excluded
  WHERE excluded->>'course' NOT IN ` + supportedCoursesSQL + `)`
 
-const chartSelect = `SELECT c.id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,c.wave_filename,c.title_translations,c.subtitle_translations,c.is_single,
+const chartSelect = `SELECT c.id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,c.is_single,
  c.difficulties,
- c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE chart_id=c.id AND kind='preview'),''),
+ c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE id=c.preview_file),''),
  COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0)
- FROM charts c JOIN chart_resources tf ON tf.chart_id=c.id AND tf.kind='tja' JOIN chart_resources af ON af.chart_id=c.id AND af.kind='audio' `
+ FROM charts c JOIN chart_resources tf ON tf.id=c.tja_file JOIN chart_resources af ON af.id=c.audio_file `
 
 func readChart(row pgx.Row) (Chart, error) {
 	c := Chart{Encoding: "utf-8"} // Compatibility field; stored TJA bytes are always UTF-8.
@@ -163,8 +164,8 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string]bool{"ok": true})
 }
 
-// deleteChart removes a song's scores, resources and row. The resource trigger
-// queues each file in retired_files.
+// deleteChart removes a song's scores and row. The chart trigger queues each
+// of its files in retired_files; it returns their keys.
 func (s *Server) deleteChart(ctx context.Context, chartID, ownerID string) ([]string, error) {
 	tx, e := s.DB.Begin(ctx)
 	if e != nil {
@@ -178,7 +179,7 @@ func (s *Server) deleteChart(ctx context.Context, chartID, ownerID string) ([]st
 	if _, e = tx.Exec(ctx, `DELETE FROM scores WHERE song_id=$1`, chartID); e != nil {
 		return nil, e
 	}
-	rows, e := tx.Query(ctx, `DELETE FROM chart_resources WHERE chart_id=$1 RETURNING storage_key`, chartID)
+	rows, e := tx.Query(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id IN (c.tja_file,c.audio_file,c.cover_file,c.preview_file) WHERE c.id=$1`, chartID)
 	if e != nil {
 		return nil, e
 	}
@@ -203,29 +204,7 @@ func (s *Server) download(w http.ResponseWriter, r *http.Request) {
 	}
 	kind := r.PathValue("kind")
 	if kind == "download" {
-		if s.remoteStorage() {
-			var key, digest string
-			if e = s.DB.QueryRow(r.Context(), `SELECT storage_key,sha256 FROM chart_resources WHERE chart_id=$1 AND kind='archive'`, c.ID).Scan(&key, &digest); e != nil {
-				internal(w, e)
-				return
-			}
-			if s.redirectResource(w, r, key, strings.TrimSuffix(c.TJAName, filepath.Ext(c.TJAName))+".zip") {
-				return
-			}
-			f, e := s.Config.Objects.Open(r.Context(), key)
-			if e != nil {
-				internal(w, e)
-				return
-			}
-			defer f.Close()
-			name := strings.TrimSuffix(c.TJAName, filepath.Ext(c.TJAName)) + ".zip"
-			w.Header().Set("Content-Type", "application/zip")
-			w.Header().Set("ETag", `"`+digest+`"`)
-			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": name}))
-			http.ServeContent(w, r, name, f.ModTime(), f)
-			return
-		}
-
+		// The ZIP is built per request from the stored TJA and audio.
 		tf, e := s.Config.Objects.Open(r.Context(), c.TJAKey)
 		if e != nil {
 			internal(w, e)
@@ -238,13 +217,20 @@ func (s *Server) download(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer af.Close()
+		// Name the audio as this TJA does; a file awaiting rekeying still
+		// declares its uploaded name.
+		data, e := io.ReadAll(io.LimitReader(tf, tja.MaxTJA+1))
+		if e != nil {
+			internal(w, e)
+			return
+		}
 		w.Header().Set("Content-Type", "application/zip")
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": strings.TrimSuffix(c.TJAName, filepath.Ext(c.TJAName)) + ".zip"}))
 		z := zip.NewWriter(w)
 		for _, f := range []struct {
 			name string
 			file io.Reader
-		}{{c.TJAName, tf}, {c.Wave, af}} {
+		}{{c.TJAName, bytes.NewReader(data)}, {tja.WaveName(data), af}} {
 			dst, e := z.CreateHeader(&zip.FileHeader{Name: f.name, Method: zip.Store})
 			if e != nil {
 				return

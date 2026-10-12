@@ -56,12 +56,9 @@ func TestCDNResourcesAndRoutes(t *testing.T) {
 	}
 	ctx := context.Background()
 	if _, err := pool.Exec(ctx, `INSERT INTO users(id,username,password_hash) VALUES('owner','cdnowner','unused');
- INSERT INTO charts(id,owner_ids,title,bpm,duration,wave_filename,difficulties) VALUES('cdn-song',ARRAY['owner'],'CDN',120,100,'audio.ogg','[{"course":"Oni","level":5,"maker":""}]');
- INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES
- ('cdn-song','tja','objects/song/tja','song.tja',repeat('a',64),12,'application/octet-stream'),
- ('cdn-song','audio','objects/song/audio','audio.ogg',repeat('b',64),20,'audio/ogg'),
- ('cdn-song','archive','archives/song/download.zip','song.zip',repeat('c',64),30,'application/zip'),
- ('cdn-song','cover','covers/song/cover.webp','cover.webp',repeat('d',64),14,'image/webp');`); err != nil {
+ INSERT INTO charts(id,owner_ids,title,bpm,duration,difficulties,tja_file,audio_file,cover_file) VALUES('cdn-song',ARRAY['owner'],'CDN',120,100,'[{"course":"Oni","level":5,"maker":""}]',
+ test_file('objects/song/tja','song.tja',repeat('a',64),12),test_file('objects/song/audio','audio.ogg',repeat('b',64),20),
+ test_file('covers/song/cover.webp','cover.webp',repeat('d',64),14));`); err != nil {
 		t.Fatal(err)
 	}
 	app := New(pool, Config{Objects: remote})
@@ -79,7 +76,7 @@ func TestCDNResourcesAndRoutes(t *testing.T) {
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &payload) != nil {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	if payload.URLsExpire || payload.ExpiresAt.Before(time.Now()) || len(payload.Resources) != 4 {
+	if payload.URLsExpire || payload.ExpiresAt.Before(time.Now()) || len(payload.Resources) != 3 {
 		t.Fatal(payload)
 	}
 	for _, r := range payload.Resources {
@@ -88,7 +85,7 @@ func TestCDNResourcesAndRoutes(t *testing.T) {
 		}
 	}
 	for _, method := range []string{"GET", "HEAD"} {
-		for _, path := range []string{"audio", "tja", "download", "cover"} {
+		for _, path := range []string{"audio", "tja", "cover"} {
 			w = httptest.NewRecorder()
 			handler.ServeHTTP(w, httptest.NewRequest(method, "/api/v1/charts/cdn-song/"+path, nil))
 			if w.Code != 302 || !strings.HasPrefix(w.Header().Get("Location"), "https://cdn.example/fanmade/") {

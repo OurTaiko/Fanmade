@@ -25,8 +25,8 @@ func (s *Server) readChart(row pgx.Row) (Chart, error) {
 }
 
 // The caller holds the chart row lock. Upload first, atomically switch the
-// resource reference, then let retirement cleanup delete the previous object.
-// A unique key prevents stale CDN caches and preserves the old preview on failure.
+// file reference, then let retirement cleanup delete the previous object.
+// A content-addressed key prevents stale CDN caches and preserves the old preview on failure.
 func (s *Server) savePreview(ctx context.Context, tx pgx.Tx, id, source string, start, end, duration float64) error {
 	dir, err := os.MkdirTemp("", "fanmade-preview-")
 	if err != nil {
@@ -48,14 +48,13 @@ func (s *Server) savePreview(ctx context.Context, tx pgx.Tx, id, source string, 
 		return err
 	}
 	digest := hex.EncodeToString(h.Sum(nil))
-	key := "previews/" + id + "/" + ID() + "/preview.ogg"
-	if err = s.storeFile(ctx, key, output, size, "audio/ogg", digest); err != nil {
+	file, err := s.storeFile(ctx, tx, output, "preview.ogg", "ogg", "audio/ogg", digest, size)
+	if err != nil {
 		return err
 	}
 	// pending_objects reconciles failed or ambiguous commits without deleting a
-	// potentially live object. The existing trigger queues replaced objects.
-	_, err = tx.Exec(ctx, `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type)
- VALUES($1,'preview',$2,'preview.ogg',$3,$4,'audio/ogg') ON CONFLICT(chart_id,kind) DO UPDATE SET storage_key=EXCLUDED.storage_key,sha256=EXCLUDED.sha256,byte_size=EXCLUDED.byte_size`, id, key, digest, size)
+	// potentially live object. The chart trigger queues the replaced file.
+	_, err = tx.Exec(ctx, `UPDATE charts SET preview_file=$2 WHERE id=$1`, id, file)
 	return err
 }
 
@@ -75,7 +74,7 @@ func (s *Server) previewFromStoredAudio(ctx context.Context, tx pgx.Tx, c Chart)
 // Resume existing-chart backfill on startup and retry failures on later passes.
 // Row locks serialize with owner edits and audio replacements across API replicas.
 func (s *Server) BackfillPreviews(ctx context.Context) error {
-	rows, err := s.DB.Query(ctx, `SELECT id FROM charts c WHERE c.status<>'deleted' AND NOT EXISTS(SELECT 1 FROM chart_resources r WHERE r.chart_id=c.id AND r.kind='preview') ORDER BY id`)
+	rows, err := s.DB.Query(ctx, `SELECT id FROM charts c WHERE c.status<>'deleted' AND c.preview_file IS NULL ORDER BY id`)
 	if err != nil {
 		return err
 	}
@@ -122,7 +121,7 @@ func (s *Server) backfillPreview(parent context.Context, id string) error {
 		return err
 	}
 	var exists bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chart_resources WHERE chart_id=$1 AND kind='preview')`, id).Scan(&exists); err != nil || exists {
+	if err = tx.QueryRow(ctx, `SELECT preview_file IS NOT NULL FROM charts WHERE id=$1`, id).Scan(&exists); err != nil || exists {
 		return err
 	}
 	c, err := s.readChart(tx.QueryRow(ctx, chartSelect+` WHERE c.id=$1`, id))

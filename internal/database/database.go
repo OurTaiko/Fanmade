@@ -114,6 +114,9 @@ var sessionRefreshSchema string
 //go:embed 037_chart_owners.sql
 var chartOwnersSchema string
 
+//go:embed 038_content_addressed_files.sql
+var contentAddressedFilesSchema string
+
 func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
@@ -143,13 +146,13 @@ func Open(ctx context.Context, url string) (*pgxpool.Pool, error) {
 
 // Migrate applies the initial schema once, atomically, with a transaction lock.
 func Migrate(ctx context.Context, pool *pgxpool.Pool, storage string) error {
-	return migrateTo(ctx, pool, storage, 37)
+	return migrateTo(ctx, pool, storage, 38)
 }
 
 // MigrateS3 refuses to export legacy inline covers to an ephemeral local directory.
 // Migrate the local snapshot to S3 before starting an S3-only server.
 func MigrateS3(ctx context.Context, pool *pgxpool.Pool, storage string) error {
-	return migrateToMode(ctx, pool, storage, 37, true)
+	return migrateToMode(ctx, pool, storage, 38, true)
 }
 
 // The historical target supports testing upgrades before the schema flattening.
@@ -598,6 +601,19 @@ func migrateToMode(ctx context.Context, pool *pgxpool.Pool, storage string, targ
 				return fmt.Errorf("migration 037: %w", err)
 			}
 			if _, err = tx.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES(37)`); err != nil {
+				return err
+			}
+		}
+	}
+	if target >= 38 {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=38)`).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			if _, err = tx.Exec(ctx, contentAddressedFilesSchema); err != nil {
+				return fmt.Errorf("migration 038: %w", err)
+			}
+			if _, err = tx.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES(38)`); err != nil {
 				return err
 			}
 		}

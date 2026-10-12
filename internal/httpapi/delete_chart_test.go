@@ -25,22 +25,15 @@ func TestDeleteChartRemovesScoresRowAndUnsharedFiles(t *testing.T) {
 	}
 	store := teststore.New(t)
 	// "shared" is the deleted song's audio and also the kept song's audio.
-	keys := []string{"gone/tja", "shared", "gone/cover", "gone/archive", "gone/preview", "kept/tja"}
+	keys := []string{"gone/tja", "shared", "gone/cover", "gone/preview", "kept/tja"}
 	for _, key := range keys {
 		teststore.Seed(t, store, key, []byte("test file data"))
 	}
 	_, err := pool.Exec(ctx, `BEGIN;
- INSERT INTO charts(id,owner_ids,title,bpm,duration,wave_filename,difficulties) VALUES
-  ('gone',ARRAY['`+owner+`'],'Gone',120,10,'a.ogg','[{"course":"Oni","level":5,"maker":""}]'),
-  ('kept',ARRAY['`+owner+`'],'Kept',120,10,'a.ogg','[{"course":"Oni","level":5,"maker":""}]');
- INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES
-  ('gone','tja','gone/tja','a.tja',repeat('a',64),14,'text/plain'),
-  ('gone','audio','shared','a.ogg',repeat('a',64),14,'audio/ogg'),
-  ('gone','cover','gone/cover','cover.webp',repeat('a',64),14,'image/webp'),
-  ('gone','archive','gone/archive','a.zip',repeat('a',64),14,'application/zip'),
-  ('gone','preview','gone/preview','preview.ogg',repeat('a',64),14,'audio/ogg'),
-  ('kept','tja','kept/tja','a.tja',repeat('a',64),14,'text/plain'),
-  ('kept','audio','shared','a.ogg',repeat('a',64),14,'audio/ogg');
+ INSERT INTO charts(id,owner_ids,title,bpm,duration,difficulties,tja_file,audio_file,cover_file,preview_file) VALUES
+  ('gone',ARRAY['`+owner+`'],'Gone',120,10,'[{"course":"Oni","level":5,"maker":""}]',test_file('gone/tja','a.tja',repeat('a',64),14),test_file('shared','a.ogg',repeat('a',64),14),
+   test_file('gone/cover','cover.webp',repeat('a',64),14),test_file('gone/preview','preview.ogg',repeat('a',64),14)),
+  ('kept',ARRAY['`+owner+`'],'Kept',120,10,'[{"course":"Oni","level":5,"maker":""}]',test_file('kept/tja','a.tja',repeat('a',64),14),test_file('shared','a.ogg',repeat('a',64),14),NULL,NULL);
  COMMIT;`)
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +83,7 @@ func TestDeleteChartRemovesScoresRowAndUnsharedFiles(t *testing.T) {
 	if count(`SELECT count(*) FROM scores WHERE song_id='gone'`) != 0 || count(`SELECT count(*) FROM scores WHERE song_id='kept'`) != 1 {
 		t.Fatal("scores not limited to the deleted song")
 	}
-	if count(`SELECT count(*) FROM chart_resources WHERE chart_id='gone'`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE chart_id='kept'`) != 2 {
+	if count(`SELECT count(*) FROM chart_resources WHERE storage_key LIKE 'gone/%'`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE storage_key IN ('kept/tja','shared')`) != 2 {
 		t.Fatal("resources not limited to the deleted song")
 	}
 	if count(`SELECT count(*) FROM charts WHERE id='gone'`) != 0 || count(`SELECT count(*) FROM charts WHERE id='kept'`) != 1 {
@@ -100,7 +93,7 @@ func TestDeleteChartRemovesScoresRowAndUnsharedFiles(t *testing.T) {
 	if count(`SELECT count(*) FROM upload_requests WHERE idempotency_key='gone-upload-receipt' AND chart_id IS NULL`) != 1 {
 		t.Fatal("upload receipt not detached")
 	}
-	for _, key := range []string{"gone/tja", "gone/cover", "gone/archive", "gone/preview"} {
+	for _, key := range []string{"gone/tja", "gone/cover", "gone/preview"} {
 		if exists(key) {
 			t.Fatal("file retained", key)
 		}

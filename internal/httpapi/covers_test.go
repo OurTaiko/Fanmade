@@ -160,11 +160,11 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	}
 	status(get(path, w.Header().Get("ETag")), 304)
 	var firstID string
-	if err = pool.QueryRow(ctx, `SELECT storage_key FROM chart_resources WHERE kind='cover' AND chart_id=$1`, original.ID).Scan(&firstID); err != nil {
+	if err = pool.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.cover_file WHERE c.id=$1`, original.ID).Scan(&firstID); err != nil {
 		t.Fatal(err)
 	}
 	status(send("POST", "/api/v1/charts", "owner", "csrf", key, parts...), 200)
-	if count(`SELECT count(*) FROM chart_resources WHERE kind='cover'`) != 1 || count(`SELECT count(*) FROM chart_resources WHERE kind IN ('tja','audio')`) != 2 {
+	if count(`SELECT count(*) FROM chart_resources WHERE extension='webp'`) != 1 || count(`SELECT count(*) FROM chart_resources WHERE extension='tja' OR original_filename='music.ogg'`) != 2 {
 		t.Fatal("retry duplicated records")
 	}
 	changed := append([]part(nil), parts...)
@@ -195,8 +195,8 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 		t.Fatal("validation changed cover")
 	}
 	// This trigger exists only inside the temporary schema. Force failure after
-	// DELETE to prove that the transaction restores the previous row and bytes.
-	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_cover() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test write failure'; END $$; CREATE TRIGGER reject_cover BEFORE INSERT ON chart_resources FOR EACH ROW WHEN (NEW.kind='cover') EXECUTE FUNCTION reject_cover()`)
+	// the new file is stored to prove that the previous cover stays referenced.
+	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_cover() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test write failure'; END $$; CREATE TRIGGER reject_cover BEFORE UPDATE OF cover_file ON charts FOR EACH ROW EXECUTE FUNCTION reject_cover()`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	if !bytes.Equal(get(path, "").Body.Bytes(), initialBytes) {
 		t.Fatal("transaction lost old cover")
 	}
-	if _, err = pool.Exec(ctx, `DROP TRIGGER reject_cover ON chart_resources; DROP FUNCTION reject_cover()`); err != nil {
+	if _, err = pool.Exec(ctx, `DROP TRIGGER reject_cover ON charts; DROP FUNCTION reject_cover()`); err != nil {
 		t.Fatal(err)
 	}
 	w = send("PUT", path, "admin", "csrf", "", changed[2])
@@ -217,10 +217,10 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 		t.Fatal("hash unchanged")
 	}
 	var secondID string
-	if err = pool.QueryRow(ctx, `SELECT storage_key FROM chart_resources WHERE kind='cover' AND chart_id=$1`, original.ID).Scan(&secondID); err != nil {
+	if err = pool.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.cover_file WHERE c.id=$1`, original.ID).Scan(&secondID); err != nil {
 		t.Fatal(err)
 	}
-	if firstID == secondID || count(`SELECT count(*) FROM chart_resources WHERE kind='cover'`) != 1 {
+	if firstID == secondID || count(`SELECT count(*) FROM chart_resources WHERE extension='webp'`) != 1 {
 		t.Fatal("old cover row retained")
 	}
 	status(get(path+"?v="+original.CoverHash, ""), 404)
@@ -257,7 +257,7 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	if decode(w).CoverHash != result.CoverHash {
 		t.Fatal("file replacement lost cover")
 	}
-	if count(`SELECT count(*) FROM chart_resources WHERE kind IN ('tja','audio')`) != 2 || count(`SELECT count(*) FROM chart_resources WHERE kind='cover'`) != 1 {
+	if count(`SELECT count(*) FROM chart_resources WHERE extension='tja' OR original_filename='music.ogg'`) != 2 || count(`SELECT count(*) FROM chart_resources WHERE extension='webp'`) != 1 {
 		t.Fatal("unexpected file records")
 	}
 	// A file update may explicitly replace the cover, while omission above preserves it.
@@ -282,7 +282,7 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	status(send("DELETE", "/api/v1/charts/"+original.ID, "owner", "csrf", ""), 200)
 	status(get(path, ""), 404)
 	status(send("PUT", path, "owner", "csrf", "", changed[2]), 404)
-	if count(`SELECT count(*) FROM chart_resources WHERE kind='cover'`) != 0 {
+	if count(`SELECT count(*) FROM chart_resources WHERE extension='webp'`) != 0 {
 		t.Fatal("deleted song retained cover")
 	}
 	w = send("POST", "/api/v1/charts", "owner", "csrf", ID(), parts[:2]...)
@@ -306,20 +306,20 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	for range 2 {
 		status(<-responses, 200)
 	}
-	if count(`SELECT count(*) FROM chart_resources WHERE kind='cover'`) != 1 {
+	if count(`SELECT count(*) FROM chart_resources WHERE extension='webp'`) != 1 {
 		t.Fatal("concurrent replacement retained multiple images")
 	}
 	w = get("/api/v1/charts/"+optionalID+"/cover", "")
 	status(w, 200)
 	var storedHash string
-	if err := pool.QueryRow(ctx, `SELECT sha256 FROM chart_resources WHERE kind='cover' AND chart_id=$1`, optionalID).Scan(&storedHash); err != nil || storedHash != hash(w.Body.String()) {
+	if err := pool.QueryRow(ctx, `SELECT r.sha256 FROM charts c JOIN chart_resources r ON r.id=c.cover_file WHERE c.id=$1`, optionalID).Scan(&storedHash); err != nil || storedHash != hash(w.Body.String()) {
 		t.Fatal("concurrent replacement corrupted cover", err)
 	}
 	status(send("DELETE", "/api/v1/charts/"+optionalID, "owner", "csrf", ""), 200)
 	invalid := append([]part(nil), parts...)
 	invalid[0] = part{"tja", "broken.tja", []byte("not a chart")}
 	status(send("POST", "/api/v1/charts", "owner", "csrf", ID(), invalid...), 422)
-	if count(`SELECT count(*) FROM charts`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE kind='cover'`) != 0 {
+	if count(`SELECT count(*) FROM charts`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE extension='webp'`) != 0 {
 		t.Fatal("invalid upload persisted data")
 	}
 }

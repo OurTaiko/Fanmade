@@ -51,10 +51,7 @@ func TestPreviewLifecycle(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tx.Rollback(ctx)
-			if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,wave_filename,demo_start,difficulties) VALUES('song',ARRAY[$1],'Test',120,0.5,'audio.ogg',0.1,'[{"course":"Oni","level":5,"maker":"A"}]')`, owner); err != nil {
-				t.Fatal(err)
-			}
-			if _, err = tx.Exec(ctx, `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES('song','audio','audio','audio.ogg',$1,$2,'audio/ogg'),('song','tja','tja','song.tja',repeat('a',64),1,'application/octet-stream')`, hash(string(source)), len(source)); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,audio_file,tja_file,demo_start,difficulties) VALUES('song',ARRAY[$1],'Test',120,0.5,test_file('audio','audio.ogg',$2,$3),test_file('tja','song.tja',repeat('a',64),1),0.1,'[{"course":"Oni","level":5,"maker":"A"}]')`, owner, hash(string(source)), len(source)); err != nil {
 				t.Fatal(err)
 			}
 			if err = tx.Commit(ctx); err != nil {
@@ -64,11 +61,11 @@ func TestPreviewLifecycle(t *testing.T) {
 				t.Fatal(err)
 			}
 			var key string
-			if err = pool.QueryRow(ctx, `SELECT storage_key FROM chart_resources WHERE chart_id='song' AND kind='preview'`).Scan(&key); err != nil {
+			if err = pool.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.preview_file WHERE c.id='song'`).Scan(&key); err != nil {
 				t.Fatal(err)
 			}
 			c, err := app.chart(ctx, "song")
-			if err != nil || c.DemoEnd != 15.1 || !strings.HasSuffix(c.PreviewPath, "/preview.ogg") {
+			if err != nil || c.DemoEnd != 15.1 || !strings.HasSuffix(c.PreviewPath, ".ogg") {
 				t.Fatalf("chart=%+v err=%v", c, err)
 			}
 			if remote && c.PreviewPath != cfg.Objects.(*objectstore.S3).Prefix+key {
@@ -78,7 +75,7 @@ func TestPreviewLifecycle(t *testing.T) {
 				t.Fatal(err)
 			}
 			var unchanged string
-			pool.QueryRow(ctx, `SELECT storage_key FROM chart_resources WHERE chart_id='song' AND kind='preview'`).Scan(&unchanged)
+			pool.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.preview_file WHERE c.id='song'`).Scan(&unchanged)
 			if unchanged != key {
 				t.Fatal("backfill replaced an existing preview")
 			}
@@ -135,7 +132,7 @@ func TestPreviewLifecycle(t *testing.T) {
 				t.Fatal(w.Code, w.Body.String())
 			}
 			var currentKey string
-			pool.QueryRow(ctx, `SELECT storage_key FROM chart_resources WHERE chart_id='song' AND kind='preview'`).Scan(&currentKey)
+			pool.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.preview_file WHERE c.id='song'`).Scan(&currentKey)
 			object, err := app.Config.Objects.Open(ctx, currentKey)
 			if err != nil {
 				t.Fatal(err)

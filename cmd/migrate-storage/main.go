@@ -14,7 +14,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -125,9 +124,17 @@ func run() error {
 	if e = db.QueryRow(ctx, `SELECT to_regclass('chart_resources') IS NOT NULL`).Scan(&simplified); e != nil {
 		return e
 	}
+	flat, e := independentFiles(ctx, db)
+	if e != nil {
+		return e
+	}
 	inventory := `SELECT id,storage_key,original_filename,media_type,sha256,byte_size FROM files ORDER BY storage_key`
 	if simplified {
 		inventory = `SELECT chart_id,storage_key,original_filename,media_type,sha256,byte_size FROM chart_resources WHERE kind<>'archive' ORDER BY storage_key`
+	}
+	if flat {
+		inventory = `SELECT id::text,storage_key,original_filename,CASE extension WHEN 'ogg' THEN 'audio/ogg' WHEN 'mp3' THEN 'audio/mpeg' WHEN 'webp' THEN 'image/webp' ELSE 'application/octet-stream' END,sha256,byte_size
+ FROM chart_resources ORDER BY storage_key`
 	}
 	rows, e := db.Query(ctx, inventory)
 	if e != nil {
@@ -193,90 +200,13 @@ func run() error {
 			return e
 		}
 	}
-	archives, e := copyArchives(ctx, db, &m, *source)
-	if e != nil {
-		return e
-	}
-	if *activate {
-		tx, e := db.Begin(ctx)
-		if e != nil {
-			return e
-		}
-		defer tx.Rollback(ctx)
-		for _, v := range archives {
-			if _, e = tx.Exec(ctx, `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES($1,'archive',$2,'download.zip',$3,$4,'application/zip') ON CONFLICT(chart_id,kind) DO UPDATE SET storage_key=EXCLUDED.storage_key,sha256=EXCLUDED.sha256,byte_size=EXCLUDED.byte_size`, v.ID, v.Key, v.SHA, v.Size); e != nil {
-				return e
-			}
-		}
-		if e = tx.Commit(ctx); e != nil {
-			return e
-		}
-	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]any{"files": len(files), "covers": len(covers), "archives": len(archives), "uploaded": m.copied, "verified": m.verified, "verifiedBytes": m.bytes, "activated": *activate, "applied": *apply})
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"files": len(files), "covers": len(covers), "uploaded": m.copied, "verified": m.verified, "verifiedBytes": m.bytes, "activated": *activate, "applied": *apply})
 }
-func copyArchives(ctx context.Context, db *pgxpool.Pool, m *migrator, source string) ([]entry, error) {
-	// Read-only inventory also accepts pre-024 snapshots; compatibility is
-	// confined to migration tooling, never the running API.
-	var currentSchema bool
-	if e := db.QueryRow(ctx, `SELECT to_regclass('chart_data') IS NOT NULL`).Scan(&currentSchema); e != nil {
-		return nil, e
-	}
-	sourceQuery := `SELECT v.chart_id,tf.storage_key,af.storage_key,tf.original_filename,v.wave_filename FROM chart_data v JOIN files tf ON tf.id=v.tja_file_id JOIN files af ON af.id=v.audio_file_id ORDER BY v.chart_id`
-	if !currentSchema {
-		sourceQuery = `SELECT c.id,tf.storage_key,af.storage_key,tf.original_filename,v.wave_filename FROM charts c JOIN chart_versions v ON v.id=c.current_version_id JOIN files tf ON tf.id=v.tja_file_id JOIN files af ON af.id=v.audio_file_id ORDER BY c.id`
-	}
-	var simplified bool
-	if e := db.QueryRow(ctx, `SELECT to_regclass('chart_resources') IS NOT NULL`).Scan(&simplified); e != nil {
-		return nil, e
-	}
-	if simplified {
-		sourceQuery = `SELECT c.id,tf.storage_key,af.storage_key,tf.original_filename,c.wave_filename FROM charts c JOIN chart_resources tf ON tf.chart_id=c.id AND tf.kind='tja' JOIN chart_resources af ON af.chart_id=c.id AND af.kind='audio' ORDER BY c.id`
-	}
-	rows, e := db.Query(ctx, sourceQuery)
-	if e != nil {
-		return nil, e
-	}
-	type pair struct{ id, tja, audio, tjaName, audioName string }
-	var pairs []pair
-	for rows.Next() {
-		var p pair
-		if e = rows.Scan(&p.id, &p.tja, &p.audio, &p.tjaName, &p.audioName); e != nil {
-			rows.Close()
-			return nil, e
-		}
-		pairs = append(pairs, p)
-	}
-	e = rows.Err()
-	rows.Close()
-	if e != nil {
-		return nil, e
-	}
-	dir, e := os.MkdirTemp("", "fanmade-migration-zips-")
-	if e != nil {
-		return nil, e
-	}
-	defer os.RemoveAll(dir)
-	var entries []entry
-	for _, p := range pairs {
-		if !objectstore.ValidKey(p.tja) || !objectstore.ValidKey(p.audio) {
-			return nil, objectstore.ErrKey
-		}
-		file, size, digest, e := objectstore.Archive(dir, filepath.Join(source, p.tja), filepath.Join(source, p.audio), p.tjaName, p.audioName)
-		if e != nil {
-			return nil, e
-		}
-		v := entry{ID: p.id, Key: "archives/" + p.id + "/download.zip", Size: size, SHA: digest, Media: "application/zip"}
-		f, e := os.Open(file)
-		if e != nil {
-			return nil, e
-		}
-		e = m.copy(v, f)
-		f.Close()
-		os.Remove(file)
-		if e != nil {
-			return nil, e
-		}
-		entries = append(entries, v)
-	}
-	return entries, nil
+
+// independentFiles reports whether the snapshot is at schema 038 or later,
+// where charts reference chart_resources rows by ID.
+func independentFiles(ctx context.Context, db *pgxpool.Pool) (bool, error) {
+	var flat bool
+	e := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='charts' AND column_name='tja_file')`).Scan(&flat)
+	return flat, e
 }

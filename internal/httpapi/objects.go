@@ -2,36 +2,83 @@ package httpapi
 
 import (
 	"context"
-	"github.com/jackc/pgx/v5"
+	"errors"
 	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/jackc/pgx/v5"
 	"ourtaiko.dev/fanmade/api/internal/objectstore"
 )
 
+// Matches a chart_resources row r that some chart still refers to.
+const referencedFile = `EXISTS(SELECT 1 FROM charts c WHERE c.tja_file=r.id OR c.audio_file=r.id OR c.cover_file=r.id OR c.preview_file=r.id)`
+
 func (s *Server) remoteStorage() bool { _, ok := s.Config.Objects.(*objectstore.S3); return ok }
-func (s *Server) storeFile(ctx context.Context, key, path string, size int64, media, digest string) error {
-	if _, e := s.DB.Exec(ctx, `INSERT INTO pending_objects(storage_key) VALUES($1) ON CONFLICT DO NOTHING`, key); e != nil {
-		return e
-	}
-	f, e := os.Open(path)
-	if e != nil {
-		return e
-	}
-	defer f.Close()
-	return s.Config.Objects.Put(ctx, key, f, size, media, digest)
+
+// fileExtension is the stored form: lowercase, without the dot.
+func fileExtension(name string) string {
+	return strings.ToLower(strings.TrimPrefix(filepath.Ext(name), "."))
 }
-func (s *Server) saveArchive(ctx context.Context, tx pgx.Tx, chartID, tjaPath, audioPath, tjaName, audioName, dir string) error {
-	file, size, digest, e := objectstore.Archive(dir, tjaPath, audioPath, tjaName, audioName)
-	if e != nil {
-		return e
-	}
-	defer os.Remove(file)
-	key := "archives/" + chartID + "/" + ID() + "/download.zip"
-	if e = s.storeFile(ctx, key, file, size, "application/zip", digest); e != nil {
-		return e
-	}
-	_, e = tx.Exec(ctx, `INSERT INTO chart_resources(chart_id,kind,storage_key,original_filename,sha256,byte_size,media_type) VALUES($1,'archive',$2,'download.zip',$3,$4,'application/zip')`, chartID, key, digest, size)
+
+// Identical files share one object, so writers and the cleaner serialize on
+// its key until tx ends. Without this the cleaner could delete an object that
+// an uncommitted upload is about to reference.
+func lockObject(ctx context.Context, tx pgx.Tx, key string) error {
+	_, e := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, "object:"+key)
 	return e
 }
+
+// storeFile stores path as {sha256}.{extension} and returns its file ID,
+// reusing the record and object of identical content. The first registered
+// name is kept. The caller references the ID in tx.
+func (s *Server) storeFile(ctx context.Context, tx pgx.Tx, path, name, extension, media, digest string, size int64) (int64, error) {
+	key := digest + "." + extension
+	if e := lockObject(ctx, tx, key); e != nil {
+		return 0, e
+	}
+	if _, e := s.DB.Exec(ctx, `INSERT INTO pending_objects(storage_key) VALUES($1) ON CONFLICT DO NOTHING`, key); e != nil {
+		return 0, e
+	}
+	stored, e := s.objectStored(ctx, key, size)
+	if e != nil {
+		return 0, e
+	}
+	if !stored {
+		f, e := os.Open(path)
+		if e != nil {
+			return 0, e
+		}
+		e = s.Config.Objects.Put(ctx, key, f, size, media, digest)
+		f.Close()
+		if e != nil {
+			return 0, e
+		}
+	}
+	var id int64
+	e = tx.QueryRow(ctx, `INSERT INTO chart_resources(storage_key,original_filename,sha256,byte_size,extension) VALUES($1,$2,$3,$4,$5)
+ ON CONFLICT(storage_key) DO UPDATE SET storage_key=EXCLUDED.storage_key RETURNING id`, key, name, digest, size, extension).Scan(&id)
+	return id, e
+}
+
+// objectStored reports whether key already holds the complete object. The
+// caller holds its lock; an interrupted local write is removed for rewriting.
+func (s *Server) objectStored(ctx context.Context, key string, size int64) (bool, error) {
+	f, e := s.Config.Objects.Open(ctx, key)
+	if errors.Is(e, os.ErrNotExist) {
+		return false, nil
+	}
+	if e != nil {
+		return false, e
+	}
+	complete := f.Size() == size
+	f.Close()
+	if complete {
+		return true, nil
+	}
+	return false, s.Config.Objects.Delete(ctx, key)
+}
+
 func (s *Server) reconcilePending(ctx context.Context) error {
 	// Only age out abandoned writes after a full day. A commit with an unknown
 	// outcome is resolved against live references before any object is retired.

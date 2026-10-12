@@ -69,7 +69,8 @@ func (s *Server) beginUpload(w http.ResponseWriter, r *http.Request, user, key, 
 	return nil, false
 }
 
-// Copy retained audio into the replacement; the original object is still retired.
+// Stage retained audio for validation, preview and ZIP generation; the
+// replacement keeps referring to the same stored file.
 // The caller holds the chart lock so a concurrent replacement cannot remove it.
 func (s *Server) copyAudio(ctx context.Context, c *Chart, dir string) (*stagedFile, error) {
 	in, err := s.Config.Objects.Open(ctx, c.AudioKey)
@@ -77,7 +78,7 @@ func (s *Server) copyAudio(ctx context.Context, c *Chart, dir string) (*stagedFi
 		return nil, err
 	}
 	defer in.Close()
-	f := &stagedFile{name: c.AudioName, path: filepath.Join(dir, "audio"), id: ID(), sha: c.AudioHash, size: c.AudioSize}
+	f := &stagedFile{name: c.AudioName, path: filepath.Join(dir, "audio"), sha: c.AudioHash, size: c.AudioSize}
 	out, err := os.OpenFile(f.path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, err
@@ -98,10 +99,8 @@ func retireChart(ctx context.Context, tx pgx.Tx, chartID, description string) er
 	if _, err := tx.Exec(ctx, `INSERT INTO retired_score_requests(user_id,idempotency_key) SELECT user_id,idempotency_key FROM scores WHERE song_id=$1 AND idempotency_key IS NOT NULL ON CONFLICT DO NOTHING`, chartID); err != nil {
 		return err
 	}
-	for _, query := range []string{`DELETE FROM scores WHERE song_id=$1`, `DELETE FROM chart_resources WHERE chart_id=$1 AND kind IN ('tja','audio','archive','preview')`} {
-		if _, err := tx.Exec(ctx, query, chartID); err != nil {
-			return err
-		}
+	if _, err := tx.Exec(ctx, `DELETE FROM scores WHERE song_id=$1`, chartID); err != nil {
+		return err
 	}
 	_, err := tx.Exec(ctx, `UPDATE charts SET description=$2,metadata_updated_at=now() WHERE id=$1`, chartID, description)
 	return err
@@ -161,21 +160,36 @@ func (s *Server) deleteRetiredFiles(ctx context.Context) error {
 	return errors.Join(failures...)
 }
 
-// deleteRetiredFile deletes one queued object unless a resource still refers to
-// it, then removes it from the queue. A failure leaves it queued for retry.
+// deleteRetiredFile deletes one queued file and its object unless a chart still
+// refers to it, then removes it from the queue. A failure leaves it queued for
+// retry. The key lock excludes an upload that is about to reuse the object.
 func (s *Server) deleteRetiredFile(ctx context.Context, key string) error {
 	if !filepath.IsLocal(key) {
 		return errors.New("invalid retired storage key")
 	}
+	tx, err := s.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if err = lockObject(ctx, tx, key); err != nil {
+		return err
+	}
 	var live bool
-	if err := s.DB.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM chart_resources WHERE storage_key=$1)`, key).Scan(&live); err != nil {
+	err = tx.QueryRow(ctx, `SELECT `+referencedFile+` FROM chart_resources r WHERE r.storage_key=$1`, key).Scan(&live)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
 	if !live {
-		if err := s.Config.Objects.Delete(ctx, key); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if _, err = tx.Exec(ctx, `DELETE FROM chart_resources WHERE storage_key=$1`, key); err != nil {
+			return err
+		}
+		if err = s.Config.Objects.Delete(ctx, key); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
-	_, err := s.DB.Exec(ctx, `DELETE FROM retired_files WHERE storage_key=$1`, key)
-	return err
+	if _, err = tx.Exec(ctx, `DELETE FROM retired_files WHERE storage_key=$1`, key); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

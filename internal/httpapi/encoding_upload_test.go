@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"golang.org/x/text/encoding/japanese"
+	"ourtaiko.dev/fanmade/api/internal/tja"
 )
 
 func TestUploadStoresCanonicalUTF8(t *testing.T) {
@@ -37,6 +38,11 @@ func TestUploadStoresCanonicalUTF8(t *testing.T) {
 	sjis, err := japanese.ShiftJIS.NewEncoder().Bytes(canonical)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Stored bytes differ from the normalized upload only in the WAVE header.
+	stored, ok := tja.SetWave(canonical, hash(string(audio))+".mp3")
+	if !ok || !bytes.Contains(stored, []byte("\r\nWAVE:"+hash(string(audio))+".mp3\r\nCOURSE:Oni\r\n")) {
+		t.Fatal("WAVE header not rewritten in place")
 	}
 	post := func(data []byte, encoding, key string) *httptest.ResponseRecorder {
 		var body bytes.Buffer
@@ -72,12 +78,12 @@ func TestUploadStoresCanonicalUTF8(t *testing.T) {
 			if w.Code != 201 || json.Unmarshal(w.Body.Bytes(), &chart) != nil {
 				t.Fatal(w.Code, w.Body.String())
 			}
-			digest := sha256.Sum256(canonical)
+			digest := sha256.Sum256(stored)
 			if chart.Encoding != "utf-8" || chart.TJAHash != hex.EncodeToString(digest[:]) || chart.Title != "初音ミク" {
 				t.Fatal("noncanonical metadata", chart.Encoding, chart.Title)
 			}
 			var size int64
-			if err := pool.QueryRow(ctx, `SELECT byte_size FROM chart_resources WHERE chart_id=$1 AND kind='tja'`, chart.ID).Scan(&size); err != nil || size != int64(len(canonical)) {
+			if err := pool.QueryRow(ctx, `SELECT r.byte_size FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, chart.ID).Scan(&size); err != nil || size != int64(len(stored)) {
 				t.Fatal("incorrect normalized byte size", size, err)
 			}
 			for _, kind := range []string{"tja", "download"} {
@@ -104,7 +110,7 @@ func TestUploadStoresCanonicalUTF8(t *testing.T) {
 						}
 					}
 				}
-				if !bytes.Equal(data, canonical) {
+				if !bytes.Equal(data, stored) {
 					t.Fatal("download differs from normalized stored bytes", kind)
 				}
 			}

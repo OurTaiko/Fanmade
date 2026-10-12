@@ -1,14 +1,14 @@
 {
-  "version": "33a10501bbe6651b",
+  "version": "222d355cf3e9c414",
   "entry": {
     "bytes": 1658,
-    "sha256": "3520f837bf2f35e2fd4d6151e00cea8a018002df6fa0179f3ffaedf7fbf55b7a"
+    "sha256": "6ae98358c4b1719ab341c64ce986a061c9ce31871d44238b907591943e698a9c"
   },
   "files": [
     {
       "path": "Build/Web.data",
-      "bytes": 53591668,
-      "sha256": "d6bdf80ece100374739abdebf2d934201f90876efdd7a0ddcea598805a9494fb"
+      "bytes": 53591954,
+      "sha256": "b8119a7974c9e157a0c5c45ccd28b4b4a430d4902c7f57682c2c4ea370a37634"
     },
     {
       "path": "Build/Web.framework.js",
@@ -18,12 +18,12 @@
     {
       "path": "Build/Web.loader.js",
       "bytes": 25779,
-      "sha256": "b4212ab2696932b7c5d1f019a98735d5fdc8eadb4ae61f979996119a6ecde461"
+      "sha256": "450a4ab6c5434495a338a34d79605743a7327e3b07c6ccca4ddaf3645b08e5c0"
     },
     {
       "path": "Build/Web.wasm",
-      "bytes": 58043272,
-      "sha256": "d222c21a8e7c7eaf72dcb2c1f67e46979dc9517ee144a7bfc4f1ab76176f48c7"
+      "bytes": 58043661,
+      "sha256": "e0860d99b191813c82fc319ac227ed6b1b5f0c875499b3d37d54e7dd5685e1b0"
     },
     {
       "path": "audio/decode.js",

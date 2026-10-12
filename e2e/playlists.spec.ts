@@ -152,6 +152,13 @@ async function fixture(page: Page, signedIn = true) {
       return route.fulfill({ json: { ...owned[0], charts: [] } })
     if (path === '/api/v1/playlists/daily') return route.fulfill({ json: { ...daily, charts } })
     if (path === '/api/v1/charts/c1') return route.fulfill({ json: charts[0] })
+    if (path === '/api/v1/charts') {
+      const q = new URL(request.url()).searchParams.get('q') ?? ''
+      const found = [...charts, chart('c4', 'Fourth song')].filter((item) =>
+        item.title.toLowerCase().includes(q.toLowerCase()),
+      )
+      return route.fulfill({ json: { items: found, total: found.length, page: 1, pageSize: 12 } })
+    }
     if (path.endsWith('/tja'))
       return route.fulfill({
         body: 'TITLE:First song\nBPM:120\nWAVE:audio.ogg\nCOURSE:Oni\nLEVEL:5\n#START\n1000,\n#END\n',
@@ -239,6 +246,41 @@ test('the owner arranges and removes songs', async ({ page }) => {
   await page.getByRole('button', { name: 'Delete playlist' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm deletion' }).click()
   await expect(page).toHaveURL(/\/me\/playlists$/)
+})
+
+test('the owner searches songs and toggles them from the playlist page', async ({ page }) => {
+  const requests = await fixture(page)
+  await page.goto('/playlists/mine')
+  await page.getByRole('button', { name: 'Add songs' }).click()
+  const dialog = page.getByRole('dialog')
+  // Every result tells whether the playlist already holds it.
+  await expect(dialog.getByRole('button', { name: /First song/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  const fourth = dialog.getByRole('button', { name: /Fourth song/ })
+  await expect(fourth).toHaveAttribute('aria-pressed', 'false')
+  await expect(fourth).toContainText('Add')
+  await dialog.getByRole('searchbox').fill('fourth')
+  await expect(dialog.getByRole('button', { name: /First song/ })).toHaveCount(0)
+  await fourth.click()
+  await expect(fourth).toHaveAttribute('aria-pressed', 'true')
+  await expect(fourth).toContainText('Added')
+  await expect(dialog.getByText('4 songs')).toBeVisible()
+  await fourth.click()
+  await expect(fourth).toHaveAttribute('aria-pressed', 'false')
+  await dialog.getByRole('searchbox').fill('')
+  await expect(dialog.getByRole('button', { name: /First song/ })).toBeVisible()
+  await page.screenshot({ path: 'test-results/playlists-song-search.png' })
+  await dialog.getByRole('button', { name: /Second song/ }).click()
+  expect(requests.map(({ method, path }) => `${method} ${path}`)).toEqual([
+    'PUT /api/v1/playlists/mine/items/c4',
+    'DELETE /api/v1/playlists/mine/items/c4',
+    'DELETE /api/v1/playlists/mine/items/c2',
+  ])
+  expect(requests.every(({ csrf }) => csrf === 'test-csrf')).toBe(true)
+  await dialog.getByRole('button', { name: 'Got it' }).click()
+  await expect(page.getByTestId('chart-card')).toHaveCount(2)
 })
 
 test('a visitor favorites a playlist; system playlists are read-only', async ({ page }) => {

@@ -649,7 +649,7 @@
     "emptyOwned": "你还没有创建歌单。",
     "emptyFavorites": "你还没有收藏歌单。",
     "emptySongs": "这个歌单还没有歌曲。",
-    "emptySongsOwner": "在歌曲页面点击“加入歌单”，把歌曲收录进来。",
+    "emptySongsOwner": "点击“添加歌曲”搜索并收录歌曲，也可以在歌曲页面点击“加入歌单”。",
     "emptyUser": "这位用户还没有公开的歌单。",
     "addToPlaylist": "加入歌单",
     "addHelp": "选择要收录这首歌曲的歌单，再次点击可以移出。",
@@ -680,6 +680,9 @@
         "name": "今日课题",
         "description": "每天随机抽取的 10 首歌曲。"
       }
-    }
+    },
+    "addSongs": "添加歌曲",
+    "addSongsHelp": "搜索歌曲，点击一行即可加入这个歌单，再点一次移出。",
+    "add": "加入"
   }
 }

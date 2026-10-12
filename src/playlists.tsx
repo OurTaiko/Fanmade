@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils'
 import { Modal, Notice } from '@/notifications'
 import { useNotification } from '@/notification-context'
 import { useSession } from '@/session-context'
+import { PlaylistSongSearchDialog } from '@/playlist-song-search'
 import {
   usePlaylistText,
   playlistCoverSource,
@@ -428,7 +429,7 @@ export function PlaylistPage() {
   const [playlist, setPlaylist] = useState<Playlist | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [dialog, setDialog] = useState<'' | 'edit' | 'cover' | 'delete'>('')
+  const [dialog, setDialog] = useState<'' | 'edit' | 'cover' | 'delete' | 'songs'>('')
   const [arranging, setArranging] = useState(false)
   const [failedCover, setFailedCover] = useState('')
   const userId = session.user?.id
@@ -503,6 +504,13 @@ export function PlaylistPage() {
       ),
     )
   }
+  const addSong = (chart: Chart) =>
+    void change([...charts, chart], () =>
+      api(endpoints.playlistItem(playlist.id, chart.id), {
+        method: 'PUT',
+        headers: { 'X-CSRF-Token': session.csrfToken },
+      }),
+    )
   const removeSong = (chart: Chart) =>
     void change(
       charts.filter((item) => item.id !== chart.id),
@@ -600,6 +608,10 @@ export function PlaylistPage() {
                 <Button disabled={busy} onClick={() => setDialog('edit')}>
                   {t('playlists.edit')}
                 </Button>
+                <Button variant="outline" disabled={busy} onClick={() => setDialog('songs')}>
+                  <PlusIcon aria-hidden="true" />
+                  {t('playlists.addSongs')}
+                </Button>
                 <Button variant="outline" disabled={busy} onClick={() => setDialog('cover')}>
                   {t('playlists.changeCover')}
                 </Button>
@@ -646,10 +658,10 @@ export function PlaylistPage() {
           <h2 className="text-base font-semibold">{t('playlists.emptySongs')}</h2>
           {owned && <p>{t('playlists.emptySongsOwner')}</p>}
           {owned && (
-            <Link to="/" className={buttonVariants({ variant: 'outline' })}>
-              {t('messages.exploreCharts')}
-              <ArrowRightIcon size={16} aria-hidden="true" />
-            </Link>
+            <Button variant="outline" onClick={() => setDialog('songs')}>
+              <PlusIcon aria-hidden="true" />
+              {t('playlists.addSongs')}
+            </Button>
           )}
         </div>
       ) : arranging ? (
@@ -660,6 +672,14 @@ export function PlaylistPage() {
             <ChartCard key={chart.id} chart={chart} />
           ))}
         </div>
+      )}
+      {dialog === 'songs' && owned && (
+        <PlaylistSongSearchDialog
+          charts={charts}
+          disabled={busy}
+          onToggle={(chart, listed) => (listed ? removeSong(chart) : addSong(chart))}
+          onDismiss={() => setDialog('')}
+        />
       )}
       {dialog === 'edit' && (
         <PlaylistDialog

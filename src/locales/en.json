@@ -661,7 +661,7 @@
     "emptyOwned": "You have not created a playlist yet.",
     "emptyFavorites": "You have not favorited a playlist yet.",
     "emptySongs": "This playlist has no songs yet.",
-    "emptySongsOwner": "Use \"Add to playlist\" on a song's page to collect songs here.",
+    "emptySongsOwner": "Use \"Add songs\" to search for songs, or \"Add to playlist\" on a song’s page.",
     "emptyUser": "This member has no public playlists yet.",
     "addToPlaylist": "Add to playlist",
     "addHelp": "Choose the playlists that should include this song. Select one again to take the song out.",
@@ -692,6 +692,9 @@
         "name": "Daily Challenge",
         "description": "Ten songs drawn at random every day."
       }
-    }
+    },
+    "addSongs": "Add songs",
+    "addSongsHelp": "Search for songs and select a row to add it to this playlist. Select it again to take it out.",
+    "add": "Add"
   }
 }

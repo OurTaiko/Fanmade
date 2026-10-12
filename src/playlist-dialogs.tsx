@@ -1,18 +1,18 @@
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { CheckIcon, PlusIcon } from '@phosphor-icons/react'
+import { PlusIcon } from '@phosphor-icons/react'
 import { api, jsonRequest } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, MyPlaylists, Playlist } from '@/api/types'
 import { CategorySelect } from '@/categories'
 import { CoverUploadDialog } from '@/components/cover-dialog'
+import { ToggleRow } from '@/components/toggle-row'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DialogClose } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import { Modal } from '@/notifications'
 import { useSession } from '@/session-context'
 
@@ -237,34 +237,17 @@ export function AddToPlaylistDialog({ chart, onDismiss }: { chart: Chart; onDism
               <p className="text-muted-foreground">{t('playlists.emptyOwned')}</p>
             )}
             {data.owned.map((playlist) => (
-              <button
+              <ToggleRow
                 key={playlist.id}
-                type="button"
+                title={playlist.name}
+                detail={`${t('playlists.songCount', { count: playlist.chartCount })} · ${
+                  playlist.public ? t('playlists.public') : t('playlists.private')
+                }`}
+                pressed={!!playlist.containsChart}
+                pressedLabel={t('playlists.inPlaylist')}
                 disabled={busy || (!playlist.containsChart && playlist.chartCount >= data.maxItems)}
-                aria-pressed={!!playlist.containsChart}
-                onClick={() => void toggle(playlist)}
-                className={cn(
-                  'flex w-full items-center gap-3 rounded-xl border p-3 text-left active:scale-[0.98] disabled:opacity-50',
-                  playlist.containsChart
-                    ? 'border-primary bg-primary/5'
-                    : 'border-transparent bg-muted/40',
-                )}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate">{playlist.name}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {t('playlists.songCount', { count: playlist.chartCount })}
-                    {' · '}
-                    {playlist.public ? t('playlists.public') : t('playlists.private')}
-                  </span>
-                </span>
-                {playlist.containsChart && (
-                  <span className="flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-primary">
-                    <CheckIcon aria-hidden="true" />
-                    {t('playlists.inPlaylist')}
-                  </span>
-                )}
-              </button>
+                onToggle={() => void toggle(playlist)}
+              />
             ))}
           </div>
           {data.owned.length < data.maxPlaylists && (

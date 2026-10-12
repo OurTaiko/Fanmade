@@ -8,7 +8,8 @@ Actions 的 **Deploy frontend → Run workflow** 中选择 `main` 手动重试�
 `package.json` 指定的 pnpm，依次执行冻结锁文件安装、lint、单元测试和生产构建。
 全部通过后，使用 SSH 密码认证调用本次提交里的 `deploy/publish.sh`。
 服务器拉取并再次构建同一提交，然后把 1Panel 站点的 `index` 链接切换到完整的
-`releases/<commit SHA>` 目录。保留现有手动发布方式和旧版本目录。
+`releases/<commit SHA>` 目录。切换成功后只保留当前版本和最近的其他版本，共 5 个，
+更早的 `releases/<commit SHA>` 目录会被删除；保留现有手动发布方式。
 
 ## GitHub Secrets
 

@@ -62,3 +62,17 @@ fi
 sudo -n ln -s "releases/$revision" "$next"
 sudo -n mv -Tf "$next" "$site/index"
 echo "Published frontend $revision"
+
+# Keep the live release and the newest others, five in all. Only directories
+# named by a commit are removed, and a failed removal never fails a deployment
+# that is already live.
+kept=1
+while IFS= read -r name; do
+  [[ "$name" =~ ^[0-9a-f]{40}$ ]] || continue
+  [ "$name" != "$revision" ] || continue
+  if [ "$kept" -lt 5 ]; then
+    kept=$((kept + 1))
+    continue
+  fi
+  sudo -n rm -rf -- "$site/releases/$name" || echo "Could not remove old release $name"
+done < <(sudo -n ls -1t "$site/releases" || true)

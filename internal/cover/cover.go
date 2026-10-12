@@ -7,7 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	_ "image/jpeg"
+	"image/color"
+	"image/jpeg"
 	"image/png"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 )
 
@@ -74,6 +76,39 @@ func Encode(ctx context.Context, name string, data []byte) ([]byte, error) {
 		return nil, errors.New("encoder did not produce WebP")
 	}
 	return data, nil
+}
+
+// GameMediaType and GameExtension describe GameImage's output.
+const GameMediaType, GameExtension = "image/jpeg", "jpg"
+
+// GameSize is the longest side of a game image.
+const GameSize = 512
+
+// GameImage converts Encode's WebP to a small opaque JPEG for the game, which
+// decodes only JPEG and PNG. Transparent areas become white.
+func GameImage(webp []byte) ([]byte, error) {
+	source, _, err := image.Decode(bytes.NewReader(webp))
+	if err != nil {
+		return nil, fmt.Errorf("decode cover: %w", err)
+	}
+	width, height := source.Bounds().Dx(), source.Bounds().Dy()
+	if width > GameSize || height > GameSize {
+		if width >= height {
+			height = max(1, height*GameSize/width)
+			width = GameSize
+		} else {
+			width = max(1, width*GameSize/height)
+			height = GameSize
+		}
+	}
+	scaled := image.NewRGBA(image.Rect(0, 0, width, height))
+	draw.Draw(scaled, scaled.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
+	draw.CatmullRom.Scale(scaled, scaled.Bounds(), source, source.Bounds(), draw.Over, nil)
+	var out bytes.Buffer
+	if err = jpeg.Encode(&out, scaled, &jpeg.Options{Quality: 85}); err != nil {
+		return nil, fmt.Errorf("encode game cover: %w", err)
+	}
+	return out.Bytes(), nil
 }
 
 type limitedBuffer struct{ bytes.Buffer }

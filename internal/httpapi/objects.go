@@ -14,8 +14,9 @@ import (
 	"ourtaiko.dev/fanmade/api/internal/objectstore"
 )
 
-// Matches a chart_resources row r that some chart still refers to.
-const referencedFile = `EXISTS(SELECT 1 FROM charts c WHERE c.tja_file=r.id OR c.audio_file=r.id OR c.cover_file=r.id OR c.preview_file=r.id OR c.movie_file=r.id)`
+// Matches a chart_resources row r that some chart or playlist still refers to.
+const referencedFile = `(EXISTS(SELECT 1 FROM charts c WHERE c.tja_file=r.id OR c.audio_file=r.id OR c.cover_file=r.id OR c.preview_file=r.id OR c.movie_file=r.id)
+ OR EXISTS(SELECT 1 FROM playlists p WHERE p.cover_file=r.id OR p.game_cover_file=r.id))`
 
 func (s *Server) remoteStorage() bool { _, ok := s.Config.Objects.(*objectstore.S3); return ok }
 

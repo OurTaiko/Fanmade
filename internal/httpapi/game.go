@@ -80,12 +80,21 @@ func (s *Server) gameBootstrap(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	playlists, err := gamePlaylists(r.Context(), tx, user)
+	if err != nil {
+		internal(w, err)
+		return
+	}
 	if err = tx.Commit(r.Context()); err != nil {
 		internal(w, err)
 		return
 	}
 	s.chartNames(r.Context(), charts)
-	respond(w, 200, map[string]any{"user": user, "courseKeyedDifficulties": true, "categories": counts, "charts": charts, "chartCount": len(charts), "scores": scores, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
+	if err = s.gamePlaylistDetails(r.Context(), playlists); err != nil {
+		internal(w, err)
+		return
+	}
+	respond(w, 200, map[string]any{"user": user, "courseKeyedDifficulties": true, "categories": counts, "charts": charts, "chartCount": len(charts), "scores": scores, "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
 		if s.remoteStorage() {
 			return 1
 		}

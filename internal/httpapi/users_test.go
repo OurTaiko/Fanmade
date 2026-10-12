@@ -212,7 +212,7 @@ func TestUserDirectoryPublicScopeAndStatistics(t *testing.T) {
 	if err = json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
 		t.Fatal(err)
 	}
-	public := map[string]bool{"id": true, "nickname": true, "avatarUrl": true, "firstLoginAt": true, "lastActiveAt": true, "chartCount": true, "scoreCount": true, "commentCount": true, "karma": true}
+	public := map[string]bool{"id": true, "nickname": true, "avatarUrl": true, "firstLoginAt": true, "lastActiveAt": true, "chartCount": true, "scoreCount": true, "commentCount": true, "karma": true, "playlistCount": true}
 	for _, u := range raw.Items {
 		for key := range u {
 			if !public[key] {

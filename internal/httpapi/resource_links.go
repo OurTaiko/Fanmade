@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"net/http"
@@ -9,6 +10,31 @@ import (
 	"ourtaiko.dev/fanmade/api/internal/video"
 	"time"
 )
+
+// resourceLink tells a client where to download one stored file and how to
+// verify it.
+type resourceLink struct {
+	URL         string `json:"url"`
+	HeadURL     string `json:"headUrl"`
+	SHA256      string `json:"sha256"`
+	Size        int64  `json:"size"`
+	ContentType string `json:"contentType"`
+}
+
+// directLink is the public address of an object, or one signed for 15 minutes
+// when the bucket has no public address.
+func directLink(ctx context.Context, remote *objectstore.S3, key, name, media, digest string, size int64) (resourceLink, error) {
+	public, e := remote.PublicURL(key)
+	if e != nil || public != "" {
+		return resourceLink{public, public, digest, size, media}, e
+	}
+	get, e := remote.Sign(ctx, key, "GET", name, media, 15*time.Minute)
+	if e != nil {
+		return resourceLink{}, e
+	}
+	head, e := remote.Sign(ctx, key, "HEAD", name, media, 15*time.Minute)
+	return resourceLink{get, head, digest, size, media}, e
+}
 
 // Resolve current resources before download. Never forward API credentials to the object host.
 func (s *Server) resourceLinks(w http.ResponseWriter, r *http.Request) {
@@ -34,33 +60,11 @@ func (s *Server) resourceLinks(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	type resource struct {
-		URL         string `json:"url"`
-		HeadURL     string `json:"headUrl"`
-		SHA256      string `json:"sha256"`
-		Size        int64  `json:"size"`
-		ContentType string `json:"contentType"`
-	}
-	resources := map[string]resource{}
+	resources := map[string]resourceLink{}
 	add := func(kind, key, name, media, digest string, size int64) error {
-		public, e := remote.PublicURL(key)
-		if e != nil {
-			return e
-		}
-		if public != "" {
-			resources[kind] = resource{public, public, digest, size, media}
-			return nil
-		}
-		get, e := remote.Sign(r.Context(), key, "GET", name, media, 15*time.Minute)
-		if e != nil {
-			return e
-		}
-		head, e := remote.Sign(r.Context(), key, "HEAD", name, media, 15*time.Minute)
-		if e != nil {
-			return e
-		}
-		resources[kind] = resource{get, head, digest, size, media}
-		return nil
+		link, e := directLink(r.Context(), remote, key, name, media, digest, size)
+		resources[kind] = link
+		return e
 	}
 	var tjaSize int64
 	if e = tx.QueryRow(r.Context(), `SELECT r.byte_size FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, c.ID).Scan(&tjaSize); e != nil {

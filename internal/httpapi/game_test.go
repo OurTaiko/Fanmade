@@ -58,6 +58,12 @@ func TestGameSessionIsolation(t *testing.T) {
 		{"GET", "/api/v1/me/charts", "", "", "", result.AccessToken, 401},
 		{"POST", "/api/v1/game/login", credentials, "", "https://evil.test", "", 403},
 		{"POST", "/api/v1/game/scores", "{}", "", "", "", 401},
+		{"GET", "/api/v1/game/scores", "", "", "", "", 401},
+		{"GET", "/api/v1/game/scores", "", result.AccessToken, "", "", 200},
+		{"GET", "/api/v1/game/playlists", "", "", "", "", 401},
+		{"GET", "/api/v1/game/playlists", "", result.AccessToken, "", "", 200},
+		{"GET", "/api/v1/game/catalog", "", "", "", "", 200},
+		{"GET", "/api/v1/game/catalog", "", "invalid", "", "", 200},
 		{"POST", "/api/v1/game/scores", "{}", result.AccessToken, "", "", 422},
 	} {
 		if w := call(c.method, c.path, c.body, c.token, c.origin, c.cookie); w.Code != c.status {

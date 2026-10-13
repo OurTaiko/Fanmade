@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -13,11 +14,29 @@ func isGameRequest(r *http.Request) bool {
 	return strings.HasPrefix(r.URL.Path, "/api/v1/game/")
 }
 
+// gameCatalog is the complete song list for a game client: categories, charts
+// and the public playlists. It is the same for everyone and ignores any
+// session; an account's scores are GET /api/v1/game/scores and its own
+// playlists GET /api/v1/game/playlists.
+func (s *Server) gameCatalog(w http.ResponseWriter, r *http.Request) {
+	s.gameSnapshot(w, r, false)
+}
+
+// Deprecated: use GET /api/v1/game/catalog, and GET /api/v1/game/scores for the
+// account's scores. Retained unchanged until remaining clients migrate; no
+// removal date has been set.
 func (s *Server) gameBootstrap(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", "@1791763200") // 2026-10-12 00:00:00 UTC, RFC 9745.
+	s.gameSnapshot(w, r, true)
+}
+
+// gameSnapshot reads the catalog in one snapshot. personal is the deprecated
+// bootstrap: a bearer session adds its user, scores and own playlists.
+func (s *Server) gameSnapshot(w http.ResponseWriter, r *http.Request, personal bool) {
 	// Catalog access is public. Only a native bearer session can opt into
 	// personal scores; browser cookies never turn a guest into a game user.
 	var user *User
-	if r.Header.Get("Authorization") != "" {
+	if personal && r.Header.Get("Authorization") != "" {
 		u, ok := s.required(w, r, false)
 		if !ok {
 			return
@@ -59,23 +78,7 @@ func (s *Server) gameBootstrap(w http.ResponseWriter, r *http.Request) {
 	}
 	scores := []Score{}
 	if user != nil {
-		rows, err := tx.Query(r.Context(), `SELECT `+scoreColumns+` FROM scores WHERE user_id=$1 AND difficulty IN `+supportedCoursesSQL+` AND NOT EXISTS (SELECT 1 FROM charts c CROSS JOIN LATERAL jsonb_array_elements(c.difficulties) excluded WHERE c.id=scores.song_id AND excluded->>'course' NOT IN `+supportedCoursesSQL+`) ORDER BY submitted_at,id`, user.ID)
-		if err != nil {
-			internal(w, err)
-			return
-		}
-		for rows.Next() {
-			v, e := readScore(rows)
-			if e != nil {
-				rows.Close()
-				internal(w, e)
-				return
-			}
-			scores = append(scores, v)
-		}
-		err = rows.Err()
-		rows.Close()
-		if err != nil {
+		if scores, err = gameScores(r.Context(), tx, user.ID); err != nil {
 			internal(w, err)
 			return
 		}
@@ -94,10 +97,54 @@ func (s *Server) gameBootstrap(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	respond(w, 200, map[string]any{"user": user, "courseKeyedDifficulties": true, "categories": counts, "charts": charts, "chartCount": len(charts), "scores": scores, "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
+	body := map[string]any{"courseKeyedDifficulties": true, "categories": counts, "charts": charts, "chartCount": len(charts), "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
 		if s.remoteStorage() {
 			return 1
 		}
 		return 0
-	}()})
+	}()}
+	if personal {
+		body["user"] = user
+		body["scores"] = scores
+	}
+	respond(w, 200, body)
+}
+
+const gameScoresSQL = `SELECT ` + scoreColumns + ` FROM scores WHERE user_id=$1 AND difficulty IN ` + supportedCoursesSQL + ` AND NOT EXISTS (SELECT 1 FROM charts c CROSS JOIN LATERAL jsonb_array_elements(c.difficulties) excluded WHERE c.id=scores.song_id AND excluded->>'course' NOT IN ` + supportedCoursesSQL + `) ORDER BY submitted_at,id`
+
+// scoreQuerier is a transaction or the pool.
+type scoreQuerier interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+// gameScores lists the scores a game client keeps for an account.
+func gameScores(ctx context.Context, q scoreQuerier, userID any) ([]Score, error) {
+	scores := []Score{}
+	rows, err := q.Query(ctx, gameScoresSQL, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		v, e := readScore(rows)
+		if e != nil {
+			return nil, e
+		}
+		scores = append(scores, v)
+	}
+	return scores, rows.Err()
+}
+
+// gameScoreList returns the signed-in account's scores on their own.
+func (s *Server) gameScoreList(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.required(w, r, false)
+	if !ok {
+		return
+	}
+	scores, err := gameScores(r.Context(), s.DB, u.User.ID)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	respond(w, 200, map[string]any{"scores": scores})
 }

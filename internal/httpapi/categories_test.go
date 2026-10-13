@@ -126,8 +126,17 @@ func TestCategoriesFlow(t *testing.T) {
 	}
 	w = call("GET", "/api/v1/game/bootstrap", "", gameToken)
 	var bootstrap map[string]json.RawMessage
-	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &bootstrap) != nil || bootstrap["charts"] == nil || bootstrap["categories"] == nil || w.Header().Get("Deprecation") != "" {
-		t.Fatal("bootstrap must include the complete catalog", w.Body.String())
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &bootstrap) != nil || bootstrap["charts"] == nil || bootstrap["categories"] == nil || bootstrap["scores"] == nil || w.Header().Get("Deprecation") != "@1791763200" {
+		t.Fatal("deprecated bootstrap must stay as it was", w.Body.String())
+	}
+	// The catalog replaces it: the same list for a guest and an account, nothing personal.
+	var songList map[string]json.RawMessage
+	for _, token := range []string{"", gameToken} {
+		c := call("GET", "/api/v1/game/catalog", "", token)
+		if c.Code != 200 || json.Unmarshal(c.Body.Bytes(), &songList) != nil || c.Header().Get("Deprecation") != "" || songList["scores"] != nil || songList["user"] != nil ||
+			string(songList["charts"]) != string(bootstrap["charts"]) || string(songList["categories"]) != string(bootstrap["categories"]) {
+			t.Fatal("catalog must be the public bootstrap catalog", c.Body.String())
+		}
 	}
 	var summary struct {
 		ChartCount int

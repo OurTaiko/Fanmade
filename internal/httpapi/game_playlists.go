@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/jackc/pgx/v5"
 	"ourtaiko.dev/fanmade/api/internal/cover"
@@ -79,6 +80,49 @@ func gamePlaylists(ctx context.Context, tx pgx.Tx, user *User) ([]GamePlaylist, 
 		}
 	}
 	return items, nil
+}
+
+// personalGamePlaylists keeps the folders that exist only for an account: its
+// own and favorite playlists and the personal system ones. The public system
+// playlists are part of the catalog.
+func personalGamePlaylists(items []GamePlaylist) []GamePlaylist {
+	personal := []GamePlaylist{}
+	for _, p := range items {
+		if system := systemPlaylistByID(p.ID); p.Kind != "system" || (system != nil && system.personal) {
+			personal = append(personal, p)
+		}
+	}
+	return personal
+}
+
+// gamePlaylistList returns the signed-in account's own folders, which the
+// public catalog cannot carry. A client adds them to the catalog's playlists.
+func (s *Server) gamePlaylistList(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.required(w, r, false)
+	if !ok {
+		return
+	}
+	tx, err := s.DB.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	playlists, err := gamePlaylists(r.Context(), tx, &u.User)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	if err = tx.Commit(r.Context()); err != nil {
+		internal(w, err)
+		return
+	}
+	playlists = personalGamePlaylists(playlists)
+	if err = s.gamePlaylistDetails(r.Context(), playlists); err != nil {
+		internal(w, err)
+		return
+	}
+	respond(w, 200, map[string]any{"playlists": playlists, "playlistVersion": 1})
 }
 
 func (s *Server) gamePlaylistDetails(ctx context.Context, items []GamePlaylist) error {

@@ -246,6 +246,13 @@ func TestPlaylistLifecycle(t *testing.T) {
 	if strings.Contains(guest, "Mine") || strings.Contains(guest, "Liked") || !strings.Contains(guest, "system:Daily Challenge:VARIETY:") || !strings.Contains(guest, "system:Recently Acclaimed:CLASSICAL:other") {
 		t.Fatal("guest folders", guest)
 	}
+	// The account's own folders travel apart from the public catalog.
+	if own := kinds(personalGamePlaylists(alice)); own != "favorite:Mine:GAME:song+other system:Liked Songs:J-POP:other" {
+		t.Fatal("alice personal folders", own)
+	}
+	if own := personalGamePlaylists(game("")); len(own) != 0 {
+		t.Fatal("guest personal folders", kinds(own))
+	}
 	r := httptest.NewRequest("GET", "/api/v1/game/bootstrap", nil)
 	w := httptest.NewRecorder()
 	c.handler.ServeHTTP(w, r)

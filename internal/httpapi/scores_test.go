@@ -128,6 +128,10 @@ func TestSubmitScore(t *testing.T) {
 	if w := native("GET", "/api/v1/game/bootstrap", ""); w.Code != 200 || strings.Contains(w.Body.String(), "songIdOnly") || strings.Contains(w.Body.String(), "versionId") || !strings.Contains(w.Body.String(), `"good":5`) || !strings.Contains(w.Body.String(), `"max_combo":6`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
+	// The score list carries the account's scores without the catalog.
+	if w := native("GET", "/api/v1/game/scores", ""); w.Code != 200 || strings.Contains(w.Body.String(), "versionId") || strings.Contains(w.Body.String(), `"charts"`) || !strings.Contains(w.Body.String(), `"good":5`) || !strings.Contains(w.Body.String(), `"max_combo":6`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
 	// Existing personal scores must never leak through anonymous bootstrap,
 	// including when a browser session cookie accompanies the request.
 	for _, browserCookie := range []string{"", cookie, cookie2} {

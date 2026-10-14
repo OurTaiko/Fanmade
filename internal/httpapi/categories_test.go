@@ -241,7 +241,7 @@ func TestCategoriesFlow(t *testing.T) {
 		t.Fatal("partial invalid patch")
 	}
 	// An existing score must remain attached to the same song after reclassification.
-	if _, err = pool.Exec(ctx, `INSERT INTO scores(id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES('score','89b6ef3a5cb57b6e04f74711d15a8a5f',$1,'Oni',1,0,0,1000,0,1,repeat('a',64))`, c.ID); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO scores(id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES('score','89b6ef3a5cb57b6e04f74711d15a8a5f',test_slot($1,'Oni'),1,0,0,1000,0,1,repeat('a',64))`, c.ID); err != nil {
 		t.Fatal(err)
 	}
 	after = decodeChart(call("PATCH", path, `{"categoryIds":["classic","virtual-singer"]}`, token), 200)
@@ -270,7 +270,7 @@ func TestCategoriesFlow(t *testing.T) {
 		t.Fatal("empty PATCH default")
 	}
 	var points int
-	if err = pool.QueryRow(ctx, `SELECT score FROM scores WHERE id='score' AND song_id=$1`, c.ID).Scan(&points); err != nil || points != 1000 {
+	if err = pool.QueryRow(ctx, `SELECT score FROM scores WHERE id='score' AND difficulty_id=test_slot($1,'Oni')`, c.ID).Scan(&points); err != nil || points != 1000 {
 		t.Fatal("lost score", err)
 	}
 	if w = call("DELETE", path, "", token); w.Code != 200 {

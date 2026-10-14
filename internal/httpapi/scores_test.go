@@ -60,6 +60,12 @@ func scoreTestDB(t *testing.T) *pgxpool.Pool {
  ON CONFLICT(storage_key) DO UPDATE SET storage_key=EXCLUDED.storage_key RETURNING id $$`); err != nil {
 		t.Fatal(err)
 	}
+	// test_slot adds a chart's single block of a course, or finds it again.
+	if _, err = pool.Exec(ctx, `CREATE FUNCTION test_slot(chart text, slot_course text, slot_level integer DEFAULT 5, slot_maker text DEFAULT '') RETURNS bigint LANGUAGE sql AS $$
+ INSERT INTO chart_difficulties(chart_id,course,side,level,maker) VALUES(chart,slot_course,'single',slot_level,slot_maker)
+ ON CONFLICT(chart_id,course,side) DO UPDATE SET level=chart_difficulties.level RETURNING id $$`); err != nil {
+		t.Fatal(err)
+	}
 	return pool
 }
 
@@ -67,7 +73,6 @@ func TestSubmitScore(t *testing.T) {
 	pool := scoreTestDB(t)
 	ctx := context.Background()
 	const song = "11111111111111111111111111111111"
-	const otherSong = "22222222222222222222222222222222"
 	const origin = "http://127.0.0.1:5173"
 	const csrf = "test-csrf"
 	const cookie = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -86,13 +91,18 @@ func TestSubmitScore(t *testing.T) {
 	}
 	defer tx.Rollback(ctx)
 	_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) VALUES('11111111111111111111111111111111',ARRAY['89b6ef3a5cb57b6e04f74711d15a8a5f'],'Test',120,10,test_file('tja','test.tja',repeat('a',64),1),test_file('ogg','test.ogg',repeat('b',64),1));
- UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ('11111111111111111111111111111111','Oni',5,''),('11111111111111111111111111111111','Easy',5,''),('11111111111111111111111111111111','Edit',5,'')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id;`)
+ SELECT test_slot('11111111111111111111111111111111','Oni'),test_slot('11111111111111111111111111111111','Easy'),test_slot('11111111111111111111111111111111','Edit');`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
+	var oni, edit int64
+	if err = pool.QueryRow(ctx, `SELECT test_slot($1,'Oni'),test_slot($1,'Edit')`, song).Scan(&oni, &edit); err != nil {
+		t.Fatal(err)
+	}
+	slot := fmt.Sprintf(`"difficultyId":%d`, oni)
 	handler := testServer(t, pool, Config{Origin: origin}).Handler()
 	nativeToken := strings.Repeat("c", 64)
 	if _, err = pool.Exec(ctx, `INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,'89b6ef3a5cb57b6e04f74711d15a8a5f','',now()+interval '1 day')`, hash("game:"+nativeToken)); err != nil {
@@ -107,15 +117,15 @@ func TestSubmitScore(t *testing.T) {
 		handler.ServeHTTP(w, r)
 		return w
 	}
-	gameBody := `{"songId":"` + song + `","difficulty":"Oni","good":5,"ok":1,"bad":0,"score":6000,"drumroll":2,"max_combo":6}`
+	gameBody := `{` + slot + `,"good":5,"ok":1,"bad":0,"score":6000,"drumroll":2,"max_combo":6}`
 	if w := native("POST", "/api/v1/game/scores", gameBody); w.Code != 201 || !strings.Contains(w.Body.String(), `"max_combo":6`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	if w := native("POST", "/api/v1/game/scores", gameBody); w.Code != 200 || !strings.Contains(w.Body.String(), `"max_combo":6`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	// Pre-migration receipts hashed the removed field; retries now use song ID alone.
-	oldBody := strings.Replace(gameBody, `"difficulty"`, `"versionId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","difficulty"`, 1)
+	// Receipts stored before a field was removed hashed it; retries compare the score itself.
+	oldBody := strings.Replace(gameBody, slot, `"versionId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",`+slot, 1)
 	if _, err := pool.Exec(ctx, `UPDATE scores SET payload_digest=$1 WHERE idempotency_key='game-integration-score-1'`, hash(oldBody)); err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +204,7 @@ func TestSubmitScore(t *testing.T) {
 		}
 	}
 
-	body := `{"songId":"` + song + `","difficulty":"Oni","good":300,"ok":10,"bad":2,"score":900000,"drumroll":50,"max_combo":250,"ClearStatus":1}`
+	body := `{` + slot + `,"good":300,"ok":10,"bad":2,"score":900000,"drumroll":50,"max_combo":250,"ClearStatus":1}`
 	var requestCount atomic.Uint32
 	call := func(body, key, token string, headers map[string]string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("POST", "/api/v1/scores", strings.NewReader(body))
@@ -260,10 +270,10 @@ func TestSubmitScore(t *testing.T) {
 		{"spoof user", strings.TrimSuffix(body, "}") + `,"userId":"d1ee9badde8bb6f733b2315472711632"}`, "", cookie, nil, 400, "REQUEST_INVALID"},
 		{"trailing", body + " {}", "", cookie, nil, 400, "REQUEST_INVALID"},
 		{"null body", "null", "", cookie, nil, 422, "SCORE_INVALID"},
-		{"unknown course", strings.Replace(body, "Oni", "Invalid", 1), "", cookie, nil, 422, "SCORE_INVALID"},
-		{"missing song", strings.Replace(body, song, otherSong, 1), "", cookie, nil, 404, "CHART_NOT_FOUND"},
-		{"missing difficulty", strings.Replace(body, "Oni", "Normal", 1), "", cookie, nil, 404, "DIFFICULTY_NOT_FOUND"},
-		{"missing double", strings.Replace(body, "Oni", "Hard", 1), "", cookie, nil, 404, "DIFFICULTY_NOT_FOUND"},
+		{"no block", strings.Replace(body, slot, `"difficultyId":0`, 1), "", cookie, nil, 422, "SCORE_INVALID"},
+		{"block name", strings.Replace(body, slot, `"difficultyId":"Oni"`, 1), "", cookie, nil, 400, "REQUEST_INVALID"},
+		{"retired form", strings.Replace(body, slot, `"songId":"`+song+`","difficulty":"Oni"`, 1), "", cookie, nil, 400, "REQUEST_INVALID"},
+		{"missing block", strings.Replace(body, slot, `"difficultyId":987654321`, 1), "", cookie, nil, 404, "DIFFICULTY_NOT_FOUND"},
 		{"invalid key", body, "short", cookie, nil, 400, "IDEMPOTENCY_KEY_INVALID"},
 	} {
 		t.Run(tc.name, func(t *testing.T) { assertStatus(call(tc.body, tc.key, tc.token, tc.headers), tc.status, tc.code) })
@@ -282,17 +292,20 @@ func TestSubmitScore(t *testing.T) {
 	if first.ClearStatus != 1 || !strings.Contains(w.Body.String(), `"ClearStatus":1`) {
 		t.Fatal("browser upload lost clear status", w.Body.String())
 	}
+	if first.SongID != song || first.DifficultyID != oni || first.Course != "Oni" || first.Side != "single" || !first.IsLatest {
+		t.Fatalf("bad block: %+v", first)
+	}
 	if first.UserID != "89b6ef3a5cb57b6e04f74711d15a8a5f" || first.Good != 300 || first.OK != 10 || first.Bad != 2 || first.Score != 900000 || first.Drumroll != 50 || first.MaxCombo != 250 || first.SubmittedAt.IsZero() {
 		t.Fatalf("bad receipt: %+v", first)
 	}
-	stored, err := readScore(pool.QueryRow(ctx, `SELECT `+scoreColumns+` FROM scores WHERE id=$1`, first.ID))
+	stored, err := readScore(pool.QueryRow(ctx, scoreSelect+` WHERE sc.id=$1`, first.ID))
 	// Drivers may use time.Local for a UTC database timestamp; compare the same zone.
 	stored.SubmittedAt = stored.SubmittedAt.UTC()
 	first.SubmittedAt = first.SubmittedAt.UTC()
 	if err != nil || stored != first {
 		t.Fatalf("stored receipt mismatch: %+v %v", stored, err)
 	}
-	w = call(strings.Replace(body, "Oni", "oni", 1), key, cookie, nil)
+	w = call(body, key, cookie, nil)
 	assertStatus(w, 200, "")
 	var replay Score
 	json.Unmarshal(w.Body.Bytes(), &replay)
@@ -304,13 +317,13 @@ func TestSubmitScore(t *testing.T) {
 	assertStatus(call(body, key, cookie2, nil), 201, "")
 	assertStatus(call(body, "", cookie, nil), 201, "")
 	assertStatus(call(body, "", cookie, nil), 201, "")
-	zero := strings.NewReplacer(`"max_combo":250`, `"max_combo":0`, "Oni", "ura", "300", "0", "10", "0", "2,", "0,", "900000", "0", "50", "0").Replace(body)
+	zero := fmt.Sprintf(`{"difficultyId":%d,"good":0,"ok":0,"bad":0,"score":0,"drumroll":0,"max_combo":0,"ClearStatus":1}`, edit)
 	w = call(zero, "", cookie, nil)
 	assertStatus(w, 201, "")
-	var edit Score
-	json.Unmarshal(w.Body.Bytes(), &edit)
-	if edit.Difficulty != "Edit" || edit.Score != 0 || edit.Good != 0 || edit.MaxCombo != 0 {
-		t.Fatalf("zero/alias: %+v", edit)
+	var zeroScore Score
+	json.Unmarshal(w.Body.Bytes(), &zeroScore)
+	if zeroScore.Course != "Edit" || zeroScore.Score != 0 || zeroScore.Good != 0 || zeroScore.MaxCombo != 0 {
+		t.Fatalf("zero: %+v", zeroScore)
 	}
 	// Concurrent retries must produce one persistent record and one receipt ID.
 	var wg sync.WaitGroup
@@ -351,11 +364,8 @@ func TestSubmitScore(t *testing.T) {
 	if _, err = pool.Exec(ctx, `UPDATE scores SET max_combo=-1 WHERE id=$1`, first.ID); err == nil {
 		t.Fatal("database accepted negative maximum combo")
 	}
-	// Even SQL writes cannot attach a score to a Double or different difficulty.
-	if _, err = pool.Exec(ctx, `UPDATE scores SET difficulty='Oni_1p' WHERE id=$1`, first.ID); err == nil {
-		t.Fatal("database accepted Double target")
-	}
-	if _, err = pool.Exec(ctx, `UPDATE scores SET difficulty='Hard' WHERE id=$1`, first.ID); err == nil {
-		t.Fatal("database accepted mismatched difficulty")
+	// Even SQL writes cannot attach a score to a block that does not exist.
+	if _, err = pool.Exec(ctx, `UPDATE scores SET difficulty_id=987654321 WHERE id=$1`, first.ID); err == nil {
+		t.Fatal("database accepted a missing block")
 	}
 }

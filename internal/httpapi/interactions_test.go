@@ -57,9 +57,9 @@ func interactionFixture(t *testing.T) (interactionClient, *Server) {
 		t.Fatal(err)
 	}
 	_, err := pool.Exec(ctx, `BEGIN;
-	 INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,difficulties,created_at) VALUES
-	  ('song',ARRAY['d46774d30dd13b92d9e536808da468a4'],'Song',120,10,test_file('song/tja','a.tja',repeat('a',64),14),test_file('song/audio','a.ogg',repeat('a',64),14),'[{"course":"Oni","level":5,"maker":""}]',now()-interval '2 days'),
-	  ('other',ARRAY['d46774d30dd13b92d9e536808da468a4'],'Other',120,10,test_file('other/tja','a.tja',repeat('a',64),14),test_file('other/audio','a.ogg',repeat('a',64),14),'[{"course":"Oni","level":5,"maker":""}]',now());
+	 INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,created_at) VALUES
+	  ('song',ARRAY['d46774d30dd13b92d9e536808da468a4'],'Song',120,10,test_file('song/tja','a.tja',repeat('a',64),14),test_file('song/audio','a.ogg',repeat('a',64),14),now()-interval '2 days'),
+	  ('other',ARRAY['d46774d30dd13b92d9e536808da468a4'],'Other',120,10,test_file('other/tja','a.tja',repeat('a',64),14),test_file('other/audio','a.ogg',repeat('a',64),14),now());
 	 COMMIT;`)
 	if err != nil {
 		t.Fatal(err)

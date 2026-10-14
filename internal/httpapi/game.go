@@ -97,7 +97,7 @@ func (s *Server) gameSnapshot(w http.ResponseWriter, r *http.Request, personal b
 		internal(w, err)
 		return
 	}
-	body := map[string]any{"courseKeyedDifficulties": true, "categories": counts, "charts": charts, "chartCount": len(charts), "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
+	body := map[string]any{"chartSlotVersion": 1, "categories": counts, "charts": charts, "chartCount": len(charts), "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
 		if s.remoteStorage() {
 			return 1
 		}
@@ -110,7 +110,8 @@ func (s *Server) gameSnapshot(w http.ResponseWriter, r *http.Request, personal b
 	respond(w, 200, body)
 }
 
-const gameScoresSQL = `SELECT ` + scoreColumns + ` FROM scores WHERE user_id=$1 AND difficulty IN ` + supportedCoursesSQL + ` AND NOT EXISTS (SELECT 1 FROM charts c CROSS JOIN LATERAL jsonb_array_elements(c.difficulties) excluded WHERE c.id=scores.song_id AND excluded->>'course' NOT IN ` + supportedCoursesSQL + `) ORDER BY submitted_at,id`
+// Scores of songs outside the catalog are of no use to a client.
+const gameScoresSQL = scoreSelect + ` JOIN charts c ON c.id=d.chart_id WHERE sc.user_id=$1 AND ` + publishedChart + ` ORDER BY sc.submitted_at,sc.id`
 
 // scoreQuerier is a transaction or the pool.
 type scoreQuerier interface {

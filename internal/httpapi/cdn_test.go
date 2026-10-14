@@ -56,7 +56,7 @@ func TestCDNResourcesAndRoutes(t *testing.T) {
 	}
 	ctx := context.Background()
 	if _, err := pool.Exec(ctx, `INSERT INTO users(id,username,password_hash) VALUES('owner','cdnowner','unused');
- INSERT INTO charts(id,owner_ids,title,bpm,duration,difficulties,tja_file,audio_file,cover_file) VALUES('cdn-song',ARRAY['owner'],'CDN',120,100,'[{"course":"Oni","level":5,"maker":""}]',
+ INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,cover_file) VALUES('cdn-song',ARRAY['owner'],'CDN',120,100,
  test_file('objects/song/tja','song.tja',repeat('a',64),12),test_file('objects/song/audio','audio.ogg',repeat('b',64),20),
  test_file('covers/song/cover.webp','cover.webp',repeat('d',64),14));`); err != nil {
 		t.Fatal(err)

@@ -25,7 +25,7 @@ func TestPublicGameSearch(t *testing.T) {
 		_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,title_translations) VALUES($1,ARRAY['eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'],'Search Song',120,10,test_file('tja','test.tja',repeat('a',64),1),test_file('ogg','test.ogg',repeat('b',64),1),'{"ja":"検索曲"}')`, id)
 
 		if err == nil {
-			_, err = tx.Exec(ctx, `UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ($1,'Easy',3,'Composer'),($1,'Oni',8,'Artist')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id;`, id)
+			_, err = tx.Exec(ctx, `INSERT INTO chart_difficulties(chart_id,course,side,level,maker) SELECT chart_id,course,'single',level,maker FROM (VALUES ($1,'Easy',3,'Composer'),($1,'Oni',8,'Artist')) v(chart_id,course,level,maker);`, id)
 		}
 		if err != nil {
 			tx.Rollback(ctx)
@@ -93,7 +93,7 @@ func TestPublicGameSearch(t *testing.T) {
 		if i == 1 {
 			okCount = 1
 		}
-		_, err := pool.Exec(ctx, `INSERT INTO scores(id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',$2,'Oni',10,$3,0,1000,0,10,repeat('a',64))`, fmt.Sprint("completed", i), fmt.Sprintf("%032d", i), okCount)
+		_, err := pool.Exec(ctx, `INSERT INTO scores(id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',test_slot($2,'Oni'),10,$3,0,1000,0,10,repeat('a',64))`, fmt.Sprint("completed", i), fmt.Sprintf("%032d", i), okCount)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -141,6 +141,31 @@ func TestPublicGameSearch(t *testing.T) {
 				t.Fatalf("%s %+v: %d %s", endpoint, tc, w.Code, w.Body.String())
 			}
 		}
+	}
+	// A score of replaced files counts while the block has no current one.
+	first := func(want int) {
+		t.Helper()
+		r := httptest.NewRequest("GET", "/api/v1/game/search?order=unfc&course=Oni", nil)
+		r.Header.Set("Authorization", "Bearer "+gameToken)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		var result struct {
+			Items []Chart `json:"items"`
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || len(result.Items) != 14 || result.Items[0].ID != fmt.Sprintf("%032d", want) {
+			t.Fatalf("want %d first: %d %s", want, w.Code, w.Body.String())
+		}
+	}
+	if _, err := pool.Exec(ctx, `UPDATE scores SET is_latest=false`); err != nil {
+		t.Fatal(err)
+	}
+	first(0)
+	if _, err := pool.Exec(ctx, `INSERT INTO scores(id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES('current','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',test_slot($1,'Oni'),10,0,1,900,0,5,repeat('a',64))`, fmt.Sprintf("%032d", 13)); err != nil {
+		t.Fatal(err)
+	}
+	first(13)
+	if _, err := pool.Exec(ctx, `DELETE FROM scores WHERE id='current'; UPDATE scores SET is_latest=true`); err != nil {
+		t.Fatal(err)
 	}
 	// Both default to newest first; the game list holds the whole paged web
 	// list without web enrichment. Browser cookies cannot authorize game ordering.

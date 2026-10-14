@@ -38,7 +38,7 @@ type UserDirectory struct {
 
 const publicUserColumns = `u.id,u.first_login_at,u.last_active_at,
  (SELECT count(*) FROM charts c WHERE c.owner_ids @> ARRAY[u.id] AND ` + publishedChart + `),
- (SELECT count(*) FROM scores sc JOIN charts c ON c.id=sc.song_id
+ (SELECT count(*) FROM scores sc JOIN chart_difficulties d ON d.id=sc.difficulty_id JOIN charts c ON c.id=d.chart_id
  WHERE sc.user_id=u.id AND ` + publishedChart + `),
  (SELECT count(*) FROM comments m JOIN charts c ON c.id=m.chart_id WHERE m.author_id=u.id AND ` + visibleComment + `),
  (SELECT COALESCE(sum(v.value),0) FROM comment_votes v JOIN comments m ON m.id=v.comment_id WHERE m.author_id=u.id AND v.user_id<>u.id)+

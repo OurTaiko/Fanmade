@@ -62,7 +62,7 @@ func TestDeletedChartsMigration(t *testing.T) {
 	}
 	var ok bool
 	err = pool.QueryRow(ctx, `SELECT
-	 (SELECT array_agg(song_id) FROM scores)=ARRAY['live'] AND
+	 (SELECT array_agg(d.chart_id) FROM scores s JOIN chart_difficulties d ON d.id=s.difficulty_id)=ARRAY['live'] AND
 	 (SELECT array_agg(storage_key ORDER BY storage_key) FROM chart_resources)=ARRAY['live/tja','shared'] AND
 	 (SELECT t.storage_key='live/tja' AND a.storage_key='shared' FROM charts c JOIN chart_resources t ON t.id=c.tja_file JOIN chart_resources a ON a.id=c.audio_file WHERE c.id='live') AND
 	 (SELECT array_agg(id) FROM charts)=ARRAY['live'] AND

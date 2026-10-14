@@ -6,7 +6,6 @@ import (
 	"io"
 	"mime"
 	"net/http"
-	"regexp"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -14,45 +13,43 @@ import (
 
 // Pointers distinguish required zero-valued counts from missing/null fields.
 type scoreSubmission struct {
-	SongID     string          `json:"songId"`
-	Difficulty string          `json:"difficulty"`
-	Good       *int64          `json:"good"`
-	OK         *int64          `json:"ok"`
-	Bad        *int64          `json:"bad"`
-	Score      *int64          `json:"score"`
-	Drumroll   *int64          `json:"drumroll"`
-	MaxCombo   *int64          `json:"max_combo"`
-	ReplayData json.RawMessage `json:"replay_data,omitempty"`
+	// The chart_difficulties row of the block that was really played.
+	DifficultyID int64           `json:"difficultyId"`
+	Good         *int64          `json:"good"`
+	OK           *int64          `json:"ok"`
+	Bad          *int64          `json:"bad"`
+	Score        *int64          `json:"score"`
+	Drumroll     *int64          `json:"drumroll"`
+	MaxCombo     *int64          `json:"max_combo"`
+	ReplayData   json.RawMessage `json:"replay_data,omitempty"`
 	// Omit zero from the digest to preserve retries of pre-ClearStatus requests.
 	ClearStatus int `json:"ClearStatus,omitempty"`
 }
 
 type Score struct {
-	ID          string    `json:"id"`
-	UserID      string    `json:"userId"`
-	SongID      string    `json:"songId"`
-	Difficulty  string    `json:"difficulty"`
-	Good        int64     `json:"good"`
-	OK          int64     `json:"ok"`
-	Bad         int64     `json:"bad"`
-	Score       int64     `json:"score"`
-	Drumroll    int64     `json:"drumroll"`
-	MaxCombo    int64     `json:"max_combo"`
-	ClearStatus int       `json:"ClearStatus"`
+	ID     string `json:"id"`
+	UserID string `json:"userId"`
+	SongID string `json:"songId"`
+	// The block that was played; Course and Side describe it.
+	DifficultyID int64  `json:"difficultyId"`
+	Course       string `json:"course"`
+	Side         string `json:"side"`
+	Good         int64  `json:"good"`
+	OK           int64  `json:"ok"`
+	Bad          int64  `json:"bad"`
+	Score        int64  `json:"score"`
+	Drumroll     int64  `json:"drumroll"`
+	MaxCombo     int64  `json:"max_combo"`
+	ClearStatus  int    `json:"ClearStatus"`
+	// False once the song's TJA or audio was replaced after this play.
+	IsLatest    bool      `json:"isLatest"`
 	SubmittedAt time.Time `json:"submittedAt"`
 }
 
-var songIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
-
 func (v *scoreSubmission) valid() bool {
-	if !songIDPattern.MatchString(v.SongID) {
+	if v.DifficultyID <= 0 {
 		return false
 	}
-	c, ok := normalizeCourse(v.Difficulty)
-	if !ok {
-		return false
-	}
-	v.Difficulty = c
 	for _, count := range []*int64{v.Good, v.OK, v.Bad, v.Drumroll, v.MaxCombo} {
 		if count == nil || *count < 0 || *count > 2147483647 {
 			return false
@@ -61,11 +58,13 @@ func (v *scoreSubmission) valid() bool {
 	return v.Score != nil && *v.Score >= 0 && *v.Score <= 9007199254740991 && v.ClearStatus >= 0 && v.ClearStatus <= 3
 }
 
-const scoreColumns = `id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,clear_status,submitted_at`
+// scoreSelect reads scores, aliased sc, with the block each was played on.
+const scoreColumns = `sc.id,sc.user_id,d.chart_id,sc.difficulty_id,d.course,d.side,sc.good,sc.ok,sc.bad,sc.score,sc.drumroll,sc.max_combo,sc.clear_status,sc.is_latest,sc.submitted_at`
+const scoreSelect = `SELECT ` + scoreColumns + ` FROM scores sc JOIN chart_difficulties d ON d.id=sc.difficulty_id`
 
 func readScore(row pgx.Row) (Score, error) {
 	var v Score
-	err := row.Scan(&v.ID, &v.UserID, &v.SongID, &v.Difficulty, &v.Good, &v.OK, &v.Bad, &v.Score, &v.Drumroll, &v.MaxCombo, &v.ClearStatus, &v.SubmittedAt)
+	err := row.Scan(&v.ID, &v.UserID, &v.SongID, &v.DifficultyID, &v.Course, &v.Side, &v.Good, &v.OK, &v.Bad, &v.Score, &v.Drumroll, &v.MaxCombo, &v.ClearStatus, &v.IsLatest, &v.SubmittedAt)
 	return v, err
 }
 
@@ -97,7 +96,7 @@ func (s *Server) submitScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !input.valid() {
-		problem(w, 422, "SCORE_INVALID", "需要有效的歌曲 ID、难度和全部六项非负整数；计数（含最大连击）上限 2147483647，分数上限 9007199254740991；ClearStatus 必须为 0–3")
+		problem(w, 422, "SCORE_INVALID", "需要有效的谱面块 ID 和全部六项非负整数；计数（含最大连击）上限 2147483647，分数上限 9007199254740991；ClearStatus 必须为 0–3")
 		return
 	}
 	key := r.Header.Get("Idempotency-Key")
@@ -115,13 +114,11 @@ func (s *Server) submitScore(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	// Serialize submissions against resource replacement on the same song.
-	var song string
-	err = tx.QueryRow(r.Context(), `SELECT id FROM charts c WHERE c.id=$1 FOR SHARE`, input.SongID).Scan(&song)
-	if errors.Is(err, pgx.ErrNoRows) {
-		problem(w, 404, "CHART_NOT_FOUND", "歌曲不存在或已下架")
-		return
-	}
-	if err != nil {
+	// A replacement may have removed the block together with this very score.
+	var published bool
+	err = tx.QueryRow(r.Context(), `SELECT `+publishedChart+` FROM chart_difficulties d JOIN charts c ON c.id=d.chart_id WHERE d.id=$1 FOR SHARE OF c`, input.DifficultyID).Scan(&published)
+	found := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		internal(w, err)
 		return
 	}
@@ -144,7 +141,7 @@ func (s *Server) submitScore(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			if oldDigest != digest {
 				var same bool
-				err = tx.QueryRow(r.Context(), `SELECT jsonb_strip_nulls(jsonb_build_object('songId',song_id,'difficulty',difficulty,'good',good,'ok',ok,'bad',bad,'score',score,'drumroll',drumroll,'max_combo',max_combo,'replay_data',replay_data,'ClearStatus',NULLIF(clear_status,0)))=$3::jsonb FROM scores WHERE user_id=$1 AND idempotency_key=$2`, u.User.ID, key, string(payload)).Scan(&same)
+				err = tx.QueryRow(r.Context(), `SELECT jsonb_strip_nulls(jsonb_build_object('difficultyId',difficulty_id,'good',good,'ok',ok,'bad',bad,'score',score,'drumroll',drumroll,'max_combo',max_combo,'replay_data',replay_data,'ClearStatus',NULLIF(clear_status,0)))=$3::jsonb FROM scores WHERE user_id=$1 AND idempotency_key=$2`, u.User.ID, key, string(payload)).Scan(&same)
 				if err != nil {
 					internal(w, err)
 					return
@@ -154,7 +151,7 @@ func (s *Server) submitScore(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			result, err := readScore(tx.QueryRow(r.Context(), `SELECT `+scoreColumns+` FROM scores WHERE user_id=$1 AND idempotency_key=$2`, u.User.ID, key))
+			result, err := readScore(tx.QueryRow(r.Context(), scoreSelect+` WHERE sc.user_id=$1 AND sc.idempotency_key=$2`, u.User.ID, key))
 			if err != nil {
 				internal(w, err)
 				return
@@ -167,29 +164,19 @@ func (s *Server) submitScore(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	var published bool
-	if err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM charts c WHERE c.id=$1 AND `+publishedChart+`)`, input.SongID).Scan(&published); err != nil {
-		internal(w, err)
+	if !found {
+		problem(w, 404, "DIFFICULTY_NOT_FOUND", "谱面块不存在")
 		return
 	}
 	if !published {
 		problem(w, 404, "CHART_NOT_FOUND", "歌曲不存在或已下架")
 		return
 	}
-	var found string
-	err = tx.QueryRow(r.Context(), `SELECT id FROM charts WHERE id=$1 AND difficulties @> jsonb_build_array(jsonb_build_object('course',$2::text)) FOR SHARE`, input.SongID, input.Difficulty).Scan(&found)
-	if errors.Is(err, pgx.ErrNoRows) {
-		problem(w, 404, "DIFFICULTY_NOT_FOUND", "歌曲不存在此难度")
-		return
-	}
-	if err != nil {
-		internal(w, err)
-		return
-	}
-	result, err := readScore(tx.QueryRow(r.Context(), `INSERT INTO scores
-	 (id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,idempotency_key,payload_digest,replay_data,clear_status)
-	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''),$12,$13,$14) RETURNING `+scoreColumns,
-		ID(), u.User.ID, input.SongID, input.Difficulty, *input.Good, *input.OK, *input.Bad, *input.Score, *input.Drumroll, *input.MaxCombo, key, digest, input.ReplayData, input.ClearStatus))
+	result, err := readScore(tx.QueryRow(r.Context(), `WITH sc AS (INSERT INTO scores
+	 (id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,idempotency_key,payload_digest,replay_data,clear_status)
+	 VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULLIF($10,''),$11,$12,$13) RETURNING *)
+	 SELECT `+scoreColumns+` FROM sc JOIN chart_difficulties d ON d.id=sc.difficulty_id`,
+		ID(), u.User.ID, input.DifficultyID, *input.Good, *input.OK, *input.Bad, *input.Score, *input.Drumroll, *input.MaxCombo, key, digest, input.ReplayData, input.ClearStatus))
 	if err != nil {
 		internal(w, err)
 		return

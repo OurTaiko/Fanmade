@@ -99,12 +99,14 @@ func (s *Server) copyAudio(ctx context.Context, c *Chart, dir string) (*stagedFi
 	return f, nil
 }
 
-func retireChart(ctx context.Context, tx pgx.Tx, chartID, description string) error {
-	if _, err := tx.Exec(ctx, `INSERT INTO retired_score_requests(user_id,idempotency_key) SELECT user_id,idempotency_key FROM scores WHERE song_id=$1 AND idempotency_key IS NOT NULL ON CONFLICT DO NOTHING`, chartID); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM scores WHERE song_id=$1`, chartID); err != nil {
-		return err
+// retireChart keeps a replaced chart's scores. When the TJA or the audio
+// changed they stop being scores of the current files; which older files a
+// score belongs to is not recorded.
+func retireChart(ctx context.Context, tx pgx.Tx, chartID, description string, filesChanged bool) error {
+	if filesChanged {
+		if _, err := tx.Exec(ctx, `UPDATE scores SET is_latest=false WHERE is_latest AND difficulty_id IN (SELECT id FROM chart_difficulties WHERE chart_id=$1)`, chartID); err != nil {
+			return err
+		}
 	}
 	_, err := tx.Exec(ctx, `UPDATE charts SET description=$2,metadata_updated_at=now() WHERE id=$1`, chartID, description)
 	return err

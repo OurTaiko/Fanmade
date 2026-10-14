@@ -354,8 +354,8 @@ func TestPlaylistLimits(t *testing.T) {
 	if created != 1 {
 		t.Fatal("created over the limit", created)
 	}
-	if _, e := s.DB.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,difficulties)
- SELECT 'c'||n,ARRAY[$1::text],'Song '||n,120,10,test_file('song/tja','a.tja',repeat('a',64),14),test_file('song/audio','a.ogg',repeat('a',64),14),'[{"course":"Oni","level":5,"maker":""}]' FROM generate_series(1,$2) n`, playlistOwner, maxPlaylistItems); e != nil {
+	if _, e := s.DB.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file)
+ SELECT 'c'||n,ARRAY[$1::text],'Song '||n,120,10,test_file('song/tja','a.tja',repeat('a',64),14),test_file('song/audio','a.ogg',repeat('a',64),14) FROM generate_series(1,$2) n`, playlistOwner, maxPlaylistItems); e != nil {
 		t.Fatal(e)
 	}
 	if _, e := s.DB.Exec(ctx, `INSERT INTO playlist_items(playlist_id,chart_id,position) SELECT 'p1','c'||n,n FROM generate_series(1,$1) n`, maxPlaylistItems); e != nil {

@@ -29,7 +29,7 @@ var systemPlaylists = []systemPlaylist{
 		`SELECT c.id FROM chart_votes v JOIN charts c ON c.id=v.chart_id WHERE v.user_id=$1 AND v.value=1 AND ` + systemChart + `
  ORDER BY v.voted_at DESC,c.id LIMIT 500`},
 	{"popular", "Popular This Week", "The 20 most played songs of the last 7 days.", CategoryGame, false,
-		`SELECT c.id FROM charts c JOIN (SELECT song_id,count(*) AS plays FROM scores WHERE submitted_at>now()-interval '7 days' GROUP BY song_id) played ON played.song_id=c.id
+		`SELECT c.id FROM charts c JOIN (SELECT d.chart_id AS song_id,count(*) AS plays FROM scores sc JOIN chart_difficulties d ON d.id=sc.difficulty_id WHERE sc.submitted_at>now()-interval '7 days' GROUP BY d.chart_id) played ON played.song_id=c.id
  WHERE ` + systemChart + ` ORDER BY played.plays DESC,c.created_at DESC,c.id LIMIT 20`},
 	{"acclaimed", "Recently Acclaimed", "The 20 best rated songs uploaded in the last 30 days.", CategoryClassic, false,
 		`SELECT c.id FROM charts c WHERE ` + systemChart + ` AND c.created_at>now()-interval '30 days' AND ` + chartScoreSQL + `>0

@@ -60,7 +60,6 @@ func TestScoreReplayCompatibility(t *testing.T) {
 	const song = "11111111111111111111111111111111"
 	const token = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	const origin = "http://localhost:5173"
-	const base = `{"songId":"` + song + `","difficulty":"Oni","good":10,"ok":0,"bad":0,"score":10000,"drumroll":0,"max_combo":10}`
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -71,13 +70,18 @@ func TestScoreReplayCompatibility(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) VALUES('11111111111111111111111111111111',ARRAY['89b6ef3a5cb57b6e04f74711d15a8a5f'],'Recording fixture',120,10,test_file('tja','test.tja',repeat('a',64),1),test_file('ogg','test.ogg',repeat('b',64),1));
- UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ('11111111111111111111111111111111','Oni',5,'')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id;`)
+ INSERT INTO chart_difficulties(chart_id,course,side,level,maker) SELECT chart_id,course,'single',level,maker FROM (VALUES ('11111111111111111111111111111111','Oni',5,'')) v(chart_id,course,level,maker);`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		t.Fatal(err)
 	}
+	var slot int64
+	if err = pool.QueryRow(ctx, `SELECT test_slot($1,'Oni')`, song).Scan(&slot); err != nil {
+		t.Fatal(err)
+	}
+	base := fmt.Sprintf(`{"difficultyId":%d,"good":10,"ok":0,"bad":0,"score":10000,"drumroll":0,"max_combo":10}`, slot)
 	app := testServer(t, pool, Config{Origin: origin})
 	_, err = pool.Exec(ctx, `INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,'',now()+interval '1 day')`, hash("game:"+token), user)
 	if err != nil {

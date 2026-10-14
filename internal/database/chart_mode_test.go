@@ -59,7 +59,7 @@ func TestChartDifficultiesJSONMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		if err = Migrate(ctx, pool, t.TempDir()); err != nil {
+		if err = migrateTo(ctx, pool, t.TempDir(), 41); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -95,5 +95,66 @@ func TestChartDifficultiesJSONMigration(t *testing.T) {
 	}
 	if _, err = pool.Exec(ctx, `UPDATE scores SET song_id='double',difficulty='Oni_1p' WHERE id='score'`); err != nil {
 		t.Fatal("double score rejected", err)
+	}
+	testChartSlotsMigration(t, ctx, pool)
+}
+
+// Migration 042 turns every stored difficulty into a slot of course × side and
+// points each score at the block it was played on.
+func testChartSlotsMigration(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
+	// An archived Tower entry (012) has no slot; a score of one must be resolved by hand.
+	_, err := pool.Exec(ctx, `BEGIN;
+ INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) SELECT 'tower',owner_ids,'T',bpm,duration,tja_file,audio_file FROM charts WHERE id='single';
+ ALTER TABLE charts DROP CONSTRAINT charts_difficulties_check;
+ UPDATE charts SET difficulties='[{"course":"Tower","level":5,"maker":"T"},{"course":"Hard","level":4,"maker":"H","branching":true}]' WHERE id='tower';
+ SET CONSTRAINTS ALL IMMEDIATE;
+ ALTER TABLE charts ADD CONSTRAINT charts_difficulties_check CHECK(valid_chart_difficulties(difficulties,is_single)) NOT VALID;
+ ALTER TABLE scores DROP CONSTRAINT scores_difficulty_check;
+ INSERT INTO scores(id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES
+  ('tower-score','u','tower','Tower',1,0,0,1,0,1,repeat('b',64)),('hard-score','u','tower','Hard',1,0,0,1,0,1,repeat('c',64));
+ COMMIT;`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = Migrate(ctx, pool, t.TempDir()); err == nil {
+		t.Fatal("score of an unsupported difficulty accepted")
+	}
+	if _, err = pool.Exec(ctx, `DELETE FROM scores WHERE id='tower-score'`); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err = Migrate(ctx, pool, t.TempDir()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var slots, scores string
+	err = pool.QueryRow(ctx, `SELECT
+ (SELECT string_agg(concat_ws(' ',chart_id,course,side,level,maker,branching),',' ORDER BY chart_id,course,side) FROM chart_difficulties),
+ (SELECT string_agg(concat_ws(' ',s.id,d.chart_id,d.course,d.side,s.is_latest,s.payload_digest=repeat('a',64)),',' ORDER BY s.id) FROM scores s JOIN chart_difficulties d ON d.id=s.difficulty_id)`).Scan(&slots, &scores)
+	if err != nil || slots != "double Oni p1 8 C f,double Oni p2 10 B f,single Oni single 9 A f,tower Hard single 4 H t" ||
+		scores != "hard-score tower Hard single t f,score double Oni p1 t t" {
+		t.Fatal("slots or scores lost", slots, scores, err)
+	}
+	var good bool
+	err = pool.QueryRow(ctx, `SELECT (SELECT status FROM charts WHERE id='tower')='hidden' AND (SELECT status FROM charts WHERE id='double')='published' AND NOT EXISTS(
+ SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND (table_name,column_name) IN (('charts','difficulties'),('charts','is_single'),('scores','song_id'),('scores','difficulty')))`).Scan(&good)
+	if err != nil || !good {
+		t.Fatal("withdrawn song listed or old columns remain", err)
+	}
+	for _, q := range []string{
+		`INSERT INTO chart_difficulties(chart_id,course,side,level) VALUES('single','Oni','single',5)`,
+		`INSERT INTO chart_difficulties(chart_id,course,side,level) VALUES('single','Tower','single',5)`,
+		`INSERT INTO chart_difficulties(chart_id,course,side,level) VALUES('single','Hard','p3',5)`,
+		`INSERT INTO chart_difficulties(chart_id,course,side,level) VALUES('single','Hard','single',11)`,
+		`DELETE FROM chart_difficulties WHERE chart_id='double' AND side='p1'`,
+		`UPDATE scores SET difficulty_id=NULL WHERE id='score'`,
+	} {
+		if _, err = pool.Exec(ctx, q); err == nil {
+			t.Fatal("invalid block or score accepted", q)
+		}
+	}
+	// Single and double blocks may share a song.
+	if _, err = pool.Exec(ctx, `INSERT INTO chart_difficulties(chart_id,course,side,level) VALUES('double','Oni','single',9)`); err != nil {
+		t.Fatal("mixed sides rejected", err)
 	}
 }

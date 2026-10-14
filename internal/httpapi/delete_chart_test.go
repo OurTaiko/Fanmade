@@ -30,10 +30,10 @@ func TestDeleteChartRemovesScoresRowAndUnsharedFiles(t *testing.T) {
 		teststore.Seed(t, store, key, []byte("test file data"))
 	}
 	_, err := pool.Exec(ctx, `BEGIN;
- INSERT INTO charts(id,owner_ids,title,bpm,duration,difficulties,tja_file,audio_file,cover_file,preview_file) VALUES
-  ('gone',ARRAY['`+owner+`'],'Gone',120,10,'[{"course":"Oni","level":5,"maker":""}]',test_file('gone/tja','a.tja',repeat('a',64),14),test_file('shared','a.ogg',repeat('a',64),14),
+ INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,cover_file,preview_file) VALUES
+  ('gone',ARRAY['`+owner+`'],'Gone',120,10,test_file('gone/tja','a.tja',repeat('a',64),14),test_file('shared','a.ogg',repeat('a',64),14),
    test_file('gone/cover','cover.webp',repeat('a',64),14),test_file('gone/preview','preview.ogg',repeat('a',64),14)),
-  ('kept',ARRAY['`+owner+`'],'Kept',120,10,'[{"course":"Oni","level":5,"maker":""}]',test_file('kept/tja','a.tja',repeat('a',64),14),test_file('shared','a.ogg',repeat('a',64),14),NULL,NULL);
+  ('kept',ARRAY['`+owner+`'],'Kept',120,10,test_file('kept/tja','a.tja',repeat('a',64),14),test_file('shared','a.ogg',repeat('a',64),14),NULL,NULL);
  COMMIT;`)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestDeleteChartRemovesScoresRowAndUnsharedFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, s := range []struct{ id, user, song string }{{"s1", owner, "gone"}, {"s2", other, "gone"}, {"s3", other, "kept"}} {
-		if _, err = pool.Exec(ctx, `INSERT INTO scores(id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,$2,$3,'Oni',1,0,0,1000,0,1,repeat('a',64))`, s.id, s.user, s.song); err != nil {
+		if _, err = pool.Exec(ctx, `INSERT INTO scores(id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,$2,test_slot($3,'Oni'),1,0,0,1000,0,1,repeat('a',64))`, s.id, s.user, s.song); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -80,7 +80,7 @@ func TestDeleteChartRemovesScoresRowAndUnsharedFiles(t *testing.T) {
 	if code := remove(owner); code != 200 {
 		t.Fatal("owner delete", code)
 	}
-	if count(`SELECT count(*) FROM scores WHERE song_id='gone'`) != 0 || count(`SELECT count(*) FROM scores WHERE song_id='kept'`) != 1 {
+	if count(`SELECT count(*) FROM scores`) != 1 || count(`SELECT count(*) FROM scores WHERE difficulty_id=test_slot('kept','Oni')`) != 1 || count(`SELECT count(*) FROM chart_difficulties WHERE chart_id='gone'`) != 0 {
 		t.Fatal("scores not limited to the deleted song")
 	}
 	if count(`SELECT count(*) FROM chart_resources WHERE storage_key LIKE 'gone/%'`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE storage_key IN ('kept/tja','shared')`) != 2 {

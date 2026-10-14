@@ -181,13 +181,15 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 	defer tx.Rollback(context.Background())
 	chartID := ID()
 	var movieFile *int64
+	var replacedTJA, replacedAudio string
 	if j.existingID != "" {
 		chartID = j.existingID
 		// Serialize with other replacements, deletion and score submissions, and
 		// confirm the kept files once more now that nothing can change them.
 		var audioSHA, currentMovie string
-		err = tx.QueryRow(ctx, `SELECT af.sha256,COALESCE(mf.sha256,''),c.movie_file FROM charts c JOIN chart_resources af ON af.id=c.audio_file
- LEFT JOIN chart_resources mf ON mf.id=c.movie_file WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE OF c`, chartID).Scan(&audioSHA, &currentMovie, &movieFile)
+		err = tx.QueryRow(ctx, `SELECT af.sha256,tf.sha256,COALESCE(mf.sha256,''),c.movie_file FROM charts c JOIN chart_resources af ON af.id=c.audio_file
+ JOIN chart_resources tf ON tf.id=c.tja_file LEFT JOIN chart_resources mf ON mf.id=c.movie_file WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE OF c`, chartID).Scan(&audioSHA, &replacedTJA, &currentMovie, &movieFile)
+		replacedAudio = audioSHA
 		if errors.Is(err, pgx.ErrNoRows) {
 			return rejected(404, "CHART_NOT_FOUND", "歌曲不存在或已下架")
 		}
@@ -232,14 +234,17 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 		movieFile = &file
 	}
 	if j.existingID != "" {
-		if err = retireChart(ctx, tx, chartID, j.description); err != nil {
+		if err = retireChart(ctx, tx, chartID, j.description, replacedTJA != tjaSHA || replacedAudio != af.sha); err != nil {
 			return failed(err)
 		}
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,description,title,subtitle,bpm,offset_seconds,demo_start,duration,title_translations,subtitle_translations,is_single,difficulties,demo_end,tja_file,audio_file,movie_file,movie_offset)
- VALUES($1,ARRAY[$2::text],$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
- ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,subtitle=EXCLUDED.subtitle,bpm=EXCLUDED.bpm,offset_seconds=EXCLUDED.offset_seconds,demo_start=EXCLUDED.demo_start,demo_end=EXCLUDED.demo_end,duration=EXCLUDED.duration,tja_file=EXCLUDED.tja_file,audio_file=EXCLUDED.audio_file,movie_file=EXCLUDED.movie_file,movie_offset=EXCLUDED.movie_offset,title_translations=EXCLUDED.title_translations,subtitle_translations=EXCLUDED.subtitle_translations,is_single=EXCLUDED.is_single,difficulties=EXCLUDED.difficulties`,
-		chartID, j.user, j.description, j.meta.Title, j.meta.Subtitle, j.meta.BPM, j.meta.Offset, j.demoStart, duration, j.meta.TitleTranslations, j.meta.SubtitleTranslations, j.meta.IsSingle, j.meta.Difficulties, j.demoEnd, tjaFile, audioFile, movieFile, j.meta.MovieOffset); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,description,title,subtitle,bpm,offset_seconds,demo_start,duration,title_translations,subtitle_translations,demo_end,tja_file,audio_file,movie_file,movie_offset)
+ VALUES($1,ARRAY[$2::text],$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+ ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,subtitle=EXCLUDED.subtitle,bpm=EXCLUDED.bpm,offset_seconds=EXCLUDED.offset_seconds,demo_start=EXCLUDED.demo_start,demo_end=EXCLUDED.demo_end,duration=EXCLUDED.duration,tja_file=EXCLUDED.tja_file,audio_file=EXCLUDED.audio_file,movie_file=EXCLUDED.movie_file,movie_offset=EXCLUDED.movie_offset,title_translations=EXCLUDED.title_translations,subtitle_translations=EXCLUDED.subtitle_translations`,
+		chartID, j.user, j.description, j.meta.Title, j.meta.Subtitle, j.meta.BPM, j.meta.Offset, j.demoStart, duration, j.meta.TitleTranslations, j.meta.SubtitleTranslations, j.demoEnd, tjaFile, audioFile, movieFile, j.meta.MovieOffset); err != nil {
+		return failed(err)
+	}
+	if err = setDifficulties(ctx, tx, chartID, j.meta.Difficulties); err != nil {
 		return failed(err)
 	}
 	if err = s.savePreview(ctx, tx, chartID, af.path, j.demoStart, j.demoEnd, duration); err != nil {

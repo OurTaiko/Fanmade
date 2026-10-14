@@ -14,7 +14,7 @@ const chartScoreSQL = `COALESCE((SELECT upvotes-downvotes FROM chart_stats WHERE
 // translation or any difficulty's maker contains the keyword in $1. An empty
 // keyword matches every published chart. Uploader nicknames are not searched.
 const keywordFilter = ` WHERE ` + publishedChart + ` AND ($1='' OR c.title ILIKE '%'||$1||'%' OR c.subtitle ILIKE '%'||$1||'%'
- OR EXISTS(SELECT 1 FROM jsonb_array_elements(c.difficulties) dm WHERE dm->>'maker' ILIKE '%'||$1||'%')
+ OR EXISTS(SELECT 1 FROM chart_difficulties dm WHERE dm.chart_id=c.id AND dm.maker ILIKE '%'||$1||'%')
  OR EXISTS(SELECT 1 FROM jsonb_each_text(c.title_translations) t WHERE t.value ILIKE '%'||$1||'%')
  OR EXISTS(SELECT 1 FROM jsonb_each_text(c.subtitle_translations) t WHERE t.value ILIKE '%'||$1||'%'))`
 
@@ -39,7 +39,7 @@ func (s *Server) gameSearch(w http.ResponseWriter, r *http.Request) {
 	course := r.URL.Query().Get("course")
 	canonical, validCourse := normalizeCourse(course)
 	if course != "" && (!validCourse || canonical != course) {
-		problem(w, 400, "DIFFICULTY_INVALID", "仅支持五种规范难度及其 _1p / _2p 双人难度")
+		problem(w, 400, "DIFFICULTY_INVALID", "仅支持五种规范难度")
 		return
 	}
 	level := -1
@@ -69,14 +69,15 @@ func (s *Server) gameSearch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// course and level must hold for the same difficulty.
-	const matching = `SELECT 1 FROM jsonb_to_recordset(c.difficulties) AS d(course text,level integer,maker text) WHERE ($2='' OR d.course=$2) AND ($3::int=-1 OR d.level=$3)`
-	// Prioritize a chart when any matching difficulty has no qualifying score
-	// for this user and song.
+	// course and level must hold for the same block; a course covers all its sides.
+	const matching = `SELECT 1 FROM chart_difficulties d WHERE d.chart_id=c.id AND ($2='' OR d.course=$2) AND ($3::int=-1 OR d.level=$3)`
+	// Prioritize a chart when any matching block has no qualifying score for
+	// this user. Scores of replaced files count only where none is current.
 	rows, e := s.DB.Query(r.Context(), chartSelect+keywordFilter+` AND EXISTS(`+matching+`)
 	 ORDER BY ($4::text<>'' AND EXISTS(`+matching+`
-	 AND NOT EXISTS(SELECT 1 FROM scores sc WHERE sc.user_id=$4 AND sc.song_id=c.id
-	 AND sc.difficulty=d.course AND sc.bad=0 AND (sc.good>0 OR sc.ok>0)
+	 AND NOT EXISTS(SELECT 1 FROM scores sc WHERE sc.user_id=$4 AND sc.difficulty_id=d.id
+	 AND (sc.is_latest OR NOT EXISTS(SELECT 1 FROM scores cur WHERE cur.user_id=$4 AND cur.difficulty_id=d.id AND cur.is_latest))
+	 AND sc.bad=0 AND (sc.good>0 OR sc.ok>0)
 	 AND ($5::text='unfc' OR sc.ok=0)))) DESC, c.created_at DESC,c.id DESC`, q, course, level, userID, order)
 	if e != nil {
 		internal(w, e)

@@ -219,8 +219,8 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(patch.DifficultyMakers) > 0 {
-		var difficulties []tja.Difficulty
-		if err = tx.QueryRow(r.Context(), `SELECT difficulties FROM charts WHERE id=$1`, r.PathValue("id")).Scan(&difficulties); err != nil {
+		difficulties, err := chartDifficulties(r.Context(), tx, r.PathValue("id"))
+		if err != nil {
 			internal(w, err)
 			return
 		}
@@ -228,7 +228,13 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 			problem(w, 422, "MAKERS_INVALID", err.Error())
 			return
 		}
-		if _, err = tx.Exec(r.Context(), `UPDATE charts SET difficulties=$2,metadata_updated_at=now() WHERE id=$1`, r.PathValue("id"), difficulties); err != nil {
+		for _, d := range difficulties {
+			if _, err = tx.Exec(r.Context(), `UPDATE chart_difficulties SET maker=$2 WHERE id=$1`, d.ID, d.Maker); err != nil {
+				internal(w, err)
+				return
+			}
+		}
+		if _, err = tx.Exec(r.Context(), `UPDATE charts SET metadata_updated_at=now() WHERE id=$1`, r.PathValue("id")); err != nil {
 			internal(w, err)
 			return
 		}

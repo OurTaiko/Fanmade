@@ -51,7 +51,7 @@ func TestPreviewLifecycle(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tx.Rollback(ctx)
-			if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,audio_file,tja_file,demo_start,difficulties) VALUES('song',ARRAY[$1],'Test',120,0.5,test_file('audio','audio.ogg',$2,$3),test_file('tja','song.tja',repeat('a',64),1),0.1,'[{"course":"Oni","level":5,"maker":"A"}]')`, owner, hash(string(source)), len(source)); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,audio_file,tja_file,demo_start) VALUES('song',ARRAY[$1],'Test',120,0.5,test_file('audio','audio.ogg',$2,$3),test_file('tja','song.tja',repeat('a',64),1),0.1)`, owner, hash(string(source)), len(source)); err != nil {
 				t.Fatal(err)
 			}
 			if err = tx.Commit(ctx); err != nil {

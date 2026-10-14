@@ -12,81 +12,34 @@ import (
 	"testing"
 )
 
-func TestSupportedCoursesAPI(t *testing.T) {
+// Songs withdrawn for a Tower or Dan course (migrations 012 and 042) keep
+// their rows and scores, and no reader exposes them.
+func TestWithdrawnChartsAPI(t *testing.T) {
 	pool := scoreTestDB(t)
 	ctx := context.Background()
-	// Recreate the previous schema to exercise migration of real legacy records.
-	_, err := pool.Exec(ctx, `ALTER TABLE charts DROP CONSTRAINT charts_difficulties_check;
-
- ALTER TABLE scores DROP CONSTRAINT scores_difficulty_check;
-
- INSERT INTO users(id,username,password_hash) VALUES('89b6ef3a5cb57b6e04f74711d15a8a5f','tester','unused');`)
+	_, err := pool.Exec(ctx, `INSERT INTO users(id,username,password_hash) VALUES('89b6ef3a5cb57b6e04f74711d15a8a5f','tester','unused')`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ids := []string{strings.Repeat("1", 32), strings.Repeat("2", 32), strings.Repeat("3", 32), strings.Repeat("4", 32)}
-	courses := []string{"Oni", "Tower", "Dan", "Oni"}
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tx.Rollback(ctx)
+	ids := []string{strings.Repeat("1", 32), strings.Repeat("2", 32), strings.Repeat("3", 32)}
 	for i, id := range ids {
-		_, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) VALUES($1,ARRAY['89b6ef3a5cb57b6e04f74711d15a8a5f'],$2,120,10,test_file('chart.tja','chart.tja',repeat('a',64),1),test_file('music.ogg','music.ogg',repeat('b',64),1))`, id, "Chart "+courses[i])
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = tx.Exec(ctx, `UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ($1,$2,5,'')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id`, id, courses[i])
-		if err != nil {
-			t.Fatal(err)
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO scores(id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,'89b6ef3a5cb57b6e04f74711d15a8a5f',$2,$3,10,0,0,10000,0,10,repeat('f',64))`, fmt.Sprintf("score%d", i), id, courses[i])
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	_, err = tx.Exec(ctx, `UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ($1,'Dan',5,'')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id`, ids[3])
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = pool.Exec(ctx, `UPDATE charts c SET status='hidden' WHERE EXISTS(SELECT 1 FROM jsonb_array_elements(c.difficulties) d WHERE d->>'course' NOT IN ('Easy','Normal','Hard','Oni','Edit'));
-SET CONSTRAINTS ALL IMMEDIATE;
-ALTER TABLE charts ADD CONSTRAINT charts_difficulties_check CHECK(valid_chart_difficulties(difficulties,is_single)) NOT VALID;
-ALTER TABLE scores ADD CONSTRAINT scores_difficulty_check CHECK(difficulty IN ('Easy','Normal','Hard','Oni','Edit')) NOT VALID;`); err != nil {
-		t.Fatal(err)
-	}
-	for i, id := range ids {
-		var status string
-		err = pool.QueryRow(ctx, `SELECT status FROM charts WHERE id=$1`, id).Scan(&status)
-		expected := "hidden"
+		status := "hidden"
 		if i == 0 {
-			expected = "published"
+			status = "published"
 		}
-		if err != nil || status != expected {
-			t.Fatal("incorrect migration status", i, status, err)
+		_, err = pool.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,status,tja_file,audio_file) VALUES($1,ARRAY['89b6ef3a5cb57b6e04f74711d15a8a5f'],'Chart',120,10,$2,test_file('chart.tja','chart.tja',repeat('a',64),1),test_file('music.ogg','music.ogg',repeat('b',64),1))`, id, status)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	var count int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM scores`).Scan(&count); err != nil {
-		t.Fatal(err)
-	}
-	if count != 4 {
-		t.Fatal("migration removed scores")
+		_, err = pool.Exec(ctx, `INSERT INTO scores(id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,'89b6ef3a5cb57b6e04f74711d15a8a5f',test_slot($2,'Oni'),10,0,0,10000,0,10,repeat('f',64))`, fmt.Sprintf("score%d", i), id)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	for _, course := range []string{"Tower", "Dan"} {
-		if _, err = pool.Exec(ctx, `UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ($1,$2,5,'')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id`, ids[0], course); err == nil {
+		if _, err = pool.Exec(ctx, `INSERT INTO chart_difficulties(chart_id,course,side,level) VALUES($1,$2,'single',5)`, ids[0], course); err == nil {
 			t.Fatal("database accepted unsupported course", course)
 		}
-	}
-	if _, err = pool.Exec(ctx, `INSERT INTO scores(id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES('new-tower','89b6ef3a5cb57b6e04f74711d15a8a5f',$1,'Tower',10,0,0,10000,0,10,repeat('f',64))`, ids[1]); err == nil {
-		t.Fatal("database accepted unsupported score")
-	}
-	// Even if a record is manually republished, API readers must not expose it.
-	if _, err = pool.Exec(ctx, `ALTER TABLE charts DROP CONSTRAINT charts_difficulties_check; UPDATE charts SET status='published' WHERE status='hidden'; SET CONSTRAINTS ALL IMMEDIATE; ALTER TABLE charts ADD CONSTRAINT charts_difficulties_check CHECK(valid_chart_difficulties(difficulties,is_single)) NOT VALID;`); err != nil {
-		t.Fatal(err)
 	}
 	cookie := strings.Repeat("c", 64)
 	token := strings.Repeat("d", 64)
@@ -125,11 +78,14 @@ ALTER TABLE scores ADD CONSTRAINT scores_difficulty_check CHECK(difficulty IN ('
 	}
 	for _, course := range []string{"Tower", "Dan", "5", "6"} {
 		call("GET", "/api/v1/game/search?course="+course, "", 400)
-		call("GET", "/api/v1/charts/"+ids[0]+"/leaderboard?difficulty="+course, "", 400)
-		body := fmt.Sprintf(`{"songId":%q,"difficulty":%q,"good":10,"ok":0,"bad":0,"score":10000,"drumroll":0,"max_combo":10}`, ids[0], course)
-		call("POST", "/api/v1/scores", body, 422)
-		call("POST", "/api/v1/game/scores", body, 422)
 	}
+	var withdrawn int64
+	if err = pool.QueryRow(ctx, `SELECT test_slot($1,'Oni')`, ids[1]).Scan(&withdrawn); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"difficultyId":%d,"good":10,"ok":0,"bad":0,"score":10000,"drumroll":0,"max_combo":10}`, withdrawn)
+	call("POST", "/api/v1/scores", body, 404)
+	call("POST", "/api/v1/game/scores", body, 404)
 	for i := 1; i < len(ids); i++ {
 		path := "/api/v1/charts/" + ids[i]
 		call("GET", path, "", 404)
@@ -144,8 +100,8 @@ ALTER TABLE scores ADD CONSTRAINT scores_difficulty_check CHECK(difficulty IN ('
 		Scores []Score
 	}
 	w := call("GET", "/api/v1/game/bootstrap", "", 200)
-	if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || len(snapshot.Charts) != 1 || snapshot.Charts[0].ID != ids[0] || len(snapshot.Scores) != 1 || snapshot.Scores[0].Difficulty != "Oni" {
-		t.Fatal("unsupported game data leaked", w.Body.String(), err)
+	if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || len(snapshot.Charts) != 1 || snapshot.Charts[0].ID != ids[0] || len(snapshot.Scores) != 1 || snapshot.Scores[0].SongID != ids[0] {
+		t.Fatal("withdrawn game data leaked", w.Body.String(), err)
 	}
 	// Fixtures already have the default Variety bit, including archived charts.
 	w = call("GET", "/api/v1/game/categories/variety/charts", "", 200)

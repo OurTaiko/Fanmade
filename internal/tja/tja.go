@@ -13,7 +13,7 @@ import (
 	"ourtaiko.dev/fanmade/api/internal/video"
 )
 
-const Version = "tja-upload-v9"
+const Version = "tja-upload-v10"
 const MaxTJA = 2 * 1024 * 1024
 const MaxAudio = 100 * 1024 * 1024
 
@@ -30,13 +30,19 @@ func fail(code, message string, line int) *Issue {
 	return &Issue{Code: code, Message: message, Line: line}
 }
 
+// Difficulty is one chart block: a slot of course × side, as the arcade machine
+// keeps a single, a 1P and a 2P chart per course. Side follows the block's
+// #START: plain is "single", #START P1 "p1", #START P2 "p2". Branching reports
+// a #BRANCHSTART inside the block, so song select can mark branch charts
+// before the TJA is downloaded.
 // Legacy fields are in-memory only, used by pre-028 database backfills.
-// Branching reports a #BRANCHSTART inside the block, so song select can mark
-// branch charts before the TJA is downloaded.
 type Difficulty struct {
-	Maker              string `json:"maker"`
+	// ID is the chart_difficulties row; zero for a file not yet stored.
+	ID                 int64  `json:"id,omitempty"`
 	Course             string `json:"course"`
+	Side               string `json:"side"`
 	Level              int    `json:"level"`
+	Maker              string `json:"maker"`
 	Branching          bool   `json:"branching"`
 	BlockIndex         int    `json:"-"`
 	Player             string `json:"-"`
@@ -44,7 +50,6 @@ type Difficulty struct {
 	CloudScoreEligible bool   `json:"-"`
 }
 type Metadata struct {
-	IsSingle             bool              `json:"isSingle"`
 	Title                string            `json:"title"`
 	Subtitle             string            `json:"subtitle"`
 	TitleTranslations    map[string]string `json:"titleTranslations"`
@@ -100,7 +105,7 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 	course, level := "Oni", 0
 	style := "Single"
 	singleCourses := map[string]int{}
-	seenCourses := map[string]int{}
+	seenSlots := map[string]int{}
 	seen := map[string]bool{}
 	courses := map[string]string{"0": "Easy", "1": "Normal", "2": "Hard", "3": "Oni", "4": "Edit", "easy": "Easy", "normal": "Normal", "hard": "Hard", "oni": "Oni", "edit": "Edit"}
 	for i, raw := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
@@ -132,26 +137,22 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 				}
 				singleCourses[course] = line
 			}
-			effectiveCourse := course
-			single := blockStyle == "Single"
+			side := "single"
+			if player != "" {
+				side = strings.ToLower(player)
+			}
 			if uniform {
-				if !single && player == "" {
+				if blockStyle == "Double" && player == "" {
 					return m, fail("TJA_PLAYER_REQUIRED", "双人谱面必须使用 #START P1 或 #START P2", line)
 				}
-				if len(m.Difficulties) > 0 && m.IsSingle != single {
-					return m, fail("TJA_MODE_MIXED", "一个文件只能包含单人谱面或双人谱面，请分开上传", line)
+				slot := course + " " + side
+				if first, exists := seenSlots[slot]; exists {
+					return m, fail("TJA_DIFFICULTY_DUPLICATE", fmt.Sprintf("%s 难度重复，第 %d 行已声明", slot, first), line)
 				}
-				m.IsSingle = single
-				if !single {
-					effectiveCourse += "_" + strings.ToLower(strings.TrimPrefix(player, "P")) + "p"
-				}
-				if first, exists := seenCourses[effectiveCourse]; exists {
-					return m, fail("TJA_DIFFICULTY_DUPLICATE", fmt.Sprintf("%s 难度重复，第 %d 行已声明", effectiveCourse, first), line)
-				}
-				seenCourses[effectiveCourse] = line
+				seenSlots[slot] = line
 			}
 			m.Difficulties = append(m.Difficulties, Difficulty{
-				Course: effectiveCourse, Level: level, BlockIndex: len(m.Difficulties), Player: player, Maker: m.Maker,
+				Course: course, Side: side, Level: level, BlockIndex: len(m.Difficulties), Player: player, Maker: m.Maker,
 				Style: blockStyle, CloudScoreEligible: blockStyle == "Single" && player == "",
 			})
 			continue

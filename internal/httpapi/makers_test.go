@@ -91,7 +91,7 @@ func TestDifficultyMakersFlow(t *testing.T) {
 			t.Fatalf("bad range accepted: %d %s", w.Code, w.Body.String())
 		}
 	}
-	makers := `[{"course":"Edit","maker":"A"},{"course":"Hard","maker":" A "},{"course":"Oni","maker":"B"}]`
+	makers := `[{"course":"Edit","side":"single","maker":"A"},{"course":"Hard","side":"single","maker":" A "},{"course":"Oni","side":"single","maker":"B"}]`
 	key := ID()
 	c := decode(post(makers, key), 201)
 	if c.Maker != "A | B" {
@@ -102,19 +102,19 @@ func TestDifficultyMakersFlow(t *testing.T) {
 			t.Fatal(c.Difficulties)
 		}
 	}
-	retry := decode(post(`[{"course":"Hard","maker":"A"},{"course":"Oni","maker":"B"},{"course":"Edit","maker":"A"}]`, key), 200)
+	retry := decode(post(`[{"course":"Hard","side":"single","maker":"A"},{"course":"Oni","side":"single","maker":"B"},{"course":"Edit","side":"single","maker":"A"}]`, key), 200)
 	if retry.ID != c.ID {
 		t.Fatal("retry created new chart")
 	}
 	if w := post(strings.ReplaceAll(makers, `"B"`, `"C"`), key); w.Code != 409 {
 		t.Fatal("maker change must conflict", w.Code, w.Body.String())
 	}
-	for _, raw := range []string{`null`, `[]`, `{}`, `[{"course":"Hard","maker":"A"}]`, `[{"course":"Hard","maker":"A"},{"course":"Hard","maker":"B"},{"course":"Edit","maker":"C"}]`, `[{"course":"Hard","maker":"A"},{"course":"Oni","maker":"B"},{"course":"Missing","maker":"C"}]`, `[{"course":"Hard","maker":null},{"course":"Oni","maker":"B"},{"course":"Edit","maker":"C"}]`, strings.Replace(makers, `"B"`, `"B\nC"`, 1), strings.Replace(makers, `"B"`, `"`+strings.Repeat("界", 167)+`"`, 1)} {
+	for _, raw := range []string{`null`, `[]`, `{}`, `[{"course":"Hard","side":"single","maker":"A"}]`, `[{"course":"Hard","side":"single","maker":"A"},{"course":"Hard","side":"single","maker":"B"},{"course":"Edit","side":"single","maker":"C"}]`, `[{"course":"Hard","side":"single","maker":"A"},{"course":"Oni","side":"single","maker":"B"},{"course":"Missing","side":"single","maker":"C"}]`, `[{"course":"Hard","side":"single","maker":null},{"course":"Oni","side":"single","maker":"B"},{"course":"Edit","side":"single","maker":"C"}]`, strings.Replace(makers, `"B"`, `"B\nC"`, 1), strings.Replace(makers, `"B"`, `"`+strings.Repeat("界", 167)+`"`, 1)} {
 		if w := post(raw, ID()); w.Code != 422 {
 			t.Fatalf("invalid %s: %d %s", raw, w.Code, w.Body.String())
 		}
 	}
-	blank := decode(post(`[{"course":"Hard","maker":""},{"course":"Oni","maker":" "},{"course":"Edit","maker":""}]`, ID()), 201)
+	blank := decode(post(`[{"course":"Hard","side":"single","maker":""},{"course":"Oni","side":"single","maker":" "},{"course":"Edit","side":"single","maker":""}]`, ID()), 201)
 	if blank.Maker != "" {
 		t.Fatal("blank should not fall back to original", blank.Maker)
 	}
@@ -129,7 +129,7 @@ func TestDifficultyMakersFlow(t *testing.T) {
 		}
 	}
 	var count int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM charts c CROSS JOIN LATERAL jsonb_array_elements(c.difficulties) d WHERE c.id=$1 AND d->>'maker' IN ('A','B')`, c.ID).Scan(&count); err != nil || count != 3 {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM chart_difficulties d WHERE d.chart_id=$1 AND d.maker IN ('A','B')`, c.ID).Scan(&count); err != nil || count != 3 {
 		t.Fatal(count, err)
 	}
 }

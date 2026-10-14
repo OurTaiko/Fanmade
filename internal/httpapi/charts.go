@@ -59,13 +59,13 @@ type Chart struct {
 	tja.Metadata
 }
 
-// Mixed files are unsupported as a whole; never expose their regular blocks alone.
-const supportedCoursesSQL = "('Easy','Normal','Hard','Oni','Edit','Easy_1p','Easy_2p','Normal_1p','Normal_2p','Hard_1p','Hard_2p','Oni_1p','Oni_2p','Edit_1p','Edit_2p')"
-const publishedChart = `c.status='published' AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(c.difficulties) excluded
- WHERE excluded->>'course' NOT IN ` + supportedCoursesSQL + `)`
+const publishedChart = `c.status='published'`
 
-const chartSelect = `SELECT c.id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,c.is_single,
- c.difficulties,
+// Blocks are listed Easy to Edit, each as single, p1, p2.
+const slotOrder = `array_position(ARRAY['Easy','Normal','Hard','Oni','Edit'],d.course),array_position(ARRAY['single','p1','p2'],d.side)`
+
+const chartSelect = `SELECT c.id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'course',d.course,'side',d.side,'level',d.level,'maker',d.maker,'branching',d.branching) ORDER BY ` + slotOrder + `) FROM chart_difficulties d WHERE d.chart_id=c.id),'[]'),
  c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE id=c.preview_file),''),
  c.movie_offset,COALESCE(mf.sha256,''),COALESCE(mf.byte_size,0),COALESCE(mf.storage_key,''),
  COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0)
@@ -75,7 +75,7 @@ func readChart(row pgx.Row) (Chart, error) {
 	c := Chart{Encoding: "utf-8"} // Compatibility field; stored TJA bytes are always UTF-8.
 	var difficulties []byte
 	var flags CategoryFlags
-	e := row.Scan(&c.ID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &c.IsSingle, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
+	e := row.Scan(&c.ID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
 	if e == nil {
 		c.OwnerID = c.OwnerIDs[0]
 		c.Score = c.Upvotes - c.Downvotes
@@ -184,7 +184,7 @@ func (s *Server) deleteChart(ctx context.Context, chartID, ownerID string) ([]st
 	if e = tx.QueryRow(ctx, `SELECT id FROM charts WHERE id=$1 AND owner_ids @> ARRAY[$2::text] AND status<>'deleted' FOR UPDATE`, chartID, ownerID).Scan(&chartID); e != nil {
 		return nil, e
 	}
-	if _, e = tx.Exec(ctx, `DELETE FROM scores WHERE song_id=$1`, chartID); e != nil {
+	if _, e = tx.Exec(ctx, `DELETE FROM scores WHERE difficulty_id IN (SELECT id FROM chart_difficulties WHERE chart_id=$1)`, chartID); e != nil {
 		return nil, e
 	}
 	rows, e := tx.Query(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id IN (c.tja_file,c.audio_file,c.cover_file,c.preview_file,c.movie_file) WHERE c.id=$1`, chartID)

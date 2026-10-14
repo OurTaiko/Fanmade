@@ -80,7 +80,7 @@ API、数据库结构、SSO、管理员、分类、多语言、S3 存储和游�
 
 本示范版支持一个 TJA + 一个 Vorbis OGG 或 MP3 音频，TJA 中可有 Easy / Normal / Hard / Oni / Edit 多个难度及 P1 / P2。Tower（塔）和 Dan（段位），包括数字 5 / 6，双端整份拒绝；混合普通难度也不能上传。迁移 012 会下架当前版本含不支持难度的已有作品，保留文件和成绩，所有公开展示及游戏曲库接口排除这些作品。`#NEXTSONG` 多音频谱暂不支持；不承诺完整游戏命令语义。试听在负数 DEMOSTART 时从 0 开始，不改写 TJA。
 
-歌曲模式统一保存在 charts.is_single，难度以 JSONB 数组存入 charts.difficulties，不再有独立 difficulties 表。每次上传只能包含单人或双人谱，混合文件和重复难度被拒绝。双人块必须标记 P1/P2，API 将其转换为 Oni_1p/Oni_2p 等 course；双人也支持云成绩与各自排行榜。成绩按歌曲 ID + difficulty 关联，由数据库触发器检查 JSON 中的难度存在性。上传与成绩接口详见 API（文档 `API.md`）。
+谱面按"难度 × 侧别"存在 chart_difficulties：每行是 TJA 里真实存在的一个谱面块，course 为五个基础难度，side 为 single / p1 / p2（对应 `#START`、`#START P1`、`#START P2`），同一个文件里三种可以并存，同一槽位重复则拒绝。读哪个谱面块由游戏端决定：单人读 single，缺则 p1；双人 1P 读 p1，缺则 single；双人 2P 读 p2，缺则 single，再缺则 p1。成绩通过 difficulty_id 指向真实游玩的谱面块，每个谱面块各有排行榜。替换 TJA 或音频后旧成绩保留并标为非最新（is_latest=false），排行榜只计最新成绩；新文件里不再存在的谱面块连同其成绩一起删除。上传与成绩接口详见 API（文档 `API.md`）。
 
 后续功能：邮箱补绑与找回密码、管理员界面、评论收藏、自动清理与备份。示范版软删除后停止公开访问，保留数据库和资源供开发检查。上传失败通常自动清理；数据库 COMMIT 结果不确定或进程崩溃时保留文件供核对，暂未实现后台孤儿文件回收。请同时备份数据库和 `.data/files`。
 

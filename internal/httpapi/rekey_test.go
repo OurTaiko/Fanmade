@@ -55,10 +55,10 @@ func TestRekeyFiles(t *testing.T) {
 			for key, data := range legacy {
 				put(key, data)
 			}
-			_, err := pool.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,difficulties,tja_file,audio_file,cover_file,preview_file) VALUES
- ('a',ARRAY[$1],'A',120,10,'[{"course":"Oni","level":5,"maker":""}]',test_file('objects/a/1/tja','a.tja',$2,$4),test_file('objects/a/2/audio','Song.OGG',$5,11),
+			_, err := pool.Exec(ctx, `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,cover_file,preview_file) VALUES
+ ('a',ARRAY[$1],'A',120,10,test_file('objects/a/1/tja','a.tja',$2,$4),test_file('objects/a/2/audio','Song.OGG',$5,11),
   test_file('covers/1/cover.webp','cover.webp',$6,11),test_file('previews/a/1/preview.ogg','preview.ogg',$7,13)),
- ('b',ARRAY[$1],'B',120,10,'[{"course":"Oni","level":5,"maker":""}]',test_file('objects/b/1/tja','b.tja',$3,$4),test_file('objects/b/2/audio','Song.OGG',$5,11),NULL,NULL)`,
+ ('b',ARRAY[$1],'B',120,10,test_file('objects/b/1/tja','b.tja',$3,$4),test_file('objects/b/2/audio','Song.OGG',$5,11),NULL,NULL)`,
 				owner, hash(tjaOf("A")), hash(tjaOf("B")), len(tjaOf("A")), hash(audio), hash(cover), hash(preview))
 			if err != nil {
 				t.Fatal(err)

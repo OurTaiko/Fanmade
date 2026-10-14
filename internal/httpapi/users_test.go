@@ -175,11 +175,11 @@ func TestUserDirectoryPublicScopeAndStatistics(t *testing.T) {
 		if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,status,title,bpm,duration,tja_file,audio_file) VALUES($1,ARRAY[$2],$3,'Public chart',120,10,test_file($1||'tja','fixture',repeat('a',64),1),test_file($1||'audio','fixture',repeat('a',64),1))`, song, ids[0], status); err != nil {
 			t.Fatal(err)
 		}
-		if _, err = tx.Exec(ctx, `UPDATE charts c SET difficulties=c.difficulties||d.items FROM (SELECT chart_id,jsonb_agg(jsonb_build_object('course',course,'level',level,'maker',maker)) items FROM (VALUES ($1,'Oni',1,'')) v(chart_id,course,level,maker) GROUP BY chart_id) d WHERE c.id=d.chart_id`, song); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO chart_difficulties(chart_id,course,side,level,maker) SELECT chart_id,course,'single',level,maker FROM (VALUES ($1,'Oni',1,'')) v(chart_id,course,level,maker)`, song); err != nil {
 			t.Fatal(err)
 		}
 		for j := 0; j < 2; j++ {
-			if _, err = tx.Exec(ctx, `INSERT INTO scores(id,user_id,song_id,difficulty,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,$2,$3,'Oni',1,0,0,1000,0,1,repeat('a',64))`, ID(), ids[0], song); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO scores(id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,$2,test_slot($3,'Oni'),1,0,0,1000,0,1,repeat('a',64))`, ID(), ids[0], song); err != nil {
 				t.Fatal(err)
 			}
 		}

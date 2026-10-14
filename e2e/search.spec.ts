@@ -28,7 +28,6 @@ const chart: Chart = {
   downvotes: 0,
   commentCount: 0,
   myVote: 0,
-  isSingle: true,
   difficulties: ['Easy', 'Normal', 'Hard', 'Oni', 'Edit'].map((course, blockIndex) => ({
     course,
 

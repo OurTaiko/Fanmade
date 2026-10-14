@@ -25,7 +25,6 @@ const chart: Chart = {
   audioSize: 100,
   titleTranslations: {},
   subtitleTranslations: {},
-  isSingle: true,
   difficulties: courses.map((course, blockIndex) => ({
     course,
 
@@ -41,7 +40,6 @@ const unsupported = ['Tower', 'Dan'].map((course, index) => ({
   ...chart,
   id: String(index + 2).repeat(32),
   title: `不支持的${course}作品`,
-  isSingle: true,
   difficulties: [...chart.difficulties, { ...chart.difficulties[0], course }],
 }))
 

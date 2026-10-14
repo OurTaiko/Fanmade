@@ -28,7 +28,6 @@ const chart = {
   audioSize: 100,
   titleTranslations: {},
   subtitleTranslations: {},
-  isSingle: true,
   difficulties: [{ course: 'Oni', level: 5, maker: 'Composer' }],
   score: 0,
   upvotes: 0,

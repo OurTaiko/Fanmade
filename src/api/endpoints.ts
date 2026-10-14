@@ -39,7 +39,7 @@ export const endpoints = {
   chartFiles: (id: string) => `${chartPath(id)}/files`,
   cover: (id: string, hash?: string) =>
     withQuery(`${chartPath(id)}/cover`, hash ? { v: hash } : {}),
-  leaderboard: (id: string, query: { difficulty: string; page: number }) =>
+  leaderboard: (id: string, query: { difficultyId?: number; page: number }) =>
     withQuery(`${chartPath(id)}/leaderboard`, query),
   chartVote: (id: string) => `${chartPath(id)}/vote`,
   chartComments: (id: string, query: { sort: string; page: number }) =>

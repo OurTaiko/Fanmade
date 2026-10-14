@@ -35,8 +35,15 @@ export function baseCourse(value: string): BaseCourse {
 export function isSupportedCourse(value: string): value is Course {
   return Object.hasOwn(courseNames, value)
 }
-export function supportsChart(difficulties: { course: string }[]): boolean {
-  return difficulties.length > 0 && difficulties.every((d) => isSupportedCourse(d.course))
+/** A block as one string, for keys and the preview's block names: Oni, Oni_1p, Oni_2p. */
+export function slotKey(d: { course: string; side?: string }): string {
+  return d.course + (d.side === 'p1' ? '_1p' : d.side === 'p2' ? '_2p' : '')
+}
+export function supportsChart(difficulties: { course: string; side?: string }[]): boolean {
+  return difficulties.length > 0 && difficulties.every((d) => isSupportedCourse(slotKey(d)))
+}
+export function sideName(side: string | undefined): string {
+  return side === 'p1' ? '1P' : side === 'p2' ? '2P' : t('messages.singleSide')
 }
 
 const tjaCourses: Record<string, BaseCourse> = {
@@ -56,19 +63,23 @@ export function parseTjaCourse(value: string): BaseCourse | undefined {
   return Object.hasOwn(tjaCourses, key) ? tjaCourses[key] : undefined
 }
 
-// A double chart's P1 and P2 blocks of one course are one chart for display;
-// scores and leaderboards stay per side, since two people may play them.
+// The single, 1P and 2P blocks of one course are one chart for display; scores
+// and leaderboards stay per block. A course without a single block is "double".
 export type CourseGroup = { base: BaseCourse; double: boolean; sides: Difficulty[] }
+const sideOrder = ['single', 'p1', 'p2']
 export function groupCourses(difficulties: Difficulty[]): CourseGroup[] {
   const groups: CourseGroup[] = []
   for (const d of difficulties) {
-    if (!isSupportedCourse(d.course)) continue
-    const base = baseCourse(d.course)
+    if (!isSupportedCourse(slotKey(d))) continue
+    const base = d.course as BaseCourse
     let group = groups.find((g) => g.base === base)
-    if (!group) groups.push((group = { base, double: d.course !== base, sides: [] }))
-    if (!group.sides.some((side) => side.course === d.course)) group.sides.push(d)
+    if (!group) groups.push((group = { base, double: false, sides: [] }))
+    if (!group.sides.some((side) => slotKey(side) === slotKey(d))) group.sides.push(d)
   }
-  for (const group of groups) group.sides.sort((a, b) => a.course.localeCompare(b.course))
+  for (const group of groups) {
+    group.sides.sort((a, b) => sideOrder.indexOf(a.side) - sideOrder.indexOf(b.side))
+    group.double = !group.sides.some((d) => slotKey(d) === group.base)
+  }
   return groups
 }
 export function groupName(group: CourseGroup): string {
@@ -76,7 +87,7 @@ export function groupName(group: CourseGroup): string {
     ? t('messages.doubleCourse', { course: baseNames[group.base] })
     : baseNames[group.base]
 }
-// "3" when every side has the same level, otherwise "3/4" in P1/P2 order.
+// "3" when every side has the same level, otherwise "3/4" in single/P1/P2 order.
 export function groupLevel(group: CourseGroup): string {
   return [...new Set(group.sides.map((side) => side.level))].join('/')
 }

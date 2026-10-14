@@ -1,4 +1,5 @@
 import { chartText } from './chart-language'
+import { slotKey } from './courses'
 import { i18n } from './i18n'
 import { t } from '@/i18n'
 import { useTranslation } from 'react-i18next'
@@ -80,7 +81,7 @@ export default function ChartPreview({
             subtitle,
             course,
             level:
-              chart.difficulties.find((d) => d.course === course)?.level ?? selectedChart.level,
+              chart.difficulties.find((d) => slotKey(d) === course)?.level ?? selectedChart.level,
           }
         : null,
     [selectedChart, title, subtitle, chart.difficulties, course],

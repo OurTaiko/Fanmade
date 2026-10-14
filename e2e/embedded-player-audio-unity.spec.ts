@@ -92,7 +92,6 @@ test('real Unity: native Ogg failure retries software once without another audio
           audioSize: 100,
           titleTranslations: {},
           subtitleTranslations: {},
-          isSingle: true,
           categoryIds: [],
           difficulties: [{ course: 'Oni', level: 1, maker: '', branching: false }],
         },

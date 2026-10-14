@@ -65,7 +65,6 @@ test('fallback Edit, branching and click inspection; leaderboard pagination and 
   const chart: Chart = {
     ...base,
     title: 'Preview test',
-    isSingle: true,
     difficulties: [
       {
         course: 'Hard',

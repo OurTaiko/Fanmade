@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { i18n } from './i18n'
-import { courseNames, supportsChart } from './courses'
+import { courseNames, groupCourses, slotKey, supportsChart } from './courses'
 import { defaultDifficulty } from './chart-difficulty'
 import { parsePreviewTja } from './preview-tja'
 import type { Difficulty } from './tja'
@@ -15,6 +15,7 @@ describe('detail difficulty selection', () => {
     while (courses.length) {
       const difficulties: Difficulty[] = courses.map((course) => ({
         course,
+        side: 'single',
         maker: '',
         level: 5,
       }))
@@ -22,15 +23,31 @@ describe('detail difficulty selection', () => {
       courses.pop()
     }
     expect(defaultDifficulty([])).toBe('')
-    expect(defaultDifficulty([{ course: 'Tower', level: 5, maker: '' }])).toBe('')
+    expect(defaultDifficulty([{ course: 'Tower', side: 'single', level: 5, maker: '' }])).toBe('')
     expect(Object.keys(courseNames)).toHaveLength(15)
-    expect(supportsChart([{ course: 'Oni_1p' }, { course: 'Oni_2p' }])).toBe(true)
+    expect(
+      supportsChart([
+        { course: 'Oni', side: 'p1' },
+        { course: 'Oni', side: 'p2' },
+      ]),
+    ).toBe(true)
     expect(
       defaultDifficulty([
-        { course: 'Oni_2p', level: 10, maker: '' },
-        { course: 'Oni_1p', level: 9, maker: '' },
+        { course: 'Oni', side: 'p2', level: 10, maker: '' },
+        { course: 'Oni', side: 'p1', level: 9, maker: '' },
       ]),
     ).toBe('Oni_1p')
+    // The single block of a course comes before its sides.
+    const mixed = [
+      { course: 'Oni', side: 'p1' as const, level: 9, maker: '' },
+      { course: 'Oni', side: 'single' as const, level: 8, maker: '' },
+      { course: 'Hard', side: 'p2' as const, level: 6, maker: '' },
+    ]
+    expect(defaultDifficulty(mixed)).toBe('Oni')
+    expect(groupCourses(mixed).map((g) => [g.base, g.double, g.sides.map(slotKey)])).toEqual([
+      ['Oni', false, ['Oni', 'Oni_1p']],
+      ['Hard', true, ['Hard_2p']],
+    ])
     expect(supportsChart([{ course: 'Oni' }, { course: 'Dan' }])).toBe(false)
     expect(supportsChart([{ course: 'Oni' }, { course: 'Edit' }])).toBe(true)
   })

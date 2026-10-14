@@ -32,11 +32,11 @@ describe('API addresses', () => {
       })
     }
     const leaderboard = new URL(
-      endpoints.leaderboard('song', { difficulty: 'Oni', page: 3 }),
+      endpoints.leaderboard('song', { difficultyId: 42, page: 3 }),
       login.origin,
     )
     expect(Object.fromEntries(leaderboard.searchParams)).toEqual({
-      difficulty: 'Oni',
+      difficultyId: '42',
       page: '3',
     })
   })

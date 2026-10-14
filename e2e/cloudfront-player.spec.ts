@@ -36,7 +36,6 @@ async function setupPlayer(page: Page) {
           audioSize: 10,
           titleTranslations: {},
           subtitleTranslations: {},
-          isSingle: true,
           categoryIds: [],
           difficulties: [{ course: 'Oni', level: 1, maker: '' }],
         },

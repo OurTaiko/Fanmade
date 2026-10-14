@@ -30,7 +30,6 @@ test('owner edits preview range while player keeps full audio source', async ({ 
     audioHash: 'b'.repeat(64),
     audioSize: 100,
     categoryIds: [],
-    isSingle: true,
     difficulties: [{ course: 'Oni', level: 5, maker: 'A' }],
   }
   const patches: unknown[] = []

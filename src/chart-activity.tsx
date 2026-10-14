@@ -29,6 +29,8 @@ import {
   isSupportedCourse,
   baseCourse,
   groupCourses,
+  sideName,
+  slotKey,
   groupLevel,
   groupName,
 } from './courses'
@@ -73,8 +75,9 @@ export function ChartActivity({
   const [source, setSource] = useState('')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
-  // P1 and P2 of a double course are one chart: one tab per course, then a
-  // side switch for the preview and the per-side leaderboard.
+  // The blocks of one course are one chart: one tab per course, then a side
+  // switch for the preview and the per-block leaderboard. `course` is the
+  // chosen block's slot key.
   const groups = groupCourses(chart.difficulties)
   const group = groups.find((g) => g.base === baseCourse(course))
   const { id, tjaHash, encoding } = chart
@@ -143,11 +146,11 @@ export function ChartActivity({
             onValueChange={(value) => {
               const next = groups.find((g) => g.base === value)
               if (!next) return
-              // Keep the chosen side when switching between double courses.
+              // Keep the chosen side when the next course has it too.
               const side = course.slice(baseCourse(course).length)
               setCourse(
-                next.sides.find((d) => d.course === `${next.base}${side}`)?.course ??
-                  next.sides[0].course,
+                next.sides.map(slotKey).find((key) => key === `${next.base}${side}`) ??
+                  slotKey(next.sides[0]),
               )
             }}
             className="shrink-0"
@@ -177,7 +180,7 @@ export function ChartActivity({
               ))}
             </TabsList>
           </Tabs>
-          {group?.double && (
+          {group && group.sides.length > 1 && (
             <Tabs
               value={course}
               onValueChange={(value) => setCourse(String(value))}
@@ -188,8 +191,8 @@ export function ChartActivity({
                 className={tabButtonGroupClassName}
               >
                 {group.sides.map((d) => (
-                  <TabsTrigger key={d.course} value={d.course} className={tabButtonClassName}>
-                    {d.course.slice(-2).toUpperCase()}
+                  <TabsTrigger key={slotKey(d)} value={slotKey(d)} className={tabButtonClassName}>
+                    {sideName(d.side)}
                     <span
                       className="inline-flex items-center gap-1 tabular-nums"
                       aria-label={t('common.stars', { count: d.level })}
@@ -271,11 +274,13 @@ function ChartLeaderboard({ chart, course }: { chart: Chart; course: string }) {
   const [attempt, setAttempt] = useState(0)
   const { user } = useSession()
   const { id } = chart
+  // Every block of a song has its own leaderboard.
+  const difficultyId = chart.difficulties.find((d) => slotKey(d) === course)?.id
   useEffect(() => {
     const controller = new AbortController()
     setData(null)
     setError('')
-    api<Leaderboard>(endpoints.leaderboard(id, { difficulty: course, page }), {
+    api<Leaderboard>(endpoints.leaderboard(id, { difficultyId, page }), {
       signal: controller.signal,
     })
       .then((response) => {
@@ -285,7 +290,7 @@ function ChartLeaderboard({ chart, course }: { chart: Chart; course: string }) {
         if (!controller.signal.aborted) setError(e.message)
       })
     return () => controller.abort()
-  }, [id, course, page, attempt])
+  }, [id, difficultyId, page, attempt])
   if (error)
     return (
       <div className="flex min-h-40 flex-col items-center justify-center gap-3 py-6 text-center">

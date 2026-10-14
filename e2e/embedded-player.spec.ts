@@ -52,7 +52,6 @@ const chart: Chart = {
   audioSize: 100,
   titleTranslations: {},
   subtitleTranslations: {},
-  isSingle: true,
   categoryIds: [],
   difficulties: [
     { course: 'Oni', level: 1, maker: '' },

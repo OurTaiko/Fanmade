@@ -4,17 +4,26 @@ import { normalizeTja } from './tja-encoding'
 import { ValidationError } from './validation-error'
 export { ValidationError } from './validation-error'
 
-export const validationVersion = 'tja-upload-v9'
+export const validationVersion = 'tja-upload-v10'
 export const maxTja = 2 * 1024 * 1024
 export const maxAudio = 100 * 1024 * 1024
 export const maxMovie = 64 * 1024 * 1024
+export type Side = 'single' | 'p1' | 'p2'
+/**
+ * One chart block: a course (Easy to Edit) on one side, as the arcade keeps a
+ * single, a 1P and a 2P chart per course. The side is the block's #START:
+ * plain is single, #START P1 p1, #START P2 p2.
+ */
 export type Difficulty = {
+  /** The block's ID on the server; absent for a file that is not uploaded yet. */
+  id?: number
   course: string
+  side: Side
   level: number
   maker: string
+  branching?: boolean
 }
 export type Metadata = {
-  isSingle: boolean
   title: string
   subtitle: string
   titleTranslations?: Partial<Record<'en' | 'ja' | 'zh' | 'ko', string>>
@@ -86,7 +95,6 @@ export function safeFilename(s: string) {
 }
 export function parseTja(data: Uint8Array, encoding: string, audioName: string): Metadata {
   const m: Metadata = {
-    isSingle: true,
     title: '',
     subtitle: '',
     maker: '',
@@ -140,16 +148,15 @@ export function parseTja(data: Uint8Array, encoding: string, audioName: string):
       inBlock = true
       hasNotes = false
       const player = s.slice(6).trim()
-      const single = style === 'Single' && !player
-      if (!single && !player) fail('TJA_PLAYER_REQUIRED', t('messages.doublePlayerRequired'), line)
-      if (m.difficulties.length && m.isSingle !== single)
-        fail('TJA_MODE_MIXED', t('messages.mixedChartModes'), line)
-      m.isSingle = single
-      const courseKey = player ? `${course}_${player === 'P1' ? '1p' : '2p'}` : course
-      if (coursesSeen.has(courseKey))
+      if (style !== 'Single' && !player)
+        fail('TJA_PLAYER_REQUIRED', t('messages.doublePlayerRequired'), line)
+      // Single, 1P and 2P blocks of a course may share a file; each only once.
+      const side: Side = player === 'P1' ? 'p1' : player === 'P2' ? 'p2' : 'single'
+      const slot = `${course} ${side}`
+      if (coursesSeen.has(slot))
         fail('TJA_DIFFICULTY_DUPLICATE', t('messages.duplicateCourse'), line)
-      coursesSeen.add(courseKey)
-      m.difficulties.push({ course: courseKey, level, maker: m.maker })
+      coursesSeen.add(slot)
+      m.difficulties.push({ course, side, level, maker: m.maker })
       continue
     }
     if (s === '#END') {

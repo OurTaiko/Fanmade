@@ -121,7 +121,10 @@ export type LeaderboardEntry = {
 }
 export type Leaderboard = {
   songId: string
-  difficulty: string
+  /** The ranked chart block; `course` and `side` describe it. */
+  difficultyId: number
+  course: string
+  side: string
   supported: boolean
   items: LeaderboardEntry[]
   total: number

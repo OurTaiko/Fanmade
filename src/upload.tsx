@@ -39,7 +39,7 @@ import { api, uploadChart } from './api/client'
 import type { Chart } from './api/types'
 import { Modal, Notice } from './notifications'
 import { useNotification } from './notification-context'
-import { courseNames, isSupportedCourse } from './courses'
+import { courseNames, slotKey } from './courses'
 import { DifficultyBadges } from '@/components/difficulty-badges'
 import { useSession } from './session-context'
 import { isAudioFilename, isMovieFilename, prepareTja, validateFiles, validateMovie } from './tja'
@@ -246,7 +246,9 @@ export function UploadPage({ existing }: { existing?: Chart }) {
       form.append('categoryIds', JSON.stringify(categoryIds))
       form.append(
         'difficultyMakers',
-        JSON.stringify(metadata.difficulties.map(({ course, maker }) => ({ course, maker }))),
+        JSON.stringify(
+          metadata.difficulties.map(({ course, side, maker }) => ({ course, side, maker })),
+        ),
       )
       const chart = await uploadChart(
         form,
@@ -545,14 +547,14 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                     </TableHeader>
                     <TableBody>
                       {metadata.difficulties.map((d) => (
-                        <TableRow key={d.course}>
+                        <TableRow key={slotKey(d)}>
                           <TableHead scope="row">
-                            {isSupportedCourse(d.course) ? courseNames[d.course] : d.course} ·{' '}
-                            {d.course} ★{d.level}
+                            {courseNames[slotKey(d) as keyof typeof courseNames]} · {slotKey(d)} ★
+                            {d.level}
                           </TableHead>
                           <TableCell>
                             <Input
-                              aria-label={t('messages.courseCreator', { difficulty: d.course })}
+                              aria-label={t('messages.courseCreator', { difficulty: slotKey(d) })}
                               value={d.maker}
                               maxLength={500}
                               placeholder={t('messages.notSpecified')}
@@ -564,7 +566,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                                     current && {
                                       ...current,
                                       difficulties: current.difficulties.map((block) =>
-                                        block.course === d.course ? { ...block, maker } : block,
+                                        slotKey(block) === slotKey(d) ? { ...block, maker } : block,
                                       ),
                                     },
                                 )

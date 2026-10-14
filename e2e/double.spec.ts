@@ -28,10 +28,9 @@ test('double chart sides select separate previews and leaderboards without block
     audioHash: 'b'.repeat(64),
     audioSize: 10,
     categoryIds: [],
-    isSingle: false,
     difficulties: [
-      { course: 'Oni_2p', level: 8, maker: 'B' },
-      { course: 'Oni_1p', level: 9, maker: 'A' },
+      { id: 11, course: 'Oni', side: 'p1', level: 9, maker: 'A', branching: false },
+      { id: 12, course: 'Oni', side: 'p2', level: 8, maker: 'B', branching: false },
     ],
   }
   const source =
@@ -44,12 +43,18 @@ test('double chart sides select separate previews and leaderboards without block
     if (p.endsWith('/categories')) return route.fulfill({ json: [] })
     if (p.endsWith('/tja')) return route.fulfill({ body: source })
     if (p.endsWith('/leaderboard')) {
-      const course = url.searchParams.get('difficulty')!
+      // Each block has its own leaderboard, asked for by the block's ID.
+      const block = chart.difficulties.find(
+        (d) => String(d.id) === url.searchParams.get('difficultyId'),
+      )!
+      const course = block.course + (block.side === 'p1' ? '_1p' : '_2p')
       boards.push(course)
       return route.fulfill({
         json: {
           songId: chart.id,
-          difficulty: course,
+          difficultyId: block.id,
+          course: block.course,
+          side: block.side,
           supported: true,
           total: 1,
           page: 1,

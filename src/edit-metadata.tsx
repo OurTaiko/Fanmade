@@ -1,4 +1,5 @@
 import { t } from '@/i18n'
+import { courseNames, slotKey } from './courses'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { DialogClose } from '@/components/ui/dialog'
@@ -28,7 +29,7 @@ type Language = Locale
 type Draft = Record<Language, { title: string; subtitle: string; restore: boolean }>
 type Patch = {
   description?: string
-  difficultyMakers?: { course: string; maker: string }[]
+  difficultyMakers?: { course: string; side: string; maker: string }[]
   demoStart?: number
   demoEnd?: number
   categoryIds?: string[]
@@ -64,7 +65,7 @@ export function EditMetadata({
   const [tab, setTab] = useState('categories')
   const [description, setDescription] = useState(chart.description)
   const [makers, setMakers] = useState(
-    chart.difficulties.map(({ course, maker }) => ({ course, maker })),
+    chart.difficulties.map(({ course, side, maker }) => ({ course, side, maker })),
   )
   const makersChanged = makers.some((d, i) => d.maker !== chart.difficulties[i].maker)
   const [categoryIds, setCategoryIds] = useState<string[]>(chart.categoryIds ?? [])
@@ -281,12 +282,13 @@ export function EditMetadata({
             </TabsContent>
             <TabsContent value="makers" className="space-y-4 pt-3">
               {makers.map((d, index) => (
-                <div key={d.course} className="space-y-2">
-                  <Label htmlFor={`edit-maker-${d.course}`}>
-                    {d.course} ★{chart.difficulties[index].level}
+                <div key={slotKey(d)} className="space-y-2">
+                  <Label htmlFor={`edit-maker-${slotKey(d)}`}>
+                    {courseNames[slotKey(d) as keyof typeof courseNames] ?? slotKey(d)} ★
+                    {chart.difficulties[index].level}
                   </Label>
                   <Input
-                    id={`edit-maker-${d.course}`}
+                    id={`edit-maker-${slotKey(d)}`}
                     value={d.maker}
                     maxLength={500}
                     disabled={busy}
@@ -294,7 +296,7 @@ export function EditMetadata({
                     onChange={(e) =>
                       setMakers((current) =>
                         current.map((item) =>
-                          item.course === d.course ? { ...item, maker: e.target.value } : item,
+                          slotKey(item) === slotKey(d) ? { ...item, maker: e.target.value } : item,
                         ),
                       )
                     }

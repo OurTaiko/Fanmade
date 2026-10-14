@@ -31,7 +31,6 @@ const chart: Chart = {
   categoryIds: ['variety'],
   titleTranslations: {},
   subtitleTranslations: {},
-  isSingle: true,
   difficulties: ['Hard', 'Oni', 'Edit'].map((course, blockIndex) => ({
     course,
 
@@ -132,9 +131,9 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
   await expect(page).toHaveURL(`/charts/${chart.id}`)
   await page.getByRole('button', { name: '知道了', exact: true }).click()
   expect(submitted).toEqual([
-    { course: 'Hard', maker: 'A' },
-    { course: 'Oni', maker: 'B' },
-    { course: 'Edit', maker: 'A' },
+    { course: 'Hard', side: 'single', maker: 'A' },
+    { course: 'Oni', side: 'single', maker: 'B' },
+    { course: 'Edit', side: 'single', maker: 'A' },
   ])
   await expect(page.locator('[data-testid="detail-facts"]')).toContainText('A | B')
   for (const [course, name] of [

@@ -31,7 +31,6 @@ const makeChart = (): Chart => ({
   categoryIds: ['variety'],
   titleTranslations: {},
   subtitleTranslations: {},
-  isSingle: true,
   difficulties: ['Easy', 'Normal', 'Hard', 'Oni', 'Edit'].map((course, blockIndex) => ({
     course,
 

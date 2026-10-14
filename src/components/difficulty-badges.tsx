@@ -5,7 +5,7 @@ import type { Difficulty } from '@/tja'
 import {
   courseNames,
   isSupportedCourse,
-  baseCourse,
+  slotKey,
   groupCourses,
   groupLevel,
   groupName,
@@ -30,13 +30,13 @@ export function DifficultyBadges({
 }) {
   const { t } = useTranslation()
 
-  const supported = difficulties.filter((d) => isSupportedCourse(d.course))
+  const supported = difficulties.filter((d) => isSupportedCourse(slotKey(d)))
   const items = detailed
     ? supported
     : supported.filter(
-        (d, index, all) => all.findIndex((other) => other.course === d.course) === index,
+        (d, index, all) => all.findIndex((other) => slotKey(other) === slotKey(d)) === index,
       )
-  // Bookmarks show a double chart's P1 and P2 of one course as one chart, so
+  // Bookmarks show the single, P1 and P2 blocks of one course as one chart, so
   // a song has at most five and they fit the fixed card height.
   if (bookmarks)
     return (
@@ -73,12 +73,10 @@ export function DifficultyBadges({
       {items.map((d) => (
         <Badge
           variant="secondary"
-          className={
-            isSupportedCourse(d.course) ? difficultyColors[baseCourse(d.course)] : undefined
-          }
-          key={d.course}
+          className={difficultyColors[d.course as keyof typeof difficultyColors]}
+          key={slotKey(d)}
         >
-          {isSupportedCourse(d.course) ? courseNames[d.course] : ''}
+          {courseNames[slotKey(d) as keyof typeof courseNames]}
           <span
             className="inline-flex items-center gap-1 tabular-nums"
             aria-label={t('common.stars', { count: d.level })}

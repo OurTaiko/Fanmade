@@ -127,7 +127,7 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 			return failed(err)
 		}
 	}
-	// The movie is re-encoded within fixed limits and without sound.
+	// The movie is stored without sound, re-encoded only if over the limits.
 	var moviePath, movieSHA string
 	var movieSize int64
 	if j.movie != nil {

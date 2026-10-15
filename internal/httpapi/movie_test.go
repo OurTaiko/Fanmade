@@ -52,7 +52,7 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 	}
 	// Larger than the output limits and with a sound track of its own.
 	source := filepath.Join(t.TempDir(), "clip.mp4")
-	if out, err := exec.Command("ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=1600x900:rate=60:duration=0.5", "-f", "lavfi", "-i", "sine=duration=0.5",
+	if out, err := exec.Command("ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=2400x1350:rate=120:duration=0.5", "-f", "lavfi", "-i", "sine=duration=0.5",
 		"-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", "-shortest", source).CombinedOutput(); err != nil {
 		t.Fatal(string(out))
 	}
@@ -171,7 +171,7 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 		t.Fatal(err)
 	}
 	probe, err := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,r_frame_rate", "-of", "csv=p=0", file).Output()
-	if err != nil || strings.TrimSpace(string(probe)) != "h264,video,1280,720,30/1" {
+	if err != nil || strings.TrimSpace(string(probe)) != "h264,video,1280,720,60/1" {
 		t.Fatalf("stored movie format %q %v", probe, err)
 	}
 	text := get("/api/v1/charts/" + chart.ID + "/tja")

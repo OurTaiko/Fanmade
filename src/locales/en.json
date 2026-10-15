@@ -230,7 +230,7 @@
     "chooseBackgroundMovie": "Choose background video",
     "keepMovie": "Keep the current video",
     "removeMovie": "Remove video",
-    "movieWillBeTranscoded": "The video is transcoded on the server: no audio track, at most 1280×720 and 30 fps.",
+    "movieWillBeTranscoded": "The audio track is removed. H.264 video within 1280×720, 60 fps and 7.5 Mbps is kept as is; anything beyond is transcoded on the server.",
     "selectedMoviePreview": "Selected background video preview",
     "uploadAcceptedResultByNotification": "Your files were submitted and are being processed. The result will appear in your notifications; you can leave this page.",
     "choose": "Choose",

@@ -230,7 +230,7 @@
     "chooseBackgroundMovie": "选择背景视频",
     "keepMovie": "沿用当前视频",
     "removeMovie": "移除视频",
-    "movieWillBeTranscoded": "视频会在服务器转码：去掉音轨，最大 1280×720、30 fps。",
+    "movieWillBeTranscoded": "音轨会被去掉；H.264 视频在 1280×720、60 fps、7.5 Mbps 以内原样保存，超出的会在服务器转码。",
     "selectedMoviePreview": "待上传的背景视频预览",
     "uploadAcceptedResultByNotification": "文件已提交，正在后台处理。处理结果会在通知中心告知，你可以离开此页面。",
     "choose": "选择",

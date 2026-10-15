@@ -230,7 +230,7 @@
     "chooseBackgroundMovie": "背景動画を選択",
     "keepMovie": "現在の動画を引き継ぐ",
     "removeMovie": "動画を外す",
-    "movieWillBeTranscoded": "動画はサーバーで変換されます：音声なし、最大 1280×720・30 fps。",
+    "movieWillBeTranscoded": "音声は削除されます。1280×720・60 fps・7.5 Mbps 以内の H.264 動画はそのまま保存され、超える場合はサーバーで変換されます。",
     "selectedMoviePreview": "アップロード予定の背景動画",
     "uploadAcceptedResultByNotification": "ファイルを受け付け、バックグラウンドで処理しています。結果は通知センターでお知らせします。このページを離れても構いません。",
     "choose": "選択",

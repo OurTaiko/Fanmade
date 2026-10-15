@@ -1,0 +1,351 @@
+import { chartText } from '@/chart-language'
+import { i18n } from '@/i18n'
+import { useTranslation } from 'react-i18next'
+import { endpoints } from '@/api/endpoints'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { DialogClose } from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
+import { ChoiceSelect } from '@/components/choice-select'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import {
+  ArrowCounterClockwiseIcon,
+  CaretLeftIcon,
+  FloppyDiskIcon,
+  WarningCircleIcon,
+} from '@phosphor-icons/react'
+import { api, uploadChart } from './api/client'
+import type { Chart } from './api/types'
+import { baseCourse, courseNames, isSupportedCourse, slotKey } from './courses'
+import { isChartOwner } from './chart-owners'
+import { useSession } from './session-context'
+import { Modal, Notice } from './notifications'
+import { useNotification } from './notification-context'
+import { parsePreviewTja } from './preview-tja'
+import { maxTja, parseTja, ValidationError } from './tja'
+import type { Side } from './tja'
+
+const ChartPreview = lazy(() => import('./chart-preview'))
+const TjaEditor = lazy(() => import('@/components/tja-editor'))
+
+function createRequestKey() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+// The line a TJA validation error points at, when the API gave one.
+function errorLine(e: unknown): number | undefined {
+  if (e instanceof ValidationError) return e.line > 0 ? e.line : undefined
+  const cause = (e as { cause?: { line?: unknown; errors?: { line?: unknown }[] } }).cause
+  const line = cause?.line ?? cause?.errors?.[0]?.line
+  return typeof line === 'number' && line > 0 ? line : undefined
+}
+
+/**
+ * Edits a chart's TJA in the browser with a live rendering. Saving sends the
+ * text as the new TJA through the same replacement as the update page, with
+ * the audio and movie kept and the chart's description, categories, preview
+ * range and makers sent back unchanged: blocks the new text no longer has go
+ * with their scores, and older scores leave the leaderboard.
+ */
+export function ChartEditorPage() {
+  const { t } = useTranslation()
+  const { notify } = useNotification()
+  const { id } = useParams()
+  const session = useSession()
+  const [chart, setChart] = useState<Chart | null>(null)
+  const [error, setError] = useState('')
+  const [original, setOriginal] = useState<string | null>(null)
+  const [text, setText] = useState('')
+  const [preview, setPreview] = useState('')
+  const [course, setCourse] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [saveError, setSaveError] = useState('')
+  const [jump, setJump] = useState<{ line: number; at: number } | null>(null)
+  const requestKey = useRef(createRequestKey())
+  const controller = useRef<AbortController | null>(null)
+  const dirty = original !== null && text !== original
+
+  useEffect(() => {
+    const aborter = new AbortController()
+    setChart(null)
+    setError('')
+    setOriginal(null)
+    setText('')
+    setPreview('')
+    if (!id) return
+    async function load() {
+      try {
+        const loaded = await api<Chart>(endpoints.chart(id!), { signal: aborter.signal })
+        const response = await fetch(endpoints.resource(loaded, 'tja'), {
+          signal: aborter.signal,
+          credentials: 'omit',
+        })
+        if (!response.ok)
+          throw new Error(i18n.t('messages.chartHttpError', { status: response.status }))
+        const bytes = await response.arrayBuffer()
+        if (bytes.byteLength > maxTja)
+          throw new Error(i18n.t('messages.chartExceedsThePreviewSizeLimit'))
+        // The editor keeps lines apart by "\n", so other line breaks are
+        // normalized before anything compares.
+        const source = new TextDecoder(loaded.encoding, { fatal: true })
+          .decode(bytes)
+          .replace(/\r\n?/g, '\n')
+        if (aborter.signal.aborted) return
+        setChart(loaded)
+        setOriginal(source)
+        setText(source)
+        setPreview(source)
+      } catch (e) {
+        if (!aborter.signal.aborted)
+          setError(e instanceof Error ? e.message : i18n.t('messages.failedToLoadChart'))
+      }
+    }
+    void load()
+    return () => aborter.abort()
+  }, [id])
+
+  // The rendering follows the text after a short pause in typing.
+  useEffect(() => {
+    if (text === preview) return
+    const timer = setTimeout(() => setPreview(text), 300)
+    return () => clearTimeout(timer)
+  }, [text, preview])
+
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
+  useEffect(() => () => controller.current?.abort(), [])
+
+  const blocks = useMemo(() => {
+    if (!preview) return { keys: [] as string[], error: '' }
+    try {
+      return { keys: Object.keys(parsePreviewTja(preview)), error: '' }
+    } catch (e) {
+      return { keys: [], error: e instanceof Error ? e.message : t('messages.failedToParseTja') }
+    }
+  }, [preview, t])
+  // Keep the chosen block while it exists; otherwise show the first one.
+  const shownCourse = blocks.keys.includes(course) ? course : (blocks.keys[0] ?? '')
+  const previewChart = useMemo(
+    () =>
+      chart && {
+        ...chart,
+        difficulties: blocks.keys.map(
+          (key) =>
+            chart.difficulties.find((d) => slotKey(d) === key) ?? {
+              course: baseCourse(key),
+              side: (key.endsWith('_1p') ? 'p1' : key.endsWith('_2p') ? 'p2' : 'single') as Side,
+              level: 0,
+              maker: '',
+            },
+        ),
+      },
+    [chart, blocks.keys],
+  )
+
+  const save = async () => {
+    if (!chart || !dirty || busy) return
+    setConfirming(false)
+    setSaveError('')
+    setBusy(true)
+    setProgress(0)
+    controller.current = new AbortController()
+    try {
+      const bytes = new TextEncoder().encode(text)
+      // The same validation the upload runs, against the stored audio's name.
+      const metadata = parseTja(bytes, 'utf-8', chart.wave)
+      const form = new FormData()
+      form.append('tja', new File([bytes], chart.tjaName, { type: 'text/plain;charset=utf-8' }))
+      form.append('confirmReset', 'true')
+      form.append('encoding', 'utf-8')
+      // The replacement resets these to what is sent, so the current values go back.
+      form.append('description', chart.description)
+      form.append('demoStart', String(chart.demoStart))
+      form.append('demoEnd', String(chart.demoEnd ?? chart.demoStart + 15))
+      form.append('categoryIds', JSON.stringify(chart.categoryIds))
+      form.append(
+        'difficultyMakers',
+        JSON.stringify(
+          metadata.difficulties.map(({ course, side, maker }) => ({
+            course,
+            side,
+            // A maker edited on the site outlives the file's own credit.
+            maker:
+              chart.difficulties.find((d) => d.course === course && d.side === side)?.maker ??
+              maker,
+          })),
+        ),
+      )
+      const updated = await uploadChart(
+        form,
+        session.csrfToken,
+        requestKey.current,
+        controller.current.signal,
+        setProgress,
+        chart.id,
+        true,
+      )
+      if ('status' in updated) throw new Error(t('messages.requestFailed'))
+      requestKey.current = createRequestKey()
+      setChart(updated)
+      setOriginal(text)
+      notify(t('editor.saved'), 'success')
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : t('messages.requestFailed'))
+      const line = errorLine(e)
+      if (line) setJump({ line, at: Date.now() })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!id) return <Notice>{t('messages.missingSongId')}</Notice>
+  if (session.loading) return <p role="status">{t('messages.loadingAccount')}</p>
+  if (error) return <Notice>{error}</Notice>
+  if (!chart || original === null)
+    return <p className="text-sm text-muted-foreground">{t('editor.loading')}</p>
+  const canManage = isChartOwner(chart, session.user?.id) || !!session.user?.isAdmin
+  if (!canManage) return <Notice>{t('editor.onlyManagers')}</Notice>
+  const title = chartText(chart, i18n.resolvedLanguage).title
+  const lines = text.length ? text.split('\n').length : 0
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 [&_p]:mt-2 [&_p]:text-sm [&_p]:text-muted-foreground">
+          <Link
+            to={`/charts/${chart.id}`}
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <CaretLeftIcon size={14} aria-hidden="true" />
+            {title}
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t('editor.title')}</h1>
+          <p>{t('editor.intro')}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground tabular-nums" role="status">
+            {dirty ? t('messages.unsavedChanges') : t('editor.lines', { count: lines })}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="default"
+            disabled={!dirty || busy}
+            onClick={() => setText(original)}
+          >
+            <ArrowCounterClockwiseIcon size={16} />
+            {t('editor.discard')}
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            size="default"
+            disabled={!dirty || busy || !!blocks.error}
+            onClick={() => setConfirming(true)}
+          >
+            <FloppyDiskIcon size={16} />
+            {busy ? t('messages.saving') : t('editor.save')}
+          </Button>
+        </div>
+      </div>
+      {busy && <Progress value={progress} aria-label={t('messages.saving')} />}
+      {saveError && (
+        <Notice>
+          <span className="inline-flex items-center gap-2">
+            <WarningCircleIcon size={16} className="shrink-0" aria-hidden="true" />
+            {saveError}
+          </span>
+        </Notice>
+      )}
+      <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+        <Card className="min-w-0 gap-3 overflow-hidden border p-0 shadow-none ring-0">
+          <h2 className="px-5 pt-5 text-base font-semibold sm:px-6">{t('editor.editorLabel')}</h2>
+          <Suspense
+            fallback={
+              <p className="px-5 pb-5 text-sm text-muted-foreground sm:px-6">
+                {t('editor.loadingEditor')}
+              </p>
+            }
+          >
+            <TjaEditor
+              value={text}
+              onChange={setText}
+              disabled={busy}
+              jumpToLine={jump}
+              onSave={() => {
+                if (dirty && !busy && !blocks.error) setConfirming(true)
+              }}
+              ariaLabel={t('editor.editorLabel')}
+              className="h-[70svh] min-h-80 border-t text-sm"
+            />
+          </Suspense>
+        </Card>
+        <Card className="min-w-0 gap-4 border p-5 shadow-none ring-0 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-semibold">{t('editor.previewHeading')}</h2>
+            {blocks.keys.length > 0 && (
+              <ChoiceSelect
+                label={t('editor.block')}
+                value={shownCourse}
+                onValueChange={setCourse}
+                items={blocks.keys.map((key) => ({
+                  value: key,
+                  label: isSupportedCourse(key) ? courseNames[key] : key,
+                }))}
+              />
+            )}
+          </div>
+          {blocks.error ? (
+            <Notice>{blocks.error}</Notice>
+          ) : !previewChart || !shownCourse ? (
+            <p className="text-sm text-muted-foreground">{t('editor.noBlocks')}</p>
+          ) : (
+            <Suspense
+              fallback={
+                <p role="status" className="text-sm text-muted-foreground">
+                  {t('messages.loadingChartPreview')}
+                </p>
+              }
+            >
+              <ChartPreview
+                key={shownCourse}
+                chart={previewChart}
+                source={preview}
+                course={shownCourse}
+              />
+            </Suspense>
+          )}
+        </Card>
+      </div>
+      {confirming && (
+        <Modal
+          title={t('editor.confirmTitle')}
+          busy={busy}
+          onDismiss={() => setConfirming(false)}
+          actions={
+            <>
+              <DialogClose
+                render={<Button type="button" variant="outline" size="default" />}
+                disabled={busy}
+              >
+                {t('messages.cancel')}
+              </DialogClose>
+              <Button type="button" variant="default" size="default" onClick={save}>
+                {t('editor.confirm')}
+              </Button>
+            </>
+          }
+        >
+          <p>{t('editor.confirmText', { title })}</p>
+        </Modal>
+      )}
+    </div>
+  )
+}

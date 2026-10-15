@@ -39,6 +39,7 @@ export function uploadChart(
   signal: AbortSignal,
   onProgress: (n: number) => void,
   replaceChartId?: string,
+  waitForResult = false,
 ): Promise<Chart | { status: 'processing' }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -51,7 +52,8 @@ export function uploadChart(
     xhr.setRequestHeader('Idempotency-Key', key)
     // The server decodes and stores the files after replying; the outcome
     // arrives as a notification, so the uploader need not stay on the page.
-    xhr.setRequestHeader('Prefer', 'respond-async')
+    // A caller that shows the result itself waits for it instead.
+    if (!waitForResult) xhr.setRequestHeader('Prefer', 'respond-async')
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
     }
@@ -59,7 +61,7 @@ export function uploadChart(
       try {
         const data = JSON.parse(xhr.responseText)
         if (xhr.status >= 200 && xhr.status < 300) resolve(data)
-        else reject(new Error(apiErrorMessage(data)))
+        else reject(new Error(apiErrorMessage(data), { cause: data }))
       } catch {
         reject(
           new Error(

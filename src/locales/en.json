@@ -696,5 +696,25 @@
     "addSongs": "Add songs",
     "addSongsHelp": "Search for songs and select a row to add it to this playlist. Select it again to take it out.",
     "add": "Add"
+  },
+  "editor": {
+    "open": "Edit chart online",
+    "title": "Edit chart online",
+    "intro": "Edit the TJA text directly; the chart renders on the right as you type. Saving replaces the current TJA file. The audio, cover, background movie and song information stay.",
+    "loading": "Loading the chart file…",
+    "loadingEditor": "Loading the editor…",
+    "editorLabel": "TJA text",
+    "previewHeading": "Live preview",
+    "block": "Chart block",
+    "noBlocks": "No chart block to preview",
+    "lines_one": "{{count}} line",
+    "lines_other": "{{count}} lines",
+    "discard": "Discard changes",
+    "save": "Save and replace",
+    "confirmTitle": "Replace the current chart?",
+    "confirmText": "The TJA of “{{title}}” will be replaced with the edited text. Blocks the new text no longer has are deleted together with their scores; other previous scores stay but no longer count on the leaderboard.",
+    "confirm": "Replace",
+    "saved": "Chart saved",
+    "onlyManagers": "Only an owner or an administrator can edit this chart"
   }
 }

@@ -10,6 +10,7 @@ import { SessionProvider } from './session'
 import { Layout } from '@/components/layout'
 import { Auth, Detail, Library } from './pages'
 import { UpdatePage, UploadPage } from './upload'
+import { ChartEditorPage } from './chart-editor'
 import { NotificationProvider } from './notifications'
 import { CategoryProvider } from './categories'
 import { ProfilePage } from './profile'
@@ -44,6 +45,7 @@ function App() {
                         <Route path="me/playlists" element={<MyPlaylistsPage />} />
                         <Route path="upload" element={<UploadPage />} />
                         <Route path="charts/:id/update" element={<UpdatePage />} />
+                        <Route path="charts/:id/edit" element={<ChartEditorPage />} />
                         <Route path="charts/:id" element={<Detail />} />
                         <Route path="charts/:id/comments/:commentId" element={<Detail />} />
                         <Route path="notifications" element={<NotificationsPage />} />

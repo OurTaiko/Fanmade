@@ -684,5 +684,25 @@
     "addSongs": "添加歌曲",
     "addSongsHelp": "搜索歌曲，点击一行即可加入这个歌单，再点一次移出。",
     "add": "加入"
+  },
+  "editor": {
+    "open": "在线编辑谱面",
+    "title": "在线编辑谱面",
+    "intro": "直接修改 TJA 文本，右侧实时显示谱面。保存后新的文本会替换当前的 TJA 文件，音频、封面、背景视频和歌曲信息不变。",
+    "loading": "正在读取谱面文件…",
+    "loadingEditor": "正在加载编辑器…",
+    "editorLabel": "TJA 文本",
+    "previewHeading": "实时预览",
+    "block": "谱面块",
+    "noBlocks": "没有可以预览的谱面块",
+    "lines_one": "{{count}} 行",
+    "lines_other": "{{count}} 行",
+    "discard": "放弃修改",
+    "save": "保存并替换",
+    "confirmTitle": "替换当前谱面？",
+    "confirmText": "将用编辑后的文本替换「{{title}}」的 TJA。新文本里不再存在的谱面块会连同成绩一起删除；其余旧成绩保留，但不再计入排行榜。",
+    "confirm": "确认替换",
+    "saved": "谱面已保存",
+    "onlyManagers": "只有作者或管理员可以编辑这首谱面"
   }
 }

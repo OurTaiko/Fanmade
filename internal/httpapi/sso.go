@@ -39,6 +39,13 @@ type SSOClient struct {
 }
 type ssoError struct{ Status int }
 
+// GameAccounts tells game clients where to trade their OurTaiko account for a
+// game session of this service (the SSO's POST /api/v1/game/tokens), so they
+// need not send a password here. The catalog carries it as "sso".
+func (c *SSOClient) GameAccounts() map[string]string {
+	return map[string]string{"issuer": strings.TrimRight(c.config.Issuer, "/"), "service": c.config.ServiceID}
+}
+
 func (e *ssoError) Error() string { return fmt.Sprintf("SSO responded with HTTP %d", e.Status) }
 
 // Application client secrets need not be hex. Accept header-safe opaque credentials;

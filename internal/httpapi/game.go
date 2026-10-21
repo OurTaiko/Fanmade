@@ -73,6 +73,9 @@ func (s *Server) gameCatalog(w http.ResponseWriter, r *http.Request) {
 		}
 		return 0
 	}()}
+	if s.Config.SSO != nil {
+		body["sso"] = s.Config.SSO.GameAccounts()
+	}
 	respond(w, 200, body)
 }
 

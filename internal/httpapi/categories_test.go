@@ -134,6 +134,11 @@ func TestCategoriesFlow(t *testing.T) {
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &songList) != nil || w.Header().Get("Deprecation") != "" || songList["charts"] == nil || songList["categories"] == nil || songList["scores"] != nil || songList["user"] != nil {
 		t.Fatal("catalog must carry the songs and nothing personal", w.Body.String())
 	}
+	// Game clients signed in at the SSO trade their account for a session of this service.
+	var sso map[string]string
+	if json.Unmarshal(songList["sso"], &sso) != nil || sso["service"] != "fanmade" || !strings.HasPrefix(sso["issuer"], "http://127.0.0.1:") || len(sso) != 2 {
+		t.Fatal("catalog must name this service at the SSO", string(songList["sso"]))
+	}
 	var summary struct {
 		ChartCount int
 		Charts     []Chart

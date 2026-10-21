@@ -16,7 +16,7 @@ import (
 )
 
 // Website responses carry only a content hash, never the image bytes. Native
-// category/bootstrap responses continue to use the original readChart contract.
+// category/catalog responses continue to use the original readChart contract.
 func (s *Server) coverHashes(ctx context.Context, charts []Chart) error {
 	if len(charts) == 0 {
 		return nil

@@ -215,10 +215,10 @@ func testChartReplacement(t *testing.T, remote bool) {
 	}
 
 	status(get("/api/v1/charts/"+updated.ID+"/audio"), 200)
-	bootstrap := get("/api/v1/game/bootstrap")
-	status(bootstrap, 200)
-	if !strings.Contains(bootstrap.Body.String(), `"isLatest":false`) || strings.Contains(bootstrap.Body.String(), `"isLatest":true`) {
-		t.Fatal("game does not see the old scores as old", bootstrap.Body.String())
+	gameScores := get("/api/v1/game/scores")
+	status(gameScores, 200)
+	if !strings.Contains(gameScores.Body.String(), `"isLatest":false`) || strings.Contains(gameScores.Body.String(), `"isLatest":true`) {
+		t.Fatal("game does not see the old scores as old", gameScores.Body.String())
 	}
 	leaderboard := get(fmt.Sprintf("/api/v1/charts/%s/leaderboard?difficultyId=%d", updated.ID, hard(updated)))
 	status(leaderboard, 200)

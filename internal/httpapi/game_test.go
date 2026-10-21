@@ -44,16 +44,17 @@ func TestGameSessionIsolation(t *testing.T) {
 	if err := json.Unmarshal(login.Body.Bytes(), &result); err != nil || len(result.AccessToken) != 64 || len(login.Result().Cookies()) != 0 {
 		t.Fatal("invalid native session")
 	}
-	bootstrap := call("GET", "/api/v1/game/bootstrap", "", result.AccessToken, "", "")
-	if bootstrap.Code != 200 || !strings.Contains(bootstrap.Body.String(), `"scores":[]`) {
-		t.Fatal(bootstrap.Code, bootstrap.Body.String())
+	scores := call("GET", "/api/v1/game/scores", "", result.AccessToken, "", "")
+	if scores.Code != 200 || !strings.Contains(scores.Body.String(), `"scores":[]`) {
+		t.Fatal(scores.Code, scores.Body.String())
 	}
 	for _, c := range []struct {
 		method, path, body, token, origin, cookie string
 		status                                    int
 	}{
-		{"GET", "/api/v1/game/bootstrap", "", "", "", result.AccessToken, 200},
-		{"GET", "/api/v1/game/bootstrap", "", "invalid", "", "", 401},
+		{"GET", "/api/v1/game/bootstrap", "", result.AccessToken, "", "", 404},
+		{"GET", "/api/v1/game/catalog", "", "", "", result.AccessToken, 200},
+		{"GET", "/api/v1/game/scores", "", "invalid", "", "", 401},
 		{"GET", "/api/v1/me/charts", "", result.AccessToken, "", "", 401},
 		{"GET", "/api/v1/me/charts", "", "", "", result.AccessToken, 401},
 		{"POST", "/api/v1/game/login", credentials, "", "https://evil.test", "", 403},
@@ -72,26 +73,26 @@ func TestGameSessionIsolation(t *testing.T) {
 	}
 	webToken := seedWebSession(t, app, "abd722b06b5255372acb7511472ff700")
 	for _, cookie := range []string{"", result.AccessToken, webToken} {
-		w := call("GET", "/api/v1/game/bootstrap", "", "", "", cookie)
+		w := call("GET", "/api/v1/game/catalog", "", "", "", cookie)
 		var guest struct {
 			User       *User
 			Scores     []Score
 			Categories []Category
 		}
-		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &guest) != nil || guest.User != nil || guest.Scores == nil || len(guest.Scores) != 0 || len(guest.Categories) == 0 {
-			t.Fatal("guest bootstrap must expose catalog without identity or scores", w.Code, w.Body.String())
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &guest) != nil || guest.User != nil || guest.Scores != nil || len(guest.Categories) == 0 {
+			t.Fatal("catalog must expose the songs without identity or scores", w.Code, w.Body.String())
 		}
 		if w = call("POST", "/api/v1/game/scores", "{}", "", "", cookie); w.Code != 401 {
 			t.Fatal("guest score submission accepted", w.Code, w.Body.String())
 		}
 	}
-	if w := call("GET", "/api/v1/game/bootstrap", "", webToken, "", ""); w.Code != 401 {
+	if w := call("GET", "/api/v1/game/scores", "", webToken, "", ""); w.Code != 401 {
 		t.Fatal("browser token accepted as native token")
 	}
 	if _, err = pool.Exec(context.Background(), `UPDATE sessions SET expires_at=now()-interval '1 second' WHERE token_hash=$1`, hash("game:"+result.AccessToken)); err != nil {
 		t.Fatal(err)
 	}
-	if w := call("GET", "/api/v1/game/bootstrap", "", result.AccessToken, "", ""); w.Code != 401 {
+	if w := call("GET", "/api/v1/game/scores", "", result.AccessToken, "", ""); w.Code != 401 {
 		t.Fatal("expired token must request reauthentication", w.Code, w.Body.String())
 	}
 }

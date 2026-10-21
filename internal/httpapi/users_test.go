@@ -88,7 +88,7 @@ func TestUserActivityMigrationAndAuthentication(t *testing.T) {
 	initial := *first
 	recent := *last
 	for i := 0; i < 3; i++ {
-		if w = call("GET", "/api/v1/game/bootstrap", "", "", login.Token); w.Code != 200 {
+		if w = call("GET", "/api/v1/game/scores", "", "", login.Token); w.Code != 200 {
 			t.Fatal(w.Body.String())
 		}
 	}

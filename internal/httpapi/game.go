@@ -19,30 +19,7 @@ func isGameRequest(r *http.Request) bool {
 // session; an account's scores are GET /api/v1/game/scores and its own
 // playlists GET /api/v1/game/playlists.
 func (s *Server) gameCatalog(w http.ResponseWriter, r *http.Request) {
-	s.gameSnapshot(w, r, false)
-}
-
-// Deprecated: use GET /api/v1/game/catalog, and GET /api/v1/game/scores for the
-// account's scores. Retained unchanged until remaining clients migrate; no
-// removal date has been set.
-func (s *Server) gameBootstrap(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Deprecation", "@1791763200") // 2026-10-12 00:00:00 UTC, RFC 9745.
-	s.gameSnapshot(w, r, true)
-}
-
-// gameSnapshot reads the catalog in one snapshot. personal is the deprecated
-// bootstrap: a bearer session adds its user, scores and own playlists.
-func (s *Server) gameSnapshot(w http.ResponseWriter, r *http.Request, personal bool) {
-	// Catalog access is public. Only a native bearer session can opt into
-	// personal scores; browser cookies never turn a guest into a game user.
-	var user *User
-	if personal && r.Header.Get("Authorization") != "" {
-		u, ok := s.required(w, r, false)
-		if !ok {
-			return
-		}
-		user = &u.User
-	}
+	// Read in one snapshot so the counts match the charts.
 	tx, err := s.DB.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		internal(w, err)
@@ -76,14 +53,7 @@ func (s *Server) gameSnapshot(w http.ResponseWriter, r *http.Request, personal b
 	for _, category := range categories {
 		counts = append(counts, gameCategoryInfo{category.Category, memberships[category.ID]})
 	}
-	scores := []Score{}
-	if user != nil {
-		if scores, err = gameScores(r.Context(), tx, user.ID); err != nil {
-			internal(w, err)
-			return
-		}
-	}
-	playlists, err := gamePlaylists(r.Context(), tx, user)
+	playlists, err := gamePlaylists(r.Context(), tx, nil)
 	if err != nil {
 		internal(w, err)
 		return
@@ -103,10 +73,6 @@ func (s *Server) gameSnapshot(w http.ResponseWriter, r *http.Request, personal b
 		}
 		return 0
 	}()}
-	if personal {
-		body["user"] = user
-		body["scores"] = scores
-	}
 	respond(w, 200, body)
 }
 

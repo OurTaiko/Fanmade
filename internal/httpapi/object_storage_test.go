@@ -101,7 +101,7 @@ func TestS3PendingRecoveryAndGameIsolation(t *testing.T) {
 		}
 	}
 	w := httptest.NewRecorder()
-	app.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/game/bootstrap", nil))
+	app.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/game/catalog", nil))
 	if w.Code != 200 {
 		t.Fatal("game inaccessible", w.Code)
 	}

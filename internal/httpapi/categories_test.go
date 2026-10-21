@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -124,19 +125,14 @@ func TestCategoriesFlow(t *testing.T) {
 	if _, err = pool.Exec(ctx, `UPDATE charts SET created_at=CASE WHEN id=$1 THEN '2024-01-01'::timestamptz WHEN id=$2 THEN '2020-01-01'::timestamptz ELSE '2022-01-01'::timestamptz END`, c.ID, defaultIDs[1]); err != nil {
 		t.Fatal(err)
 	}
-	w = call("GET", "/api/v1/game/bootstrap", "", gameToken)
-	var bootstrap map[string]json.RawMessage
-	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &bootstrap) != nil || bootstrap["charts"] == nil || bootstrap["categories"] == nil || bootstrap["scores"] == nil || w.Header().Get("Deprecation") != "@1791763200" {
-		t.Fatal("deprecated bootstrap must stay as it was", w.Body.String())
+	if w = call("GET", "/api/v1/game/bootstrap", "", gameToken); w.Code != 404 {
+		t.Fatal("bootstrap has been removed", w.Code, w.Body.String())
 	}
-	// The catalog replaces it: the same list for a guest and an account, nothing personal.
+	// The catalog is the same list for a guest and an account, nothing personal.
+	w = call("GET", "/api/v1/game/catalog", "", gameToken)
 	var songList map[string]json.RawMessage
-	for _, token := range []string{"", gameToken} {
-		c := call("GET", "/api/v1/game/catalog", "", token)
-		if c.Code != 200 || json.Unmarshal(c.Body.Bytes(), &songList) != nil || c.Header().Get("Deprecation") != "" || songList["scores"] != nil || songList["user"] != nil ||
-			string(songList["charts"]) != string(bootstrap["charts"]) || string(songList["categories"]) != string(bootstrap["categories"]) {
-			t.Fatal("catalog must be the public bootstrap catalog", c.Body.String())
-		}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &songList) != nil || w.Header().Get("Deprecation") != "" || songList["charts"] == nil || songList["categories"] == nil || songList["scores"] != nil || songList["user"] != nil {
+		t.Fatal("catalog must carry the songs and nothing personal", w.Body.String())
 	}
 	var summary struct {
 		ChartCount int
@@ -158,42 +154,33 @@ func TestCategoriesFlow(t *testing.T) {
 			t.Fatal("category count", category)
 		}
 	}
+	// A category's songs as the game assembles them: the catalog filtered by categoryIds.
 	categoryCharts := func(id string) []Chart {
 		t.Helper()
-		w := call("GET", "/api/v1/game/categories/"+id+"/charts", "", gameToken)
-		var result struct {
-			CategoryID string
-			Charts     []Chart
-		}
-		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || result.CategoryID != id || w.Header().Get("Deprecation") != "@1791590400" {
+		w := call("GET", "/api/v1/game/catalog", "", gameToken)
+		var result struct{ Charts []Chart }
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
 			t.Fatal(w.Code, w.Body.String())
 		}
-		return result.Charts
+		charts := []Chart{}
+		for _, chart := range result.Charts {
+			if slices.Contains(chart.CategoryIDs, id) {
+				charts = append(charts, chart)
+			}
+		}
+		return charts
 	}
 	seen := map[string]bool{}
 	gotIDs := []string{}
 	for _, chart := range summary.Charts {
 		if seen[chart.ID] {
-			t.Fatal("bootstrap charts must be unique", chart.ID)
+			t.Fatal("catalog charts must be unique", chart.ID)
 		}
 		seen[chart.ID] = true
 		gotIDs = append(gotIDs, chart.ID)
 	}
 	if !reflect.DeepEqual(gotIDs, []string{c.ID, defaultIDs[2], defaultIDs[0], defaultIDs[1]}) {
 		t.Fatal("newest uploads first, descending ID for equal timestamps", gotIDs)
-	}
-	for _, category := range summary.Categories {
-		filtered := []Chart{}
-		for _, chart := range summary.Charts {
-			for _, id := range chart.CategoryIDs {
-				if id == category.ID {
-					filtered = append(filtered, chart)
-				}
-			}
-		}
-		if !reflect.DeepEqual(filtered, categoryCharts(category.ID)) {
-			t.Fatal("bootstrap must preserve all category metadata and ordering", category.ID)
-		}
 	}
 	for _, id := range []string{"game", "pop", "anime"} {
 		charts := categoryCharts(id)
@@ -204,18 +191,14 @@ func TestCategoriesFlow(t *testing.T) {
 	if len(categoryCharts("classic")) != 0 {
 		t.Fatal("empty category")
 	}
-	for _, route := range []string{"/api/v1/game/bootstrap", "/api/v1/game/categories/game/charts"} {
-		guest := call("GET", route, "", "")
-		authed := call("GET", route, "", gameToken)
-		var guestData, authData map[string]json.RawMessage
-		if guest.Code != 200 || authed.Code != 200 || json.Unmarshal(guest.Body.Bytes(), &guestData) != nil || json.Unmarshal(authed.Body.Bytes(), &authData) != nil {
-			t.Fatal("guest catalog", route, guest.Code, guest.Body.String())
-		}
-		delete(guestData, "user")
-		delete(authData, "user")
-		if !reflect.DeepEqual(guestData, authData) {
-			t.Fatal("guest must receive the same public catalog", route, guest.Body.String(), authed.Body.String())
-		}
+	guest := call("GET", "/api/v1/game/catalog", "", "")
+	authed := call("GET", "/api/v1/game/catalog", "", gameToken)
+	var guestData, authData map[string]json.RawMessage
+	if guest.Code != 200 || authed.Code != 200 || json.Unmarshal(guest.Body.Bytes(), &guestData) != nil || json.Unmarshal(authed.Body.Bytes(), &authData) != nil {
+		t.Fatal("guest catalog", guest.Code, guest.Body.String())
+	}
+	if !reflect.DeepEqual(guestData, authData) {
+		t.Fatal("guest must receive the same public catalog", guest.Body.String(), authed.Body.String())
 	}
 	if guest := decodeChart(call("GET", "/api/v1/charts/"+c.ID, "", ""), 200); guest.ID != c.ID {
 		t.Fatal("guest chart detail", guest)
@@ -226,8 +209,8 @@ func TestCategoriesFlow(t *testing.T) {
 			t.Fatal("guest download", kind, w.Code, w.Body.String())
 		}
 	}
-	if w = call("GET", "/api/v1/game/categories/missing/charts", "", gameToken); w.Code != 404 {
-		t.Fatal("unknown category")
+	if w = call("GET", "/api/v1/game/categories/game/charts", "", gameToken); w.Code != 404 {
+		t.Fatal("the per-category list has been removed", w.Code, w.Body.String())
 	}
 	path := "/api/v1/charts/" + c.ID
 	if w = call("PATCH", path, `{"categoryIds":["classic"]}`, otherToken); w.Code != 403 {
@@ -281,13 +264,13 @@ func TestCategoriesFlow(t *testing.T) {
 			t.Fatal("deleted chart leaked")
 		}
 	}
-	w = call("GET", "/api/v1/game/bootstrap", "", gameToken)
+	w = call("GET", "/api/v1/game/catalog", "", gameToken)
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &summary) != nil || summary.ChartCount != 3 {
 		t.Fatal("deleted chart counted", w.Body.String())
 	}
 	for _, chart := range summary.Charts {
 		if chart.ID == c.ID {
-			t.Fatal("deleted chart leaked through bootstrap")
+			t.Fatal("deleted chart leaked through the catalog")
 		}
 	}
 	for _, category := range summary.Categories {

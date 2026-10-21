@@ -135,23 +135,23 @@ func TestSubmitScore(t *testing.T) {
 	if w := native("POST", "/api/v1/game/scores", oldBody); w.Code != 400 {
 		t.Fatal("removed field accepted", w.Code, w.Body.String())
 	}
-	if w := native("GET", "/api/v1/game/bootstrap", ""); w.Code != 200 || strings.Contains(w.Body.String(), "songIdOnly") || strings.Contains(w.Body.String(), "versionId") || !strings.Contains(w.Body.String(), `"good":5`) || !strings.Contains(w.Body.String(), `"max_combo":6`) {
+	if w := native("GET", "/api/v1/game/catalog", ""); w.Code != 200 || strings.Contains(w.Body.String(), "songIdOnly") || strings.Contains(w.Body.String(), "versionId") {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	// The score list carries the account's scores without the catalog.
 	if w := native("GET", "/api/v1/game/scores", ""); w.Code != 200 || strings.Contains(w.Body.String(), "versionId") || strings.Contains(w.Body.String(), `"charts"`) || !strings.Contains(w.Body.String(), `"good":5`) || !strings.Contains(w.Body.String(), `"max_combo":6`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	// Existing personal scores must never leak through anonymous bootstrap,
+	// Existing personal scores must never leak through the catalog,
 	// including when a browser session cookie accompanies the request.
 	for _, browserCookie := range []string{"", cookie, cookie2} {
-		r := httptest.NewRequest("GET", "/api/v1/game/bootstrap", nil)
+		r := httptest.NewRequest("GET", "/api/v1/game/catalog", nil)
 		if browserCookie != "" {
 			r.AddCookie(&http.Cookie{Name: "ourtaiko_session", Value: browserCookie})
 		}
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, r)
-		if w.Code != 200 || !strings.Contains(w.Body.String(), `"user":null`) || !strings.Contains(w.Body.String(), `"scores":[]`) {
+		if w.Code != 200 || strings.Contains(w.Body.String(), `"user"`) || strings.Contains(w.Body.String(), `"scores"`) {
 			t.Fatal("guest received personal data", w.Code, w.Body.String())
 		}
 	}
@@ -194,7 +194,7 @@ func TestSubmitScore(t *testing.T) {
 		if conflict := native("POST", "/api/v1/game/scores", changed); conflict.Code != 409 {
 			t.Fatal("clear status must participate in idempotency", conflict.Code, conflict.Body.String())
 		}
-		for _, path := range []string{"/api/v1/game/bootstrap", "/api/v1/charts/" + song + "/leaderboard"} {
+		for _, path := range []string{"/api/v1/game/scores", "/api/v1/charts/" + song + "/leaderboard"} {
 			if w := native("GET", path, ""); w.Code != 200 || !strings.Contains(w.Body.String(), first.ID) || !strings.Contains(w.Body.String(), field) {
 				t.Fatal("clear status missing from query", path, w.Code, w.Body.String())
 			}

@@ -99,16 +99,14 @@ func TestWithdrawnChartsAPI(t *testing.T) {
 		Charts []Chart
 		Scores []Score
 	}
-	w := call("GET", "/api/v1/game/bootstrap", "", 200)
-	if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || len(snapshot.Charts) != 1 || snapshot.Charts[0].ID != ids[0] || len(snapshot.Scores) != 1 || snapshot.Scores[0].SongID != ids[0] {
+	w := call("GET", "/api/v1/game/catalog", "", 200)
+	if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || len(snapshot.Charts) != 1 || snapshot.Charts[0].ID != ids[0] {
 		t.Fatal("withdrawn game data leaked", w.Body.String(), err)
 	}
-	// Fixtures already have the default Variety bit, including archived charts.
-	w = call("GET", "/api/v1/game/categories/variety/charts", "", 200)
-	if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || len(snapshot.Charts) != 1 || snapshot.Charts[0].ID != ids[0] {
-		t.Fatal("unsupported chart leaked through category", w.Body.String(), err)
+	w = call("GET", "/api/v1/game/scores", "", 200)
+	if err = json.Unmarshal(w.Body.Bytes(), &snapshot); err != nil || len(snapshot.Scores) != 1 || snapshot.Scores[0].SongID != ids[0] {
+		t.Fatal("withdrawn game scores leaked", w.Body.String(), err)
 	}
-
 }
 
 func TestUploadRejectsUnsupportedCourses(t *testing.T) {

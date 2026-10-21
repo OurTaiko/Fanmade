@@ -175,15 +175,17 @@ func TestScoreReplayCompatibility(t *testing.T) {
 	}
 	call("/api/v1/game/scores", attach(`"`+strings.Repeat("x", maxScoreRequestBytes)+`"`), "", 413)
 	call("/api/v1/game/scores", strings.TrimSuffix(base, "}")+`,"replay_data":{`, "", 400)
-	req, _ := http.NewRequest("GET", server.URL+"/api/v1/game/bootstrap", nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	response, err := server.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	data, _ := io.ReadAll(response.Body)
-	if response.StatusCode != 200 || !strings.Contains(string(data), `"scoreReplayVersion":1`) || strings.Contains(string(data), "replay_data") {
-		t.Fatal("bootstrap capability/score compatibility failed")
+	for _, path := range []string{"/api/v1/game/catalog", "/api/v1/game/scores"} {
+		req, _ := http.NewRequest("GET", server.URL+path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		response, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		if response.StatusCode != 200 || strings.Contains(string(data), "replay_data") || path == "/api/v1/game/catalog" && !strings.Contains(string(data), `"scoreReplayVersion":1`) {
+			t.Fatal("capability/score compatibility failed", path)
+		}
 	}
 }

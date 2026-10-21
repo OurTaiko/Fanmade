@@ -253,15 +253,15 @@ func TestPlaylistLifecycle(t *testing.T) {
 	if own := personalGamePlaylists(game("")); len(own) != 0 {
 		t.Fatal("guest personal folders", kinds(own))
 	}
-	r := httptest.NewRequest("GET", "/api/v1/game/bootstrap", nil)
+	r := httptest.NewRequest("GET", "/api/v1/game/catalog", nil)
 	w := httptest.NewRecorder()
 	c.handler.ServeHTTP(w, r)
-	var bootstrap struct {
+	var catalog struct {
 		Playlists       []GamePlaylist
 		PlaylistVersion int
 	}
-	if e := json.Unmarshal(w.Body.Bytes(), &bootstrap); e != nil || w.Code != 200 || bootstrap.PlaylistVersion != 1 || kinds(bootstrap.Playlists) != guest {
-		t.Fatal("bootstrap", w.Code, e, kinds(bootstrap.Playlists))
+	if e := json.Unmarshal(w.Body.Bytes(), &catalog); e != nil || w.Code != 200 || catalog.PlaylistVersion != 1 || kinds(catalog.Playlists) != guest {
+		t.Fatal("catalog", w.Code, e, kinds(catalog.Playlists))
 	}
 
 	resetRateLimit(s)

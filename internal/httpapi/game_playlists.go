@@ -29,7 +29,7 @@ type GamePlaylist struct {
 }
 
 // gamePlaylists reads the folders for user (nil for a guest) from the
-// bootstrap snapshot. Empty playlists are left out; owner names and cover
+// catalog snapshot. Empty playlists are left out; owner names and cover
 // links are filled later by gamePlaylistDetails.
 func gamePlaylists(ctx context.Context, tx pgx.Tx, user *User) ([]GamePlaylist, error) {
 	items := []GamePlaylist{}

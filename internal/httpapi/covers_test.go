@@ -246,7 +246,7 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	if !strings.Contains(w.Body.String(), result.CoverHash) {
 		t.Fatal("list missing cover")
 	}
-	w = get("/api/v1/game/categories/variety/charts", "")
+	w = get("/api/v1/game/catalog", "")
 	status(w, 200)
 	if strings.Contains(w.Body.String(), "coverHash") {
 		t.Fatal("changed game response")

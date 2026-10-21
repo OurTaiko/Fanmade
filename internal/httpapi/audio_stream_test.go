@@ -170,11 +170,11 @@ func testAudioStreamHTTP(t *testing.T, remote bool) {
 			if err != nil || chart.AudioPreview == nil || chart.AudioPreview.URL != path || chart.AudioPreview.StartSeconds != 30 || chart.AudioPreview.DurationSeconds != 15 || chart.AudioHash != digest || chart.AudioSize != int64(len(data)) {
 				t.Fatalf("chart preview: %+v, %v", chart, err)
 			}
-			w = call("GET", "/api/v1/game/bootstrap", nil)
-			var bootstrap struct {
+			w = call("GET", "/api/v1/game/catalog", nil)
+			var catalog struct {
 				AudioPreviewVersion int `json:"audioPreviewVersion"`
 			}
-			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &bootstrap) != nil || bootstrap.AudioPreviewVersion != 1 {
+			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &catalog) != nil || catalog.AudioPreviewVersion != 1 {
 				t.Fatal("missing capability", w.Code, w.Body.String())
 			}
 			mustExec(`UPDATE charts SET status='hidden' WHERE id=$1`, song)

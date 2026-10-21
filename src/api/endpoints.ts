@@ -12,6 +12,9 @@ const playlistPath = (id: string) => `${API_ROOT}/playlists/${encodeURIComponent
 
 export const endpoints = {
   me: `${API_ROOT}/me`,
+  dans: `${API_ROOT}/dans`,
+  dan: (id: string) => `${API_ROOT}/dans/${encodeURIComponent(id)}`,
+  danOfficial: (id: string) => `${API_ROOT}/dans/${encodeURIComponent(id)}/official`,
   users: (query: { q: string; sort: string; page: number }) =>
     withQuery(`${API_ROOT}/users`, query),
   user: (id: string) => `${API_ROOT}/users/${encodeURIComponent(id)}`,

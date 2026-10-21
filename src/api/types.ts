@@ -184,3 +184,48 @@ export type MyPlaylists = {
   maxPlaylists: number
   maxItems: number
 }
+
+// 段位 courses (OurTaikoPlay's course format, as GET /api/v1/dans returns them).
+export type DanExamType = 'gauge' | 'good' | 'ok' | 'bad' | 'hits' | 'score' | 'combo' | 'rolls'
+export type DanExam = {
+  type: DanExamType
+  range: 'more' | 'less'
+  // [red] or [red, gold] for the course, or one such (or null) per song.
+  value: number[] | (number[] | null)[]
+}
+export type DanRewardTitle = {
+  id: string
+  on: 'red' | 'red1' | 'red2' | 'red3' | 'gold' | 'gold4' | 'gold5' | 'gold6'
+}
+export type DanSong = {
+  chart: {
+    id: string | number
+    course: 'Easy' | 'Normal' | 'Hard' | 'Oni' | 'Edit'
+    tjaHash: string
+  }
+  title: string
+  subtitle: string
+  hidden: boolean
+  level: number
+  available: boolean
+}
+export type Dan = {
+  id: string
+  title: Record<string, string>
+  color: number
+  official: boolean
+  songs: DanSong[]
+  exams: DanExam[]
+  rewards: { dan?: number; titles?: DanRewardTitle[] }
+  ownerId: string
+  owner: string
+  createdAt: string
+  updatedAt: string
+}
+export type DanInput = {
+  title: Record<string, string>
+  color: number
+  songs: { chartId: string; course: string; hidden: boolean }[]
+  exams: DanExam[]
+  rewards: { dan?: number; titles?: DanRewardTitle[] }
+}

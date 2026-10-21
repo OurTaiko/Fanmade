@@ -11,6 +11,7 @@ import {
   ListIcon as Menu,
   GameControllerIcon,
   PlaylistIcon,
+  MedalIcon,
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Notice } from '@/notifications'
@@ -36,6 +37,7 @@ export function Layout() {
   const links = [
     { to: '/', label: t('messages.exploreCharts'), icon: Compass },
     { to: '/playlists', label: t('playlists.plaza'), icon: PlaylistIcon },
+    { to: '/dans', label: t('dans.nav'), icon: MedalIcon },
     { to: '/users', label: t('messages.userSquare'), icon: UsersIcon },
     {
       to: 'https://play.ourtaiko.org/',

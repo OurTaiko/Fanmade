@@ -87,7 +87,14 @@ func main() {
 	} else if mode := os.Getenv("STORAGE_BACKEND"); mode != "" && mode != "local" {
 		log.Fatal("invalid STORAGE_BACKEND")
 	}
-	app := httpapi.New(pool, httpapi.Config{GameOnly: os.Getenv("GAME_ONLY") == "true", Objects: objects, SSO: sso, TrustedProxies: proxies, Origin: env("APP_ORIGIN", "http://127.0.0.1:5173"), Storage: env("STORAGE_DIR", ".data/files"), CookieSecure: env("COOKIE_SECURE", "false") == "true"})
+	var profile *httpapi.ProfileClient
+	if os.Getenv("PROFILE_URL") != "" {
+		profile, err = httpapi.NewProfile(httpapi.ProfileConfig{URL: os.Getenv("PROFILE_URL"), ServiceID: os.Getenv("PROFILE_SERVICE_ID"), ServiceKey: os.Getenv("PROFILE_SERVICE_KEY")})
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	app := httpapi.New(pool, httpapi.Config{Profile: profile, GameOnly: os.Getenv("GAME_ONLY") == "true", Objects: objects, SSO: sso, TrustedProxies: proxies, Origin: env("APP_ORIGIN", "http://127.0.0.1:5173"), Storage: env("STORAGE_DIR", ".data/files"), CookieSecure: env("COOKIE_SECURE", "false") == "true"})
 	if err = app.EnsureStorage(); err != nil {
 		log.Fatal(err)
 	}

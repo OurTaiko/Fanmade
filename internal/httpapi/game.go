@@ -67,7 +67,7 @@ func (s *Server) gameCatalog(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	body := map[string]any{"chartSlotVersion": 1, "categories": counts, "charts": charts, "chartCount": len(charts), "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
+	body := map[string]any{"danVersion": 1, "chartSlotVersion": 1, "categories": counts, "charts": charts, "chartCount": len(charts), "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
 		if s.remoteStorage() {
 			return 1
 		}

@@ -804,5 +804,9 @@
     "save": "저장",
     "cancel": "취소",
     "signInToEdit": "먼저 로그인해 주세요."
+  },
+  "ourtaikoProfile": {
+    "view": "OurTaiko Profile에서 모든 점수·칭호·단위 보기",
+    "nav": "내 Profile"
   }
 }

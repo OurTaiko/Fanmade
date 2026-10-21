@@ -816,5 +816,9 @@
     "save": "Save",
     "cancel": "Cancel",
     "signInToEdit": "Please sign in first."
+  },
+  "ourtaikoProfile": {
+    "view": "All scores, titles and dan on OurTaiko Profile",
+    "nav": "My Profile"
   }
 }

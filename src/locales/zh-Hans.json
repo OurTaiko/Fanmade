@@ -804,5 +804,9 @@
     "save": "保存",
     "cancel": "取消",
     "signInToEdit": "请先登录。"
+  },
+  "ourtaikoProfile": {
+    "view": "在 OurTaiko Profile 查看全部成绩、称号与段位",
+    "nav": "我的 Profile"
   }
 }

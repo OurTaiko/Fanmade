@@ -12,6 +12,7 @@ import {
   GameControllerIcon,
   PlaylistIcon,
   MedalIcon,
+  IdentificationCardIcon,
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Notice } from '@/notifications'
@@ -25,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { PROFILE_URL } from '@/components/profile-plate'
 import { ThemeToggle } from '@/theme'
 import { NotificationBell } from '@/notification-center'
 import pageBackground from '@/assets/page-background.webp'
@@ -38,6 +40,15 @@ export function Layout() {
     { to: '/', label: t('messages.exploreCharts'), icon: Compass },
     { to: '/playlists', label: t('playlists.plaza'), icon: PlaylistIcon },
     { to: '/dans', label: t('dans.nav'), icon: MedalIcon },
+    ...(session.user
+      ? [
+          {
+            to: `${PROFILE_URL}/users/${session.user.id}`,
+            label: t('ourtaikoProfile.nav'),
+            icon: IdentificationCardIcon,
+          },
+        ]
+      : []),
     { to: '/users', label: t('messages.userSquare'), icon: UsersIcon },
     {
       to: 'https://play.ourtaiko.org/',

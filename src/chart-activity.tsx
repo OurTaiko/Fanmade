@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/user-avatar'
+import { ProfilePlate } from '@/components/profile-plate'
 import {
   Table,
   TableCaption,
@@ -386,6 +387,7 @@ function ChartLeaderboard({ chart, course }: { chart: Chart; course: string }) {
                       />
                       <span className="truncate">{entry.nickname}</span>
                     </Link>
+                    <ProfilePlate userId={entry.userId} className="ml-2" />
                     {entry.userId === user?.id && (
                       <span className="ml-2 rounded-md bg-secondary px-1.5 py-0.5 text-xs text-secondary-foreground">
                         {t('messages.you')}

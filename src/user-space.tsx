@@ -6,6 +6,7 @@ import { api } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { UserSpace } from '@/api/types'
 import { PublicUserCard } from '@/components/public-user-card'
+import { ProfilePlate, profilePage } from '@/components/profile-plate'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Library } from '@/pages'
@@ -95,6 +96,15 @@ export function UserSpacePage() {
           <div className="grid items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
             <aside className="min-w-0 space-y-4" aria-label={t('messages.publicMemberDetails')}>
               <PublicUserCard user={current.user} showSpaceLink={false} />
+              <ProfilePlate userId={id} />
+              <a
+                href={profilePage(id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ variant: 'outline', className: 'w-full' })}
+              >
+                {t('ourtaikoProfile.view')}
+              </a>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 {t('messages.memberActivityNote')}
               </p>

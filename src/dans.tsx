@@ -70,10 +70,10 @@ const examTypes = ['gauge', 'good', 'ok', 'bad', 'hits', 'score', 'combo', 'roll
 const rewardLevels = ['red', 'red2', 'red3', 'gold', 'gold5', 'gold6'] as const
 const courses = ['Easy', 'Normal', 'Hard', 'Oni', 'Edit'] as const
 // The dan box colours of the Nijiiro skin's dan_select/box/folder, which the game draws the
-// course's box, its yellow board and its loading plaque with. 0 and 1 are the same wood.
+// course's box, its yellow board and its loading plaque with. The skin's 1 is the same wood
+// as 0, so it is not offered (the backend refuses it too).
 const danColors = [
   { value: 0, name: 'wood', hex: '#FCCB73' },
-  { value: 1, name: 'wood', hex: '#FCCB73' },
   { value: 2, name: 'blue', hex: '#47A7B8' },
   { value: 3, name: 'red', hex: '#F15134' },
   { value: 4, name: 'silver', hex: '#D9DEE5' },
@@ -677,7 +677,7 @@ export function DanEditorPage() {
             label={t('dans.color')}
             value={String(color)}
             onValueChange={(v) => setColor(Number(v))}
-            prefix={<ColorSwatch hex={danColors[color]?.hex ?? danColors[0].hex} />}
+            prefix={<ColorSwatch hex={(danColors.find((c) => c.value === color) ?? danColors[0]).hex} />}
             items={danColors.map((c) => ({
               value: String(c.value),
               label: t('dans.colorNamed', { name: t(`dans.colors.${c.name}`), number: c.value }),

@@ -82,7 +82,7 @@ jobs:
       - name: Upload unified image
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
-          version: v1.8.1
+          version: '1.8.1'
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT || '22' }}
           username: ${{ secrets.DEPLOY_USER }}

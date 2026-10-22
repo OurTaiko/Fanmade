@@ -479,6 +479,7 @@
     "score": "Score",
     "scoreExact": "Score {{score}}",
     "voteOnChart": "Vote on this chart",
+    "voteOnDan": "Vote on this dan course",
     "voteOnComment": "Vote on this comment",
     "upvoteRatio": "{{percent}}% upvoted",
     "sortComments": "Sort comments",
@@ -491,6 +492,7 @@
     "viewAllComments": "View all comments",
     "viewParent": "View parent comment",
     "commentPlaceholder": "What do you think of this chart?",
+    "danCommentPlaceholder": "Share your thoughts on this dan course…",
     "comment": "Comment",
     "signInToComment": "Sign in to comment and vote.",
     "loadingComments": "Loading comments…",
@@ -568,6 +570,8 @@
       "comment_reply": "{{actor}} replied to your comment on “{{chart}}”",
       "chart_comment": "{{actor}} commented on your chart “{{chart}}”",
       "chart_upvotes": "Your chart “{{chart}}” reached {{count}} upvotes",
+      "dan_comment": "{{actor}} commented on your dan course \"{{chart}}\"",
+      "dan_upvotes": "Your dan course \"{{chart}}\" reached {{count}} upvotes",
       "comment_upvotes": "Your comment on “{{chart}}” reached {{count}} upvotes",
       "comment_removed": "An administrator removed your comment on “{{chart}}”",
       "upload_published": "\"{{title}}\" has been published",
@@ -587,6 +591,8 @@
       "comment_reply": "Replies to my comments",
       "chart_comment": "Comments on my charts",
       "chart_upvotes": "Upvote milestones on my charts",
+      "dan_comment": "Someone comments on my dan course",
+      "dan_upvotes": "Dan course upvote milestones",
       "comment_upvotes": "Upvote milestones on my comments",
       "comment_removed": "My comments removed by administrators"
     }

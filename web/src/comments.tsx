@@ -1,4 +1,5 @@
 import { isChartOwner } from './chart-owners'
+import { danTitle } from './dan-title'
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router-dom'
@@ -18,6 +19,7 @@ import { endpoints } from '@/api/endpoints'
 import type {
   Chart,
   Comment,
+  Dan,
   CommentList,
   CommentPage,
   CommentSort,
@@ -46,6 +48,54 @@ const collapseScore = -5
 
 export const commentPath = (chartId: string, commentId: string) =>
   `/charts/${encodeURIComponent(chartId)}/comments/${encodeURIComponent(commentId)}`
+export const danCommentPath = (danId: string, commentId: string) =>
+  `/dans/${encodeURIComponent(danId)}/comments/${encodeURIComponent(commentId)}`
+
+// What a thread hangs on: a song or a 段位 course. The pages and endpoints
+// differ; the comments themselves do not.
+export type CommentSubject = {
+  /** The page the thread lives on, e.g. /charts/abc or /dans/12. */
+  path: string
+  commentCount: number
+  comments: (query: { sort: string; page: number }) => string
+  newComment: string
+  commentPath: (commentId: string) => string
+  isOwner: (userId: string) => boolean
+}
+
+export function chartSubject(chart: Chart): CommentSubject {
+  return {
+    path: `/charts/${encodeURIComponent(chart.id)}`,
+    commentCount: chart.commentCount,
+    comments: (query) => endpoints.chartComments(chart.id, query),
+    newComment: endpoints.newComment(chart.id),
+    commentPath: (id) => commentPath(chart.id, id),
+    isOwner: (userId) => isChartOwner(chart, userId),
+  }
+}
+
+export function danSubject(dan: Dan): CommentSubject {
+  return {
+    path: `/dans/${encodeURIComponent(dan.id)}`,
+    commentCount: dan.commentCount,
+    comments: (query) => endpoints.danComments(dan.id, query),
+    newComment: `${endpoints.dan(dan.id)}/comments`,
+    commentPath: (id) => danCommentPath(dan.id, id),
+    isOwner: (userId) => userId === dan.ownerId,
+  }
+}
+
+// Where a comment outside its thread (a history, a notice) links to.
+export function commentSubjectPath(comment: Pick<Comment, 'chartId' | 'danId'>) {
+  return comment.danId
+    ? `/dans/${encodeURIComponent(comment.danId)}`
+    : `/charts/${encodeURIComponent(comment.chartId ?? '')}`
+}
+export function commentPermalink(comment: Pick<Comment, 'id' | 'chartId' | 'danId'>) {
+  return comment.danId
+    ? danCommentPath(comment.danId, comment.id)
+    : commentPath(comment.chartId ?? '', comment.id)
+}
 
 export function RelativeTime({ value }: { value: string }) {
   const { i18n } = useTranslation()
@@ -189,7 +239,7 @@ function Composer({
 }
 
 type Tree = {
-  chart: Chart
+  subject: CommentSubject
   focusId?: string
   update: (id: string, change: (comment: Comment) => Comment) => void
   addReply: (parentId: string, reply: Comment) => void
@@ -256,7 +306,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
       events.forEach((e) => window.removeEventListener(e, stop))
     }
   }, [focused])
-  const permalink = commentPath(tree.chart.id, comment.id)
+  const permalink = tree.subject.commentPath(comment.id)
   const author = gone ? '' : comment.author || t('messages.unknownMember')
   const hiddenReplies = comment.replyCount - comment.replies.length
   const remove = async () => {
@@ -328,7 +378,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
                 {author}
               </Link>
             )}
-            {!gone && isChartOwner(tree.chart, comment.authorId) && (
+            {!gone && tree.subject.isOwner(comment.authorId) && (
               <span
                 className="rounded-md bg-[#0071e3]/10 px-1.5 py-0.5 font-medium text-[#0071e3]"
                 title={t('collaboration.ownerBadgeTitle')}
@@ -471,7 +521,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
                     onCancel={() => setReplying(false)}
                     onSubmit={async (body) => {
                       const reply = await api<Comment>(
-                        endpoints.newComment(tree.chart.id),
+                        tree.subject.newComment,
                         jsonRequest('POST', { body, parentId: comment.id }, csrfToken),
                       )
                       tree.addReply(comment.id, reply)
@@ -535,11 +585,11 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
 }
 
 export function CommentSection({
-  chart,
+  subject,
   focusId,
   onCountChange,
 }: {
-  chart: Chart
+  subject: CommentSubject
   focusId?: string
   onCountChange: (delta: number) => void
 }) {
@@ -563,7 +613,7 @@ export function CommentSection({
       ? api<CommentThread>(endpoints.commentThread(focusId, sort), {
           signal: controller.signal,
         }).then((r) => ({ items: [r.item], total: 1 }))
-      : api<CommentPage>(endpoints.chartComments(chart.id, { sort, page: 1 }), {
+      : api<CommentPage>(subject.comments({ sort, page: 1 }), {
           signal: controller.signal,
         })
     request
@@ -576,16 +626,16 @@ export function CommentSection({
         if (!controller.signal.aborted) setError(e.message)
       })
     return () => controller.abort()
-  }, [chart.id, focusId, sort, attempt])
+    // The subject's identity is its path; its callbacks are rebuilt each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subject.path, focusId, sort, attempt])
   useEffect(() => {
     if (location.hash === '#comments') section.current?.scrollIntoView()
   }, [location.hash])
   const loadMore = async () => {
     setLoadingMore(true)
     try {
-      const next = await api<CommentPage>(
-        endpoints.chartComments(chart.id, { sort, page: page + 1 }),
-      )
+      const next = await api<CommentPage>(subject.comments({ sort, page: page + 1 }))
       // Comments posted meanwhile can shift pages; skip what is already shown.
       setItems((current) => {
         const seen = new Set(current?.map((c) => c.id))
@@ -600,7 +650,7 @@ export function CommentSection({
     }
   }
   const tree: Tree = {
-    chart,
+    subject,
     focusId,
     update: (id, change) => setItems((current) => current && mapTree(current, id, change)),
     addReply: (parentId, reply) => {
@@ -659,7 +709,7 @@ export function CommentSection({
           className="flex shrink-0 items-center gap-2 text-xl font-semibold tracking-tight whitespace-nowrap"
         >
           <ChatCircleIcon aria-hidden="true" />
-          {t('interactions.commentsHeading', { count: chart.commentCount })}
+          {t('interactions.commentsHeading', { count: subject.commentCount })}
         </h2>
         <div className="shrink-0">
           <ChoiceSelect
@@ -673,15 +723,12 @@ export function CommentSection({
       {focusId ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-[#f5f5f7] px-4 py-3 text-sm dark:bg-muted">
           <span className="text-muted-foreground">{t('interactions.singleThread')}</span>
-          <Link
-            to={`/charts/${encodeURIComponent(chart.id)}#comments`}
-            className="text-[#0071e3] hover:underline"
-          >
+          <Link to={`${subject.path}#comments`} className="text-[#0071e3] hover:underline">
             {t('interactions.viewAllComments')}
           </Link>
           {items?.[0]?.parentId && (
             <Link
-              to={commentPath(chart.id, items[0].parentId)}
+              to={subject.commentPath(items[0].parentId)}
               className="text-[#0071e3] hover:underline"
             >
               {t('interactions.viewParent')}
@@ -694,7 +741,7 @@ export function CommentSection({
           submitLabel={t('interactions.comment')}
           onSubmit={async (body) => {
             const created = await api<Comment>(
-              endpoints.newComment(chart.id),
+              subject.newComment,
               jsonRequest('POST', { body }, csrfToken),
             )
             setItems((current) => [created, ...(current ?? [])])
@@ -748,7 +795,10 @@ export function CommentSection({
 
 // A flat comment with the song it belongs to, for a user's history.
 function CommentSummary({ comment }: { comment: Comment }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const subjectTitle = comment.danId
+    ? danTitle(comment.danTitle ?? {}, i18n.resolvedLanguage)
+    : comment.chartTitle
   return (
     <article className="min-w-0 space-y-2 rounded-2xl border p-4">
       <header className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -765,11 +815,8 @@ function CommentSummary({ comment }: { comment: Comment }) {
           {comment.author || t('messages.unknownMember')}
         </Link>
         <span aria-hidden="true">·</span>
-        <Link
-          to={`/charts/${encodeURIComponent(comment.chartId)}`}
-          className="max-w-60 truncate hover:underline"
-        >
-          {comment.chartTitle}
+        <Link to={commentSubjectPath(comment)} className="max-w-60 truncate hover:underline">
+          {subjectTitle}
         </Link>
         <span aria-hidden="true">·</span>
         <RelativeTime value={comment.createdAt} />
@@ -777,10 +824,7 @@ function CommentSummary({ comment }: { comment: Comment }) {
       <CommentBody text={comment.body} />
       <footer className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <span className="tabular-nums">{t('interactions.points', { count: comment.score })}</span>
-        <Link
-          to={commentPath(comment.chartId, comment.id)}
-          className="text-[#0071e3] hover:underline"
-        >
+        <Link to={commentPermalink(comment)} className="text-[#0071e3] hover:underline">
           {t('interactions.viewInContext')}
         </Link>
       </footer>

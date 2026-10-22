@@ -476,6 +476,7 @@
     "score": "得分",
     "scoreExact": "得分 {{score}}",
     "voteOnChart": "为这首谱面投票",
+    "voteOnDan": "为这个段位投票",
     "voteOnComment": "为这条评论投票",
     "upvoteRatio": "{{percent}}% 好评",
     "sortComments": "评论排序",
@@ -488,6 +489,7 @@
     "viewAllComments": "查看全部评论",
     "viewParent": "查看上级评论",
     "commentPlaceholder": "说说你对这首谱面的看法…",
+    "danCommentPlaceholder": "说说你对这个段位的看法…",
     "comment": "发表评论",
     "signInToComment": "登录后即可评论和投票。",
     "loadingComments": "正在加载评论…",
@@ -558,6 +560,8 @@
       "comment_reply": "{{actor}} 回复了你在《{{chart}}》下的评论",
       "chart_comment": "{{actor}} 评论了你的谱面《{{chart}}》",
       "chart_upvotes": "你的谱面《{{chart}}》已获得 {{count}} 个赞",
+      "dan_comment": "{{actor}} 评论了你的段位《{{chart}}》",
+      "dan_upvotes": "你的段位《{{chart}}》已获得 {{count}} 个赞",
       "comment_upvotes": "你在《{{chart}}》下的评论已获得 {{count}} 个赞",
       "comment_removed": "你在《{{chart}}》下的一条评论已被管理员移除",
       "upload_published": "《{{title}}》已发布",
@@ -577,6 +581,8 @@
       "comment_reply": "有人回复我的评论",
       "chart_comment": "有人评论我的谱面",
       "chart_upvotes": "谱面获赞里程碑",
+      "dan_comment": "有人评论我的段位",
+      "dan_upvotes": "段位获赞里程碑",
       "comment_upvotes": "评论获赞里程碑",
       "comment_removed": "我的评论被管理员移除"
     }

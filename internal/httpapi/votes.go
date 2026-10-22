@@ -44,7 +44,7 @@ func readVote(w http.ResponseWriter, r *http.Request) (int, bool) {
 }
 
 // applyVote sets, changes or withdraws (value 0) one user's vote on a row.
-func applyVote(ctx context.Context, tx pgx.Tx, table, column, target, user string, value int) error {
+func applyVote(ctx context.Context, tx pgx.Tx, table, column string, target any, user string, value int) error {
 	var e error
 	if value == 0 {
 		_, e = tx.Exec(ctx, `DELETE FROM `+table+` WHERE `+column+`=$1 AND user_id=$2`, target, user)
@@ -94,10 +94,51 @@ func (s *Server) voteChart(w http.ResponseWriter, r *http.Request) {
 			if owner == u.User.ID {
 				continue
 			}
-			if e = notifyUpvoteMilestone(ctx, tx, "chart_upvotes", owner, id, "", *result.Upvotes); e != nil {
+			if e = notifyUpvoteMilestone(ctx, tx, "chart_upvotes", owner, Notice{ChartID: id}, *result.Upvotes); e != nil {
 				break
 			}
 		}
+	}
+	if e == nil {
+		e = tx.Commit(ctx)
+	}
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	result.Score = *result.Upvotes - *result.Downvotes
+	respond(w, 200, result)
+}
+
+// voteDan is a song vote on a 段位 course; the course keeps its own tallies.
+func (s *Server) voteDan(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.required(w, r, true)
+	if !ok {
+		return
+	}
+	value, ok := readVote(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	tx, e := s.DB.Begin(ctx)
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	defer tx.Rollback(ctx)
+	subject, ok := danSubject(w, r, tx, "FOR SHARE")
+	if !ok {
+		return
+	}
+	if e = applyVote(ctx, tx, "dan_votes", "dan_id", subject.danID, u.User.ID, value); e != nil {
+		internal(w, e)
+		return
+	}
+	result := VoteResult{MyVote: value, Upvotes: new(int), Downvotes: new(int)}
+	e = tx.QueryRow(ctx, `SELECT upvotes,downvotes FROM dan_courses WHERE id=$1`, subject.danID).Scan(result.Upvotes, result.Downvotes)
+	if e == nil && value == 1 && subject.owners[0] != u.User.ID {
+		e = notifyUpvoteMilestone(ctx, tx, "dan_upvotes", subject.owners[0], Notice{DanID: subject.danID}, *result.Upvotes)
 	}
 	if e == nil {
 		e = tx.Commit(ctx)
@@ -143,7 +184,7 @@ func (s *Server) voteComment(w http.ResponseWriter, r *http.Request) {
 	var upvotes int
 	e = tx.QueryRow(ctx, `SELECT upvotes-downvotes,upvotes FROM comments WHERE id=$1`, c.id).Scan(&result.Score, &upvotes)
 	if e == nil && value == 1 && c.authorID != u.User.ID {
-		e = notifyUpvoteMilestone(ctx, tx, "comment_upvotes", c.authorID, c.chartID, c.id, upvotes)
+		e = notifyUpvoteMilestone(ctx, tx, "comment_upvotes", c.authorID, Notice{ChartID: c.chartID, DanID: c.danID, CommentID: c.id}, upvotes)
 	}
 	if e == nil {
 		e = tx.Commit(ctx)

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -25,29 +26,107 @@ const (
 // Comment is one node of a thread. A comment deleted by its author or removed
 // by an administrator keeps its place while replies remain, without author or text.
 type Comment struct {
-	ID              string     `json:"id"`
-	ChartID         string     `json:"chartId"`
-	ChartTitle      string     `json:"chartTitle,omitempty"`
-	ParentID        *string    `json:"parentId"`
-	Depth           int        `json:"depth"`
-	AuthorID        string     `json:"authorId"`
-	Author          string     `json:"author"`
-	AuthorAvatarURL string     `json:"authorAvatarUrl"`
-	Body            string     `json:"body"`
-	CreatedAt       time.Time  `json:"createdAt"`
-	EditedAt        *time.Time `json:"editedAt"`
-	Deleted         bool       `json:"deleted"`
-	Removed         bool       `json:"removed"`
-	Score           int        `json:"score"`
-	MyVote          int        `json:"myVote"`
-	ReplyCount      int        `json:"replyCount"`
-	Replies         []*Comment `json:"replies"`
+	ID string `json:"id"`
+	// A comment hangs on a song or on a 段位 course; the other is empty.
+	ChartID         string            `json:"chartId,omitempty"`
+	ChartTitle      string            `json:"chartTitle,omitempty"`
+	DanID           string            `json:"danId,omitempty"`
+	DanTitle        map[string]string `json:"danTitle,omitempty"`
+	ParentID        *string           `json:"parentId"`
+	Depth           int               `json:"depth"`
+	AuthorID        string            `json:"authorId"`
+	Author          string            `json:"author"`
+	AuthorAvatarURL string            `json:"authorAvatarUrl"`
+	Body            string            `json:"body"`
+	CreatedAt       time.Time         `json:"createdAt"`
+	EditedAt        *time.Time        `json:"editedAt"`
+	Deleted         bool              `json:"deleted"`
+	Removed         bool              `json:"removed"`
+	Score           int               `json:"score"`
+	MyVote          int               `json:"myVote"`
+	ReplyCount      int               `json:"replyCount"`
+	Replies         []*Comment        `json:"replies"`
 }
 
 // The viewer is always $1 so every query can report the viewer's own vote.
-const commentColumns = `m.id,m.chart_id,m.parent_id,m.depth,m.author_id,m.body,m.created_at,m.edited_at,
+const commentColumns = `m.id,m.chart_id,m.dan_id,m.parent_id,m.depth,m.author_id,m.body,m.created_at,m.edited_at,
  m.deleted_at IS NOT NULL,m.removed_at IS NOT NULL,m.upvotes-m.downvotes,m.reply_count,
  COALESCE((SELECT value FROM comment_votes v WHERE v.comment_id=m.id AND v.user_id=$1),0)`
+
+// commentTitles follows commentColumns when the thread's subject is wanted:
+// the song's title, or the course's localized titles.
+const commentTitles = `,c.title,d.title`
+
+// commentSubjects joins a comment m to its song c or its course d.
+const commentSubjects = ` LEFT JOIN charts c ON c.id=m.chart_id LEFT JOIN dan_courses d ON d.id=m.dan_id`
+
+// publishedSubject keeps comments of hidden songs and deleted courses out of sight.
+const publishedSubject = `((m.chart_id IS NOT NULL AND ` + publishedChart + `) OR (m.dan_id IS NOT NULL AND d.status='published'))`
+
+// commentSubject is what a thread hangs on: a published song or 段位 course.
+type commentSubject struct {
+	chartID string
+	danID   int64
+	// Who is told about new top-level comments and upvote milestones.
+	owners       []string
+	commentCount int
+}
+
+func (t commentSubject) column() string {
+	if t.danID != 0 {
+		return "dan_id"
+	}
+	return "chart_id"
+}
+
+func (t commentSubject) id() any {
+	if t.danID != 0 {
+		return t.danID
+	}
+	return t.chartID
+}
+
+// A subjectLoader reads the subject in r's path with the given row lock,
+// answering 404 itself when there is none.
+type subjectLoader func(w http.ResponseWriter, r *http.Request, db rowScanner, lock string) (commentSubject, bool)
+
+type rowScanner interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func chartSubject(w http.ResponseWriter, r *http.Request, db rowScanner, lock string) (commentSubject, bool) {
+	var t commentSubject
+	e := db.QueryRow(r.Context(), `SELECT c.id,c.owner_ids,COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0)
+	 FROM charts c WHERE c.id=$1 AND `+publishedChart+` `+lock, r.PathValue("id")).Scan(&t.chartID, &t.owners, &t.commentCount)
+	if errors.Is(e, pgx.ErrNoRows) {
+		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
+		return t, false
+	}
+	if e != nil {
+		internal(w, e)
+		return t, false
+	}
+	return t, true
+}
+
+func danSubject(w http.ResponseWriter, r *http.Request, db rowScanner, lock string) (commentSubject, bool) {
+	var t commentSubject
+	id, e := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if e == nil {
+		var owner string
+		e = db.QueryRow(r.Context(), `SELECT d.id,d.owner_id,d.comment_count FROM dan_courses d WHERE d.id=$1 AND d.status='published' `+lock, id).Scan(&t.danID, &owner, &t.commentCount)
+		t.owners = []string{owner}
+	}
+	if e != nil && (errors.Is(e, pgx.ErrNoRows) || t.danID == 0) {
+		problem(w, 404, "DAN_NOT_FOUND", "段位不存在")
+		return t, false
+	}
+	if e != nil {
+		internal(w, e)
+		return t, false
+	}
+	return t, true
+}
 
 var commentOrders = map[string]string{
 	"best":          `comment_confidence(m.upvotes,m.downvotes) DESC,m.created_at DESC,m.id`,
@@ -96,19 +175,39 @@ func readComments(ctx context.Context, db rowQuerier, withTitle bool, sql string
 	items := []*Comment{}
 	for rows.Next() {
 		c := &Comment{Replies: []*Comment{}}
-		dest := []any{&c.ID, &c.ChartID, &c.ParentID, &c.Depth, &c.AuthorID, &c.Body, &c.CreatedAt, &c.EditedAt, &c.Deleted, &c.Removed, &c.Score, &c.ReplyCount, &c.MyVote}
+		var chartID, chartTitle *string
+		var danID *int64
+		var danTitle []byte
+		dest := []any{&c.ID, &chartID, &danID, &c.ParentID, &c.Depth, &c.AuthorID, &c.Body, &c.CreatedAt, &c.EditedAt, &c.Deleted, &c.Removed, &c.Score, &c.ReplyCount, &c.MyVote}
 		if withTitle {
-			dest = append(dest, &c.ChartTitle)
+			dest = append(dest, &chartTitle, &danTitle)
 		}
 		if e = rows.Scan(dest...); e != nil {
 			return nil, e
 		}
+		c.setSubject(chartID, danID, chartTitle, danTitle)
 		if c.Deleted || c.Removed {
 			c.AuthorID, c.Body = "", ""
 		}
 		items = append(items, c)
 	}
 	return items, rows.Err()
+}
+
+// setSubject fills the song or course fields from their nullable columns.
+func (c *Comment) setSubject(chartID *string, danID *int64, chartTitle *string, danTitle []byte) {
+	if chartID != nil {
+		c.ChartID = *chartID
+	}
+	if chartTitle != nil {
+		c.ChartTitle = *chartTitle
+	}
+	if danID != nil {
+		c.DanID = strconv.FormatInt(*danID, 10)
+	}
+	if len(danTitle) > 0 {
+		json.Unmarshal(danTitle, &c.DanTitle)
+	}
 }
 
 // attach hangs descendants (ordered by depth, then rank) below the given nodes.
@@ -173,17 +272,26 @@ func commentBody(w http.ResponseWriter, raw string) (string, bool) {
 
 type commentState struct {
 	id, chartID, authorID string
+	danID                 int64
 	parentID              *string
 	depth, replies        int
 	gone                  bool
 }
 
-// lockComment loads a comment of a published song with the given row lock.
+// lockComment loads a comment of a published song or course with the given row lock.
 func lockComment(w http.ResponseWriter, r *http.Request, tx pgx.Tx, lock string) (commentState, bool) {
 	var c commentState
-	e := tx.QueryRow(r.Context(), `SELECT m.id,m.chart_id,m.author_id,m.parent_id,m.depth,m.reply_count,m.deleted_at IS NOT NULL OR m.removed_at IS NOT NULL
-	 FROM comments m JOIN charts c ON c.id=m.chart_id WHERE m.id=$1 AND `+publishedChart+` `+lock, r.PathValue("id")).
-		Scan(&c.id, &c.chartID, &c.authorID, &c.parentID, &c.depth, &c.replies, &c.gone)
+	var chartID *string
+	var danID *int64
+	e := tx.QueryRow(r.Context(), `SELECT m.id,m.chart_id,m.dan_id,m.author_id,m.parent_id,m.depth,m.reply_count,m.deleted_at IS NOT NULL OR m.removed_at IS NOT NULL
+	 FROM comments m`+commentSubjects+` WHERE m.id=$1 AND `+publishedSubject+` `+lock, r.PathValue("id")).
+		Scan(&c.id, &chartID, &danID, &c.authorID, &c.parentID, &c.depth, &c.replies, &c.gone)
+	if chartID != nil {
+		c.chartID = *chartID
+	}
+	if danID != nil {
+		c.danID = *danID
+	}
 	if errors.Is(e, pgx.ErrNoRows) {
 		problem(w, 404, "COMMENT_NOT_FOUND", "评论不存在或已删除")
 		return c, false
@@ -204,8 +312,15 @@ type CommentPage struct {
 	Sort         string     `json:"sort"`
 }
 
-// chartComments returns one page of top-level comments with their reply trees.
 func (s *Server) chartComments(w http.ResponseWriter, r *http.Request) {
+	s.subjectComments(w, r, chartSubject)
+}
+func (s *Server) danComments(w http.ResponseWriter, r *http.Request) {
+	s.subjectComments(w, r, danSubject)
+}
+
+// subjectComments returns one page of a song's or course's top-level comments with their reply trees.
+func (s *Server) subjectComments(w http.ResponseWriter, r *http.Request, load subjectLoader) {
 	sort, order, ok := commentOrder(w, r)
 	if !ok {
 		return
@@ -224,20 +339,17 @@ func (s *Server) chartComments(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(ctx)
 	result := CommentPage{Page: page, PageSize: commentPageSize, Sort: sort}
-	var id string
-	e = tx.QueryRow(ctx, `SELECT c.id,COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0),
-	 (SELECT count(*) FROM comments WHERE chart_id=c.id AND parent_id IS NULL)
-	 FROM charts c WHERE c.id=$1 AND `+publishedChart, r.PathValue("id")).Scan(&id, &result.CommentCount, &result.Total)
-	if errors.Is(e, pgx.ErrNoRows) {
-		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
+	subject, ok := load(w, r, tx, "")
+	if !ok {
 		return
 	}
-	if e != nil {
+	result.CommentCount = subject.commentCount
+	if e = tx.QueryRow(ctx, `SELECT count(*) FROM comments WHERE `+subject.column()+`=$1 AND parent_id IS NULL`, subject.id()).Scan(&result.Total); e != nil {
 		internal(w, e)
 		return
 	}
 	result.Items, e = readComments(ctx, tx, false, `SELECT `+commentColumns+` FROM comments m
-	 WHERE m.chart_id=$2 AND m.parent_id IS NULL ORDER BY `+order+` LIMIT $3 OFFSET $4`, viewer, id, commentPageSize, (page-1)*commentPageSize)
+	 WHERE m.`+subject.column()+`=$2 AND m.parent_id IS NULL ORDER BY `+order+` LIMIT $3 OFFSET $4`, viewer, subject.id(), commentPageSize, (page-1)*commentPageSize)
 	if e != nil {
 		internal(w, e)
 		return
@@ -277,8 +389,8 @@ func (s *Server) commentThread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	items, e := readComments(ctx, tx, true, `SELECT `+commentColumns+`,c.title FROM comments m JOIN charts c ON c.id=m.chart_id
-	 WHERE m.id=$2 AND `+publishedChart, viewer, r.PathValue("id"))
+	items, e := readComments(ctx, tx, true, `SELECT `+commentColumns+commentTitles+` FROM comments m`+commentSubjects+`
+	 WHERE m.id=$2 AND `+publishedSubject, viewer, r.PathValue("id"))
 	if e != nil {
 		internal(w, e)
 		return
@@ -310,6 +422,13 @@ type commentRequest struct {
 }
 
 func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
+	s.createSubjectComment(w, r, chartSubject)
+}
+func (s *Server) createDanComment(w http.ResponseWriter, r *http.Request) {
+	s.createSubjectComment(w, r, danSubject)
+}
+
+func (s *Server) createSubjectComment(w http.ResponseWriter, r *http.Request, load subjectLoader) {
 	u, ok := s.required(w, r, true)
 	if !ok {
 		return
@@ -329,16 +448,9 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	var chartID string
-	var chartOwners []string
 	// FOR SHARE serializes with a song deletion, which locks the row FOR UPDATE.
-	e = tx.QueryRow(ctx, `SELECT c.id,c.owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR SHARE`, r.PathValue("id")).Scan(&chartID, &chartOwners)
-	if errors.Is(e, pgx.ErrNoRows) {
-		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
-		return
-	}
-	if e != nil {
-		internal(w, e)
+	subject, ok := load(w, r, tx, "FOR SHARE")
+	if !ok {
 		return
 	}
 	// Serialize each author's posts so the burst limit cannot be raced.
@@ -357,15 +469,21 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, depth, root := ID(), 0, ""
-	// Top-level comments notify the song's uploader, replies the parent's author.
-	notice := Notice{Kind: "chart_comment", Actor: u.User.ID, ChartID: chartID, CommentID: id}
+	// Top-level comments notify the song's uploader or the course's maker, replies the parent's author.
+	notice := Notice{Kind: "chart_comment", Actor: u.User.ID, ChartID: subject.chartID, DanID: subject.danID, CommentID: id}
+	if subject.danID != 0 {
+		notice.Kind = "dan_comment"
+	}
 	if req.ParentID != nil {
-		var parentChart, parentAuthor string
+		var parentChart *string
+		var parentDan *int64
+		var parentAuthor string
 		var gone bool
 		// The parent row is updated by the reply counter, so lock it exclusively.
-		e = tx.QueryRow(ctx, `SELECT chart_id,author_id,root_id,depth,deleted_at IS NOT NULL OR removed_at IS NOT NULL FROM comments WHERE id=$1 FOR UPDATE`, *req.ParentID).Scan(&parentChart, &parentAuthor, &root, &depth, &gone)
+		e = tx.QueryRow(ctx, `SELECT chart_id,dan_id,author_id,root_id,depth,deleted_at IS NOT NULL OR removed_at IS NOT NULL FROM comments WHERE id=$1 FOR UPDATE`, *req.ParentID).Scan(&parentChart, &parentDan, &parentAuthor, &root, &depth, &gone)
 		notice.Recipient, notice.Kind = parentAuthor, "comment_reply"
-		if errors.Is(e, pgx.ErrNoRows) || (e == nil && parentChart != chartID) {
+		sameSubject := e == nil && ((parentChart != nil && *parentChart == subject.chartID) || (parentDan != nil && *parentDan == subject.danID))
+		if errors.Is(e, pgx.ErrNoRows) || (e == nil && !sameSubject) {
 			problem(w, 404, "COMMENT_NOT_FOUND", "回复的评论不存在或已删除")
 			return
 		}
@@ -385,7 +503,7 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 	} else {
 		root = id
 	}
-	_, e = tx.Exec(ctx, `INSERT INTO comments(id,chart_id,parent_id,root_id,depth,author_id,body) VALUES($1,$2,$3,$4,$5,$6,$7)`, id, chartID, req.ParentID, root, depth, u.User.ID, body)
+	_, e = tx.Exec(ctx, `INSERT INTO comments(id,`+subject.column()+`,parent_id,root_id,depth,author_id,body) VALUES($1,$2,$3,$4,$5,$6,$7)`, id, subject.id(), req.ParentID, root, depth, u.User.ID, body)
 	if e != nil {
 		internal(w, e)
 		return
@@ -396,7 +514,7 @@ func (s *Server) createComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.ParentID == nil {
-		for _, owner := range chartOwners {
+		for _, owner := range subject.owners {
 			notice.Recipient = owner
 			if e = notify(ctx, tx, notice); e != nil {
 				break
@@ -523,7 +641,7 @@ func (s *Server) deleteComment(w http.ResponseWriter, r *http.Request) {
 	}
 	// The author learns of a removal, but not which administrator removed it.
 	if e == nil && !c.gone && column == "removed_at" {
-		e = notify(ctx, tx, Notice{Recipient: c.authorID, Kind: "comment_removed", ChartID: c.chartID, DedupeKey: "comment_removed:" + c.id})
+		e = notify(ctx, tx, Notice{Recipient: c.authorID, Kind: "comment_removed", ChartID: c.chartID, DanID: c.danID, DedupeKey: "comment_removed:" + c.id})
 	}
 	if e == nil {
 		e = tx.Commit(ctx)
@@ -542,9 +660,9 @@ type CommentList struct {
 	PageSize int        `json:"pageSize"`
 }
 
-// visibleComment selects live comments on published songs; m is the comment
-// and c its song.
-const visibleComment = `m.deleted_at IS NULL AND m.removed_at IS NULL AND ` + publishedChart
+// visibleComment selects live comments on published songs and courses; m is
+// the comment, c its song and d its course (see commentSubjects).
+const visibleComment = `m.deleted_at IS NULL AND m.removed_at IS NULL AND ` + publishedSubject
 
 // userComments is a user's public comment history, newest or top first.
 func (s *Server) userComments(w http.ResponseWriter, r *http.Request) {
@@ -573,7 +691,7 @@ func (s *Server) userComments(w http.ResponseWriter, r *http.Request) {
 func (s *Server) commentList(w http.ResponseWriter, r *http.Request, filter, order string, page int, arg string) {
 	ctx := r.Context()
 	viewer := s.viewer(r)
-	from := ` FROM comments m JOIN charts c ON c.id=m.chart_id LEFT JOIN comments p ON p.id=m.parent_id WHERE ` + filter + ` AND ` + visibleComment
+	from := ` FROM comments m` + commentSubjects + ` LEFT JOIN comments p ON p.id=m.parent_id WHERE ` + filter + ` AND ` + visibleComment
 	tx, e := s.DB.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if e != nil {
 		internal(w, e)
@@ -586,23 +704,8 @@ func (s *Server) commentList(w http.ResponseWriter, r *http.Request, filter, ord
 		internal(w, e)
 		return
 	}
-	rows, e := tx.Query(ctx, `SELECT `+commentColumns+`,c.title`+from+` ORDER BY `+order+` LIMIT $3 OFFSET $4`, viewer, arg, commentPageSize, (page-1)*commentPageSize)
-	if e != nil {
-		internal(w, e)
-		return
-	}
-	result.Items = []*Comment{}
-	for rows.Next() {
-		c := &Comment{Replies: []*Comment{}}
-		if e = rows.Scan(&c.ID, &c.ChartID, &c.ParentID, &c.Depth, &c.AuthorID, &c.Body, &c.CreatedAt, &c.EditedAt, &c.Deleted, &c.Removed, &c.Score, &c.ReplyCount, &c.MyVote, &c.ChartTitle); e != nil {
-			rows.Close()
-			internal(w, e)
-			return
-		}
-		result.Items = append(result.Items, c)
-	}
-	rows.Close()
-	if e = rows.Err(); e == nil {
+	result.Items, e = readComments(ctx, tx, true, `SELECT `+commentColumns+commentTitles+from+` ORDER BY `+order+` LIMIT $3 OFFSET $4`, viewer, arg, commentPageSize, (page-1)*commentPageSize)
+	if e == nil {
 		e = tx.Commit(ctx)
 	}
 	if e != nil {

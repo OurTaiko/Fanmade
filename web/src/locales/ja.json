@@ -476,6 +476,7 @@
     "score": "スコア",
     "scoreExact": "スコア {{score}}",
     "voteOnChart": "この譜面に投票",
+    "voteOnDan": "この段位に投票",
     "voteOnComment": "このコメントに投票",
     "upvoteRatio": "高評価 {{percent}}%",
     "sortComments": "コメントの並び順",
@@ -488,6 +489,7 @@
     "viewAllComments": "すべてのコメントを見る",
     "viewParent": "親コメントを見る",
     "commentPlaceholder": "この譜面の感想をどうぞ…",
+    "danCommentPlaceholder": "この段位についてコメント…",
     "comment": "コメントする",
     "signInToComment": "ログインするとコメントと投票ができます。",
     "loadingComments": "コメントを読み込み中…",
@@ -558,6 +560,8 @@
       "comment_reply": "{{actor}} さんが「{{chart}}」のあなたのコメントに返信しました",
       "chart_comment": "{{actor}} さんがあなたの譜面「{{chart}}」にコメントしました",
       "chart_upvotes": "あなたの譜面「{{chart}}」の高評価が {{count}} 件になりました",
+      "dan_comment": "{{actor}} があなたの段位「{{chart}}」にコメントしました",
+      "dan_upvotes": "あなたの段位「{{chart}}」が {{count}} 件の高評価を獲得しました",
       "comment_upvotes": "「{{chart}}」へのあなたのコメントの高評価が {{count}} 件になりました",
       "comment_removed": "「{{chart}}」へのあなたのコメントが管理者により非表示になりました",
       "upload_published": "「{{title}}」を公開しました",
@@ -577,6 +581,8 @@
       "comment_reply": "自分のコメントへの返信",
       "chart_comment": "自分の譜面へのコメント",
       "chart_upvotes": "譜面の高評価の節目",
+      "dan_comment": "自分の段位へのコメント",
+      "dan_upvotes": "段位の高評価マイルストーン",
       "comment_upvotes": "コメントの高評価の節目",
       "comment_removed": "管理者による自分のコメントの非表示"
     }

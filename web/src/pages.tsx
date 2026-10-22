@@ -37,7 +37,7 @@ import { ChartActivity, type ActivityTab } from './chart-activity'
 import { Modal, Notice } from './notifications'
 import { useNotification } from './notification-context'
 import { CategoryLabels } from './categories'
-import { CommentSection } from './comments'
+import { CommentSection, chartSubject } from './comments'
 import { VoteControl } from '@/components/vote-control'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
@@ -627,7 +627,7 @@ export function Detail() {
           </div>
           <div className={cn('min-w-0', section !== 'comments' && 'max-lg:hidden')}>
             <CommentSection
-              chart={chart}
+              subject={chartSubject(chart)}
               focusId={commentId}
               onCountChange={(delta) =>
                 setChart((current) =>

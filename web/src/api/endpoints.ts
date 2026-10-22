@@ -15,6 +15,9 @@ export const endpoints = {
   dans: `${API_ROOT}/dans`,
   dan: (id: string) => `${API_ROOT}/dans/${encodeURIComponent(id)}`,
   danOfficial: (id: string) => `${API_ROOT}/dans/${encodeURIComponent(id)}/official`,
+  danVote: (id: string) => `${API_ROOT}/dans/${encodeURIComponent(id)}/vote`,
+  danComments: (id: string, query: { sort: string; page: number }) =>
+    withQuery(`${API_ROOT}/dans/${encodeURIComponent(id)}/comments`, query),
   users: (query: { q: string; sort: string; page: number }) =>
     withQuery(`${API_ROOT}/users`, query),
   user: (id: string) => `${API_ROOT}/users/${encodeURIComponent(id)}`,

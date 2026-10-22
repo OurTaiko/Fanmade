@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { CommentSection, danSubject } from '@/comments'
+import { danTitle } from '@/dan-title'
+export { danTitle }
+import { VoteControl } from '@/components/vote-control'
 import {
+  ChatCircleIcon,
   ArrowClockwiseIcon,
   MedalIcon,
   PencilSimpleIcon,
@@ -14,7 +19,16 @@ import {
 } from '@phosphor-icons/react'
 import { api, jsonRequest } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
-import type { Chart, ChartList, Dan, DanExam, DanInput, DanRewardTitle } from '@/api/types'
+import type {
+  Chart,
+  ChartList,
+  Dan,
+  DanExam,
+  DanInput,
+  DanRewardTitle,
+  Vote,
+  VoteResult,
+} from '@/api/types'
 import { chartText } from '@/chart-language'
 import { ChoiceSelect } from '@/components/choice-select'
 import { SearchInput } from '@/components/search-input'
@@ -95,11 +109,6 @@ const danFirst = 6
 // A player publishes at most this many courses that are not official.
 const communityLimit = 10
 
-// The course's name in the page's language, else Japanese, else any.
-export function danTitle(title: Record<string, string>, language?: string) {
-  const key = language?.startsWith('zh') ? 'zh' : (language ?? '').split('-')[0]
-  return title[key] || title.ja || Object.values(title).find(Boolean) || '—'
-}
 
 function Line({ value }: { value: number[] | null }) {
   const { t } = useTranslation()
@@ -172,7 +181,13 @@ function DanCard({ dan }: { dan: Dan }) {
           <h2 className="truncate text-xl font-semibold tracking-tight">
             {danTitle(dan.title, i18n.resolvedLanguage)}
           </h2>
-          <p className="text-xs text-muted-foreground">{dan.owner || t('dans.unknownOwner')}</p>
+          <p className="text-xs text-muted-foreground">
+            {dan.owner || t('dans.unknownOwner')}
+            <span aria-hidden="true"> · </span>
+            {t('interactions.points', { count: dan.score })}
+            <span aria-hidden="true"> · </span>
+            {t('interactions.commentCount', { count: dan.commentCount })}
+          </p>
         </div>
         <div className="flex shrink-0 gap-1">
           {dan.official && (
@@ -246,7 +261,7 @@ export function DansPage() {
 
 export function DanPage() {
   const { t, i18n } = useTranslation()
-  const { id = '' } = useParams()
+  const { id = '', commentId } = useParams()
   const session = useSession()
   const navigate = useNavigate()
   const [dan, setDan] = useState<Dan | null>(null)
@@ -291,6 +306,30 @@ export function DanPage() {
           <CardDescription>
             {t('dans.by', { owner: dan.owner || t('dans.unknownOwner') })}
           </CardDescription>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <VoteControl
+              className="rounded-full bg-[#f5f5f7] px-1 py-0.5 dark:bg-muted"
+              score={dan.score}
+              myVote={dan.myVote}
+              label={t('interactions.voteOnDan')}
+              onVote={(value: Vote) =>
+                api<VoteResult>(
+                  endpoints.danVote(dan.id),
+                  jsonRequest('PUT', { value }, session.csrfToken),
+                )
+              }
+              onResult={(result) =>
+                setDan((current) => (current?.id === dan.id ? { ...current, ...result } : current))
+              }
+            />
+            <a
+              href="#comments"
+              className="inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChatCircleIcon size={18} aria-hidden="true" />
+              {t('interactions.commentCount', { count: dan.commentCount })}
+            </a>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {dan.songs.some((s) => !s.available) && <Notice>{t('dans.unavailableExplained')}</Notice>}
@@ -427,6 +466,17 @@ export function DanPage() {
           )}
         </CardContent>
       </Card>
+      <CommentSection
+        subject={danSubject(dan)}
+        focusId={commentId}
+        onCountChange={(delta) =>
+          setDan((current) =>
+            current?.id === dan.id
+              ? { ...current, commentCount: Math.max(0, current.commentCount + delta) }
+              : current,
+          )
+        }
+      />
     </div>
   )
 }

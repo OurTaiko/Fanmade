@@ -48,8 +48,11 @@ export type VoteResult = { score: number; upvotes?: number; downvotes?: number; 
 export type CommentSort = 'best' | 'top' | 'new' | 'old' | 'controversial'
 export type Comment = {
   id: string
-  chartId: string
+  /** The song the comment is on, or (for a 段位 course) the course. */
+  chartId?: string
   chartTitle?: string
+  danId?: string
+  danTitle?: Record<string, string>
   parentId: string | null
   depth: number
   authorId: string
@@ -76,7 +79,13 @@ export type CommentPage = {
 export type CommentThread = { item: Comment; sort: CommentSort }
 export type CommentList = { items: Comment[]; total: number; page: number; pageSize: number }
 export type NotificationKind =
-  'comment_reply' | 'chart_comment' | 'chart_upvotes' | 'comment_upvotes' | 'comment_removed'
+  | 'comment_reply'
+  | 'chart_comment'
+  | 'chart_upvotes'
+  | 'dan_comment'
+  | 'dan_upvotes'
+  | 'comment_upvotes'
+  | 'comment_removed'
 export type AppNotification = {
   id: string
   // Unknown future kinds still render with a generic message.
@@ -85,6 +94,7 @@ export type AppNotification = {
   read: boolean
   actor: { id: string; nickname: string; avatarUrl?: string } | null
   chart: { id: string; title: string } | null
+  dan: { id: string; title: Record<string, string> } | null
   comment: { id: string; parentId: string | null; excerpt: string } | null
   data: {
     upvotes?: number
@@ -221,6 +231,11 @@ export type Dan = {
   owner: string
   createdAt: string
   updatedAt: string
+  score: number
+  upvotes: number
+  downvotes: number
+  commentCount: number
+  myVote: Vote
 }
 export type DanInput = {
   title: Record<string, string>

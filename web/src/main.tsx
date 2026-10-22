@@ -45,6 +45,7 @@ function App() {
                         <Route path="dans" element={<DansPage />} />
                         <Route path="dans/new" element={<DanEditorPage />} />
                         <Route path="dans/:id" element={<DanPage />} />
+                        <Route path="dans/:id/comments/:commentId" element={<DanPage />} />
                         <Route path="dans/:id/edit" element={<DanEditorPage />} />
                         <Route path="playlists/:id" element={<PlaylistPage />} />
                         <Route path="me/playlists" element={<MyPlaylistsPage />} />

@@ -19,6 +19,8 @@ var notificationKinds = []string{
 	"comment_reply",   // someone replied to the recipient's comment
 	"chart_comment",   // someone commented on the recipient's song
 	"chart_upvotes",   // the recipient's song reached an upvote milestone
+	"dan_comment",     // someone commented on the recipient's 段位 course
+	"dan_upvotes",     // the recipient's course reached an upvote milestone
 	"comment_upvotes", // the recipient's comment reached an upvote milestone
 	"comment_removed", // an administrator removed the recipient's comment
 }
@@ -36,6 +38,8 @@ var upvoteMilestones = []int{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 100
 // Notice is one event for one recipient. Empty IDs mean "not linked".
 type Notice struct {
 	Recipient, Kind, Actor, ChartID, CommentID string
+	// DanID links a 段位 course instead of a song; 0 when none.
+	DanID int64
 	// DedupeKey makes the event notify the recipient at most once.
 	DedupeKey string
 	Data      map[string]any
@@ -46,6 +50,13 @@ func nullable(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+func nullableID(n int64) *int64 {
+	if n == 0 {
+		return nil
+	}
+	return &n
 }
 
 // notify records a notice in the caller's transaction. Nobody is notified
@@ -65,25 +76,30 @@ func notify(ctx context.Context, db activityWriter, n Notice) error {
 	if e != nil {
 		return e
 	}
-	_, e = db.Exec(ctx, `INSERT INTO notifications(id,recipient_id,kind,actor_id,chart_id,comment_id,data,dedupe_key)
-	 SELECT $1,$2,$3,$4,$5,$6,$7,$8 WHERE NOT EXISTS(SELECT 1 FROM notification_mutes WHERE user_id=$2 AND kind=$3)
+	_, e = db.Exec(ctx, `INSERT INTO notifications(id,recipient_id,kind,actor_id,chart_id,dan_id,comment_id,data,dedupe_key)
+	 SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9 WHERE NOT EXISTS(SELECT 1 FROM notification_mutes WHERE user_id=$2 AND kind=$3)
 	 ON CONFLICT(recipient_id,dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
-		ID(), n.Recipient, n.Kind, nullable(n.Actor), nullable(n.ChartID), nullable(n.CommentID), raw, nullable(n.DedupeKey))
+		ID(), n.Recipient, n.Kind, nullable(n.Actor), nullable(n.ChartID), nullableID(n.DanID), nullable(n.CommentID), raw, nullable(n.DedupeKey))
 	return e
 }
 
 // notifyUpvoteMilestone notifies an author when an upvote count lands exactly
-// on a milestone. The dedupe key keeps a withdrawn and recast vote quiet.
-func notifyUpvoteMilestone(ctx context.Context, db activityWriter, kind, recipient, chartID, commentID string, upvotes int) error {
+// on a milestone. link names the song, course and comment; the dedupe key
+// keeps a withdrawn and recast vote quiet.
+func notifyUpvoteMilestone(ctx context.Context, db activityWriter, kind, recipient string, link Notice, upvotes int) error {
 	if !slices.Contains(upvoteMilestones, upvotes) {
 		return nil
 	}
-	target := chartID
-	if commentID != "" {
-		target = commentID
+	target := link.CommentID
+	if target == "" {
+		target = link.ChartID
 	}
-	return notify(ctx, db, Notice{Recipient: recipient, Kind: kind, ChartID: chartID, CommentID: commentID,
-		DedupeKey: kind + ":" + target + ":" + strconv.Itoa(upvotes), Data: map[string]any{"upvotes": upvotes}})
+	if target == "" {
+		target = strconv.FormatInt(link.DanID, 10)
+	}
+	link.Recipient, link.Kind = recipient, kind
+	link.DedupeKey, link.Data = kind+":"+target+":"+strconv.Itoa(upvotes), map[string]any{"upvotes": upvotes}
+	return notify(ctx, db, link)
 }
 
 type NotificationActor struct {
@@ -94,6 +110,10 @@ type NotificationActor struct {
 type NotificationChart struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+}
+type NotificationDan struct {
+	ID    string            `json:"id"`
+	Title map[string]string `json:"title"`
 }
 type NotificationComment struct {
 	ID       string  `json:"id"`
@@ -107,6 +127,7 @@ type Notification struct {
 	Read      bool                 `json:"read"`
 	Actor     *NotificationActor   `json:"actor"`
 	Chart     *NotificationChart   `json:"chart"`
+	Dan       *NotificationDan     `json:"dan"`
 	Comment   *NotificationComment `json:"comment"`
 	Data      map[string]any       `json:"data"`
 }
@@ -124,6 +145,7 @@ const notificationPageSize = 20
 // stay stored but are not shown; n is the notice, $1 the recipient.
 const visibleNotification = `n.recipient_id=$1
  AND (n.chart_id IS NULL OR EXISTS(SELECT 1 FROM charts c WHERE c.id=n.chart_id AND ` + publishedChart + `))
+ AND (n.dan_id IS NULL OR EXISTS(SELECT 1 FROM dan_courses d WHERE d.id=n.dan_id AND d.status='published'))
  AND (n.comment_id IS NULL OR EXISTS(SELECT 1 FROM comments m WHERE m.id=n.comment_id AND m.deleted_at IS NULL AND m.removed_at IS NULL))`
 
 func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
@@ -160,8 +182,8 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	rows, e := tx.Query(ctx, `SELECT n.id,n.kind,n.created_at,n.read_at IS NOT NULL,n.actor_id,n.chart_id,c.title,n.comment_id,m.parent_id,left(m.body,200),n.data || CASE WHEN i.id IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('status',i.status) END
-	 FROM notifications n LEFT JOIN charts c ON c.id=n.chart_id LEFT JOIN comments m ON m.id=n.comment_id LEFT JOIN chart_collaborations i ON i.id=n.collaboration_id
+	rows, e := tx.Query(ctx, `SELECT n.id,n.kind,n.created_at,n.read_at IS NOT NULL,n.actor_id,n.chart_id,c.title,n.dan_id,d.title,n.comment_id,m.parent_id,left(m.body,200),n.data || CASE WHEN i.id IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('status',i.status) END
+	 FROM notifications n LEFT JOIN charts c ON c.id=n.chart_id LEFT JOIN dan_courses d ON d.id=n.dan_id LEFT JOIN comments m ON m.id=n.comment_id LEFT JOIN chart_collaborations i ON i.id=n.collaboration_id
 	 WHERE `+filter+` ORDER BY n.created_at DESC,n.id LIMIT $2 OFFSET $3`, u.User.ID, notificationPageSize, (page-1)*notificationPageSize)
 	if e != nil {
 		internal(w, e)
@@ -171,7 +193,9 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var n Notification
 		var actor, chartID, chartTitle, commentID, parentID, excerpt *string
-		if e = rows.Scan(&n.ID, &n.Kind, &n.CreatedAt, &n.Read, &actor, &chartID, &chartTitle, &commentID, &parentID, &excerpt, &n.Data); e != nil {
+		var danID *int64
+		var danTitle []byte
+		if e = rows.Scan(&n.ID, &n.Kind, &n.CreatedAt, &n.Read, &actor, &chartID, &chartTitle, &danID, &danTitle, &commentID, &parentID, &excerpt, &n.Data); e != nil {
 			rows.Close()
 			internal(w, e)
 			return
@@ -182,6 +206,10 @@ func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
 		}
 		if chartID != nil && chartTitle != nil {
 			n.Chart = &NotificationChart{ID: *chartID, Title: *chartTitle}
+		}
+		if danID != nil && len(danTitle) > 0 {
+			n.Dan = &NotificationDan{ID: strconv.FormatInt(*danID, 10)}
+			json.Unmarshal(danTitle, &n.Dan.Title)
 		}
 		if commentID != nil && excerpt != nil {
 			n.Comment = &NotificationComment{ID: *commentID, ParentID: parentID, Excerpt: *excerpt}

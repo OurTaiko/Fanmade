@@ -30,7 +30,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { UserAvatar } from '@/components/user-avatar'
 import { loginPath } from '@/components/vote-control'
-import { RelativeTime, commentPath } from '@/comments'
+import { RelativeTime, commentPath, danCommentPath } from '@/comments'
+import { danTitle } from '@/dan-title'
 import { cn } from '@/lib/utils'
 import { Notice } from '@/notifications'
 import { useNotification } from '@/notification-context'
@@ -44,7 +45,8 @@ function useNotificationText() {
   const { t, i18n } = useTranslation()
   return (n: AppNotification) => {
     const actor = n.actor?.nickname || t('messages.unknownMember')
-    const chart = n.chart?.title ?? ''
+    // Comment notices name the song or the course the thread is on.
+    const chart = n.chart?.title ?? (n.dan ? danTitle(n.dan.title, i18n.resolvedLanguage) : '')
     const count = n.data.upvotes ?? 0
     switch (n.kind) {
       case 'chart_collaboration':
@@ -55,6 +57,10 @@ function useNotificationText() {
         return t('notificationCenter.text.chart_comment', { actor, chart })
       case 'chart_upvotes':
         return t('notificationCenter.text.chart_upvotes', { chart, count })
+      case 'dan_comment':
+        return t('notificationCenter.text.dan_comment', { actor, chart })
+      case 'dan_upvotes':
+        return t('notificationCenter.text.dan_upvotes', { chart, count })
       case 'comment_upvotes':
         return t('notificationCenter.text.comment_upvotes', { chart, count })
       case 'comment_removed':
@@ -99,6 +105,8 @@ function target(n: AppNotification) {
   if (n.kind === 'chart_collaboration' && n.data.status === 'pending') return '/notifications'
   if (n.chart && n.comment) return commentPath(n.chart.id, n.comment.id)
   if (n.chart) return `/charts/${encodeURIComponent(n.chart.id)}`
+  if (n.dan && n.comment) return danCommentPath(n.dan.id, n.comment.id)
+  if (n.dan) return `/dans/${encodeURIComponent(n.dan.id)}`
   return null
 }
 
@@ -106,6 +114,8 @@ const kindIcons: Record<string, ReactNode> = {
   comment_reply: <ArrowBendUpLeftIcon />,
   chart_comment: <ChatCircleIcon />,
   chart_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
+  dan_comment: <ChatCircleIcon />,
+  dan_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
   comment_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
   comment_removed: <ShieldWarningIcon className="text-destructive" />,
   upload_result: <UploadSimpleIcon />,

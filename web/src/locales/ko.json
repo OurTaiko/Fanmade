@@ -476,6 +476,7 @@
     "score": "점수",
     "scoreExact": "점수 {{score}}",
     "voteOnChart": "이 채보에 투표",
+    "voteOnDan": "이 단위에 투표",
     "voteOnComment": "이 댓글에 투표",
     "upvoteRatio": "추천 {{percent}}%",
     "sortComments": "댓글 정렬",
@@ -488,6 +489,7 @@
     "viewAllComments": "모든 댓글 보기",
     "viewParent": "상위 댓글 보기",
     "commentPlaceholder": "이 채보에 대한 생각을 남겨 주세요…",
+    "danCommentPlaceholder": "이 단위에 대한 생각을 남겨 보세요…",
     "comment": "댓글 달기",
     "signInToComment": "로그인하면 댓글과 투표를 할 수 있습니다.",
     "loadingComments": "댓글을 불러오는 중…",
@@ -558,6 +560,8 @@
       "comment_reply": "{{actor}} 님이 “{{chart}}”의 내 댓글에 답글을 남겼습니다",
       "chart_comment": "{{actor}} 님이 내 채보 “{{chart}}”에 댓글을 남겼습니다",
       "chart_upvotes": "내 채보 “{{chart}}”가 추천 {{count}}개를 받았습니다",
+      "dan_comment": "{{actor}} 님이 내 단위 「{{chart}}」에 댓글을 남겼습니다",
+      "dan_upvotes": "내 단위 「{{chart}}」이(가) 추천 {{count}}개를 받았습니다",
       "comment_upvotes": "“{{chart}}”에 단 내 댓글이 추천 {{count}}개를 받았습니다",
       "comment_removed": "“{{chart}}”에 단 내 댓글을 관리자가 숨겼습니다",
       "upload_published": "\"{{title}}\"이(가) 게시되었습니다",
@@ -577,6 +581,8 @@
       "comment_reply": "내 댓글에 달린 답글",
       "chart_comment": "내 채보에 달린 댓글",
       "chart_upvotes": "내 채보 추천 달성",
+      "dan_comment": "누군가 내 단위에 댓글을 남김",
+      "dan_upvotes": "단위 추천 마일스톤",
       "comment_upvotes": "내 댓글 추천 달성",
       "comment_removed": "관리자가 내 댓글을 숨김"
     }

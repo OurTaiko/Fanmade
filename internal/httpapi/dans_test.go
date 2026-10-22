@@ -130,6 +130,7 @@ func TestDanCourses(t *testing.T) {
 		strings.Replace(course, `"type":"bad"`, `"type":"misses"`, 1),
 		strings.Replace(course, `"on":"red"`, `"on":"blue"`, 1),
 		strings.Replace(course, `"dan":20`, `"dan":25`, 1),
+		strings.Replace(course, `"dan":20`, `"dan":5`, 1),
 		strings.Replace(course, `"title":{"ja":"十段","en":" 10th Dan "}`, `"title":{"fr":"x"}`, 1),
 	} {
 		expect(call("POST", "/api/v1/dans", bad, alice), 422, nil)

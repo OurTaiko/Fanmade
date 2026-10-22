@@ -22,6 +22,10 @@ import (
 
 const danMaxSongs = 3
 
+// rewards.dan names the 段位 an official course stands for: 五級 (6) .. 達人 (24). The numbering
+// starts at 初級 (0), but the game does not offer 0–5.
+const danFirst, danLast = 6, 24
+
 // A player publishes at most this many courses that are not official; the ones administrators
 // mark official do not count.
 const danCommunityLimit = 10
@@ -168,7 +172,7 @@ func cleanDanRewards(raw json.RawMessage) (json.RawMessage, bool) {
 		return json.RawMessage(`{}`), true
 	}
 	var rewards danRewards
-	if json.Unmarshal(raw, &rewards) != nil || (rewards.Dan != nil && (*rewards.Dan < 0 || *rewards.Dan > 24)) || len(rewards.Titles) > 10 {
+	if json.Unmarshal(raw, &rewards) != nil || (rewards.Dan != nil && (*rewards.Dan < danFirst || *rewards.Dan > danLast)) || len(rewards.Titles) > 10 {
 		return nil, false
 	}
 	for _, title := range rewards.Titles {

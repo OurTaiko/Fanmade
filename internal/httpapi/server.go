@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/netip"
@@ -24,6 +25,7 @@ import (
 
 type Config struct {
 	Origin, Storage string
+	Site            fs.FS
 	Objects         objectstore.Store
 	CookieSecure    bool
 	GameOnly        bool
@@ -182,6 +184,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/charts/{id}/{kind}", s.download)
 	mux.HandleFunc("GET /api/v1/charts/{id}/audio", s.streamAudio)
 	mux.HandleFunc("GET /api/v1/charts/{id}/resources", s.resourceLinks)
+	mux.HandleFunc("/", s.site)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Request-ID", ID())
 		w.Header().Set("X-Content-Type-Options", "nosniff")

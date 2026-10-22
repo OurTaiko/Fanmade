@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	fanmade "ourtaiko.dev/fanmade/api"
 	"ourtaiko.dev/fanmade/api/internal/database"
 	"ourtaiko.dev/fanmade/api/internal/httpapi"
 	"ourtaiko.dev/fanmade/api/internal/objectstore"
@@ -94,7 +95,11 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	app := httpapi.New(pool, httpapi.Config{Profile: profile, GameOnly: os.Getenv("GAME_ONLY") == "true", Objects: objects, SSO: sso, TrustedProxies: proxies, Origin: env("APP_ORIGIN", "http://127.0.0.1:5173"), Storage: env("STORAGE_DIR", ".data/files"), CookieSecure: env("COOKIE_SECURE", "false") == "true"})
+	site := fanmade.Site()
+	if site == nil {
+		log.Print("website not built: run pnpm build in web; serving API only")
+	}
+	app := httpapi.New(pool, httpapi.Config{Site: site, Profile: profile, GameOnly: os.Getenv("GAME_ONLY") == "true", Objects: objects, SSO: sso, TrustedProxies: proxies, Origin: env("APP_ORIGIN", "http://127.0.0.1:5173"), Storage: env("STORAGE_DIR", ".data/files"), CookieSecure: env("COOKIE_SECURE", "false") == "true"})
 	if err = app.EnsureStorage(); err != nil {
 		log.Fatal(err)
 	}

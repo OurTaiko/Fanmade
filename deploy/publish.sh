@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+base=${DEPLOY_BASE_PATH:-/opt/ourtaiko-fanmade}
+remote=${DEPLOY_GIT_REMOTE:-origin}
+export GIT_TERMINAL_PROMPT=0
+cd "$base/src/frontend"
+
+# Serialize automatic and manual deployments before changing the checkout.
+exec 9>"$(git rev-parse --git-path fanmade-publish.lock)"
+flock -n 9 || { echo 'Another Fanmade deployment is running'; exit 1; }
+test -z "$(git status --porcelain)" || { echo 'Fanmade checkout has local changes'; exit 1; }
+test "$(git branch --show-current)" = main || { echo 'Fanmade checkout must be on main'; exit 1; }
+git fetch --no-tags "$remote" main
+latest=$(git rev-parse FETCH_HEAD)
+revision=${DEPLOY_REVISION:-$latest}
+if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+  echo 'DEPLOY_REVISION must be a full Git commit SHA'
+  exit 1
+fi
+# A queued or manually re-run workflow must never publish an older commit.
+if [ "$revision" != "$latest" ]; then
+  echo "Skipping superseded Fanmade revision $revision; main is now $latest"
+  exit 0
+fi
+git merge --ff-only "$revision"
+test "$(git rev-parse HEAD)" = "$revision" || { echo 'Fanmade checkout differs from requested revision'; exit 1; }
+git submodule update --init --recursive
+git lfs pull --include="web/public/edit/**"
+# Build both halves from the same commit before replacing the running service.
+export FANMADE_SOURCE_DIR="$PWD"
+compose="$PWD/deploy/compose.production.yml"
+sudo -n --preserve-env=FANMADE_SOURCE_DIR docker compose -f "$compose" build fanmade
+sudo -n --preserve-env=FANMADE_SOURCE_DIR docker compose -f "$compose" up -d --wait --no-deps fanmade
+curl -fsS http://127.0.0.1:8080/readyz
+echo "Published Fanmade $revision (API and website)"

@@ -1,4 +1,4 @@
-name: Deploy frontend
+name: Deploy Fanmade
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 # Do not interrupt an in-progress server publish when another commit arrives.
 concurrency:
-  group: frontend-production
+  group: fanmade-production
   cancel-in-progress: false
 
 jobs:
@@ -53,6 +53,10 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Build unified image
+        working-directory: .
+        run: docker build -t ourtaiko-fanmade:check .
+
       - name: Validate deployment secrets
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -68,20 +72,20 @@ jobs:
           done
 
       - name: Prepare the publish script from this commit
+        working-directory: .
         # Explicitly use Bash regardless of the SSH user's default shell.
         run: |
           {
             printf "bash -se <<'FANMADE_PUBLISH_SCRIPT'\n"
             cat deploy/publish.sh
             printf '\nFANMADE_PUBLISH_SCRIPT\n'
-          } > "$RUNNER_TEMP/publish-frontend.sh"
+          } > "$RUNNER_TEMP/publish-fanmade.sh"
 
       - name: Publish over SSH
         uses: appleboy/ssh-action@91f3272fc5907f4699dcf59761eb622a07342f5a # v1.2.3
         env:
           DEPLOY_REVISION: ${{ github.sha }}
           DEPLOY_BASE_PATH: ${{ secrets.DEPLOY_BASE_PATH }}
-          DEPLOY_SITE_PATH: ${{ secrets.DEPLOY_SITE_PATH }}
           DEPLOY_GIT_REMOTE: ${{ secrets.DEPLOY_GIT_REMOTE }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -91,5 +95,5 @@ jobs:
           fingerprint: ${{ secrets.DEPLOY_FINGERPRINT }}
           version: '1.8.1'
           command_timeout: 30m
-          envs: DEPLOY_REVISION,DEPLOY_BASE_PATH,DEPLOY_SITE_PATH,DEPLOY_GIT_REMOTE
-          script_path: ${{ runner.temp }}/publish-frontend.sh
+          envs: DEPLOY_REVISION,DEPLOY_BASE_PATH,DEPLOY_GIT_REMOTE
+          script_path: ${{ runner.temp }}/publish-fanmade.sh

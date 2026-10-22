@@ -4,7 +4,7 @@
 
 在线音频支持 HTTP 渐进读取与 Range；预览协议、参考实现分析和 Unity 游戏端接入步骤见在线歌曲流播放与游戏端预览改进（文档 `ONLINE_AUDIO_PREVIEW.md`）。
 
-独立的 Go + PostgreSQL 后端仓库。本地示范版已实现账号会话、TJA + OGG / MP3 上传校验、作品查询、试听资源、原文件 / ZIP 下载和本人作品删除、登录用户成绩提交。前端位于相邻的 `../frontend` 仓库，由 pnpm 管理。
+Go + PostgreSQL 后端与 React 前端的统一仓库。本地示范版已实现账号会话、TJA + OGG / MP3 上传校验、作品查询、试听资源、原文件 / ZIP 下载和本人作品删除、登录用户成绩提交。前端位于 `web/`，由 pnpm 管理。
 
 ## 本地启动
 
@@ -68,7 +68,7 @@ python3 scripts/score_smoke.py
 python3 scripts/metadata_smoke.py
 ```
 
-共享规则测试位于 `contracts/validation.json`。前端保存同内容副本；可用 `cmp contracts/validation.json ../frontend/contracts/validation.json` 检查一致性。
+共享规则测试位于 `contracts/validation.json`。前端保存同内容副本；可用 `cmp contracts/validation.json web/contracts/validation.json` 检查一致性。
 
 ## 设计与边界
 

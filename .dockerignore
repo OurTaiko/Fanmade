@@ -11,3 +11,8 @@ web/dist
 web/.env
 web/.env.*
 .pnpm-store
+
+# Ignore artifacts left by the former frontend-only checkout.
+dist
+public
+TJARenderer

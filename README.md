@@ -72,7 +72,7 @@ python3 scripts/metadata_smoke.py
 
 ## 设计与边界
 
-API、数据库结构、SSO、管理员、分类、多语言、S3 存储和游戏端接入等技术文档统一放在私有仓库 OurTaikoLogs 的 `FanmadeBackend/docs/` 目录，本仓库不再收录。下文以“文档 `X.md`”指代该目录下的文件。
+API、数据库结构、SSO、管理员、分类、多语言、S3 存储和游戏端接入等技术文档统一放在私有仓库 OurTaikoLogs 的 `Fanmade/docs/` 目录，本仓库不再收录。下文以“文档 `X.md`”指代该目录下的文件。
 
 - [Docker 部署](deploy/README.md)
 

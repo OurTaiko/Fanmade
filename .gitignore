@@ -21,3 +21,4 @@ bin/
 # The embedded Unity player is hosted on CloudFront.
 /web/public/player/
 /web/public/player-build.json
+.pnpm-store/

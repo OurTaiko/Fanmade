@@ -2,7 +2,7 @@
 set -euo pipefail
 base=/opt/ourtaiko-fanmade
 export PATH="$base/toolchains/go/bin:$PATH"
-cd "$base/src/backend"
+cd "$base/src/frontend"
 test -z "$(git status --porcelain)" || { echo 'Backend checkout has local changes'; exit 1; }
 git pull --ff-only origin main
 if sudo -n test -f "$base/docker-compose.yml"; then

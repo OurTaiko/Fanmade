@@ -70,6 +70,8 @@ const examTypes = ['gauge', 'good', 'ok', 'bad', 'hits', 'score', 'combo', 'roll
 const rewardLevels = ['red', 'red2', 'red3', 'gold', 'gold5', 'gold6'] as const
 const courses = ['Easy', 'Normal', 'Hard', 'Oni', 'Edit'] as const
 const colors = [0, 1, 2, 3, 4, 5, 6, 7] as const
+// The game offers 五級 (6) .. 達人 (24); 0–5 exist in the numbering only.
+const danFirst = 6
 // A player publishes at most this many courses that are not official.
 const communityLimit = 10
 
@@ -873,7 +875,7 @@ export function DanEditorPage() {
             onValueChange={setRewardDan}
             items={[
               { value: 'none', label: t('dans.noDan') },
-              ...danNames.map((name, i) => ({ value: String(i), label: name })),
+              ...danNames.map((name, i) => ({ value: String(i), label: name })).slice(danFirst),
             ]}
           />
           {rewardTitles.map((reward, i) => {

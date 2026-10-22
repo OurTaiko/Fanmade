@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import ringSilver from '@/assets/dan-ring-silver.png'
+import ringGold from '@/assets/dan-ring-gold.png'
+import ringRainbow from '@/assets/dan-ring-rainbow.png'
 
 // The title and 段位 a player wears on OurTaikoProfile (profile.ourtaiko.org), drawn next to
 // their name. Lookups for the names on a page are gathered into one request.
@@ -12,7 +15,7 @@ export const profilePage = (id: string) => `${PROFILE_URL}/users/${encodeURIComp
 type Style = 'wood' | 'teal' | 'wood2' | 'purple' | 'gold' | 'rainbow'
 type Plate = {
   title: { name: string; nameTranslations?: Record<string, string>; style: Style } | null
-  dan: { index: number; gold: boolean } | null
+  dan: { index: number; gold: boolean; combo?: 0 | 1 | 2 } | null
 }
 
 const danNames = [
@@ -50,6 +53,12 @@ const bands: Record<Style, string> = {
   gold: 'bg-linear-to-b from-[#f7d774] to-[#b8860b]',
   rainbow: 'bg-[linear-gradient(90deg,#ff5f6d,#ffc371,#fff66d,#6dff9c,#5fc8ff,#a06dff)]',
 }
+
+// The 段位 emblem's ring follows the pass's combo like a song's crown (the game's 銀粋 / 金粋 /
+// 虹粋 art); its text the pass line.
+const rings = [ringSilver, ringGold, ringRainbow].map(
+  (url) => `bg-[url(${url})] bg-contain bg-center bg-no-repeat`,
+)
 
 const plates = new Map<string, Promise<Plate | null>>()
 let waiting: { id: string; resolve: (plate: Plate | null) => void }[] = []
@@ -101,10 +110,11 @@ export function ProfilePlate({ userId, className }: { userId: string; className?
       {plate.dan && (
         <span
           className={cn(
-            'inline-flex shrink-0 rounded-full px-1.5 py-0.5 text-[0.65rem] leading-none font-bold text-white',
+            'inline-flex h-5 w-9 shrink-0 items-center justify-center text-[0.65rem] leading-none font-bold [text-shadow:0_1px_1px_rgb(0_0_0/0.7)]',
+            rings[plate.dan.combo ?? 0],
             plate.dan.gold
-              ? 'bg-linear-to-b from-amber-400 to-amber-600'
-              : 'bg-linear-to-b from-red-500 to-red-700',
+              ? 'text-[#ffd84a] [-webkit-text-stroke:0.4px_#5a3d00]'
+              : 'text-white [-webkit-text-stroke:0.4px_#222]',
           )}
         >
           {danNames[plate.dan.index]}

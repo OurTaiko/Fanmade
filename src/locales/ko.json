@@ -797,7 +797,15 @@
       "ko": "한국어"
     },
     "color": "색",
-    "colorNumber": "색 {{number}}",
+    "colorNamed": "{{name}} ({{number}})",
+    "colors": {
+      "wood": "나무",
+      "blue": "파랑",
+      "red": "빨강",
+      "silver": "은",
+      "gold": "금",
+      "green": "초록"
+    },
     "edit": "수정",
     "delete": "삭제",
     "confirmDelete": "이 단위를 삭제할까요? 도전 기록은 남습니다.",

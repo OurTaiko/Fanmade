@@ -797,7 +797,15 @@
       "ko": "한국어"
     },
     "color": "颜色",
-    "colorNumber": "颜色 {{number}}",
+    "colorNamed": "{{name}}（{{number}}）",
+    "colors": {
+      "wood": "木",
+      "blue": "青",
+      "red": "红",
+      "silver": "银",
+      "gold": "金",
+      "green": "绿"
+    },
     "edit": "修改",
     "delete": "删除",
     "confirmDelete": "删除这个段位？挑战记录会保留。",

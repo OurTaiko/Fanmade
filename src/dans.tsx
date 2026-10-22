@@ -69,7 +69,27 @@ const titleLanguages = ['ja', 'en', 'zh', 'ko'] as const
 const examTypes = ['gauge', 'good', 'ok', 'bad', 'hits', 'score', 'combo', 'rolls'] as const
 const rewardLevels = ['red', 'red2', 'red3', 'gold', 'gold5', 'gold6'] as const
 const courses = ['Easy', 'Normal', 'Hard', 'Oni', 'Edit'] as const
-const colors = [0, 1, 2, 3, 4, 5, 6, 7] as const
+// The dan box colours of the Nijiiro skin's dan_select/box/folder, which the game draws the
+// course's box, its yellow board and its loading plaque with. 0 and 1 are the same wood.
+const danColors = [
+  { value: 0, name: 'wood', hex: '#FCCB73' },
+  { value: 1, name: 'wood', hex: '#FCCB73' },
+  { value: 2, name: 'blue', hex: '#47A7B8' },
+  { value: 3, name: 'red', hex: '#F15134' },
+  { value: 4, name: 'silver', hex: '#D9DEE5' },
+  { value: 5, name: 'gold', hex: '#DCC15F' },
+  { value: 6, name: 'green', hex: '#499875' },
+] as const
+
+function ColorSwatch({ hex }: { hex: string }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-block size-3.5 shrink-0 rounded-sm border border-black/20"
+      style={{ backgroundColor: hex }}
+    />
+  )
+}
 // The game offers 五級 (6) .. 達人 (24); 0–5 exist in the numbering only.
 const danFirst = 6
 // A player publishes at most this many courses that are not official.
@@ -657,9 +677,11 @@ export function DanEditorPage() {
             label={t('dans.color')}
             value={String(color)}
             onValueChange={(v) => setColor(Number(v))}
-            items={colors.map((c) => ({
-              value: String(c),
-              label: t('dans.colorNumber', { number: c }),
+            prefix={<ColorSwatch hex={danColors[color]?.hex ?? danColors[0].hex} />}
+            items={danColors.map((c) => ({
+              value: String(c.value),
+              label: t('dans.colorNamed', { name: t(`dans.colors.${c.name}`), number: c.value }),
+              icon: <ColorSwatch hex={c.hex} />,
             }))}
           />
         </CardContent>

@@ -18,7 +18,7 @@ export function ChoiceSelect({
   label: string
   value: string
   onValueChange: (value: string) => void
-  items: { value: string; label: string }[]
+  items: { value: string; label: string; icon?: ReactNode }[]
   disabled?: boolean
   prefix?: ReactNode
 }) {
@@ -38,6 +38,7 @@ export function ChoiceSelect({
       <SelectContent className={prefix ? '[&_[data-slot=select-item]]:pl-8.5' : undefined}>
         {items.map((item) => (
           <SelectItem key={item.value} value={item.value} data-value={item.value}>
+            {item.icon}
             {item.label}
           </SelectItem>
         ))}

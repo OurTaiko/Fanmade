@@ -797,7 +797,15 @@
       "ko": "한국어"
     },
     "color": "色",
-    "colorNumber": "色 {{number}}",
+    "colorNamed": "{{name}}（{{number}}）",
+    "colors": {
+      "wood": "木",
+      "blue": "青",
+      "red": "赤",
+      "silver": "銀",
+      "gold": "金",
+      "green": "緑"
+    },
     "edit": "変更",
     "delete": "削除",
     "confirmDelete": "この段位を削除しますか？挑戦記録は残ります。",

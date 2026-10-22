@@ -8,7 +8,7 @@ test('real Unity: native Ogg failure retries software once without another audio
   const build = process.env.PLAYER_TEST_BUILD_DIR
   test.skip(!build, 'Requires a newly built Web player with software decoding')
   test.setTimeout(180000)
-  const cdn = 'https://d2mguycu233w0q.cloudfront.net'
+  const cdn = 'https://distrib.ourtaiko.org'
   const path = '/player/cccccccccccccccc/'
   let audioDownloads = 0
   const errors: string[] = []

@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test'
 // Run against a production preview (pnpm build; pnpm preview): .env.production
 // selects the remote manifest. CDN replies are fixtures, not production writes.
 async function setupPlayer(page: Page) {
-  const cdn = 'https://d2mguycu233w0q.cloudfront.net'
+  const cdn = 'https://distrib.ourtaiko.org'
   const versions = ['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb']
   let reads = 0
   const source = 'TITLE:CDN test\nBPM:120\nWAVE:test.ogg\nCOURSE:Oni\nLEVEL:1\n#START\n1000,\n#END'
@@ -78,7 +78,7 @@ test('reopening the player discovers a new CDN version without reloading the web
 }) => {
   const reads = await setupPlayer(page)
   const watch = await openChart(page)
-  const cdn = 'https://d2mguycu233w0q.cloudfront.net'
+  const cdn = 'https://distrib.ourtaiko.org'
   const versions = ['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb']
   await watch.click()
   await expect(page.locator('iframe')).toHaveAttribute(

@@ -14,6 +14,8 @@ import {
   type PlayerMode,
 } from './embedded-player-protocol'
 
+const playerManifestUrl = 'https://distrib.ourtaiko.org/player-build.json'
+
 export default function EmbeddedPlayer({
   chart,
   source,
@@ -47,9 +49,7 @@ export default function EmbeddedPlayer({
     async function resolvePlayer() {
       try {
         const url = await resolvePlayerUrl({
-          manifestUrl:
-            import.meta.env.VITE_PLAYER_MANIFEST_URL ||
-            'https://d2mguycu233w0q.cloudfront.net/player-build.json',
+          manifestUrl: playerManifestUrl,
           parentOrigin: window.location.origin,
           signal: controller.signal,
         })

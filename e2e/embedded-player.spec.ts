@@ -84,7 +84,7 @@ test('real Unity player: auto, finish reset, practice, course change and unload'
   test.setTimeout(180000)
   page.setDefaultTimeout(15000)
   const buildDir = process.env.PLAYER_TEST_BUILD_DIR
-  const cdn = 'https://d2mguycu233w0q.cloudfront.net'
+  const cdn = 'https://distrib.ourtaiko.org'
   const fixturePath = '/player/cccccccccccccccc/index.html'
   if (buildDir) {
     await page.route(`${cdn}/player-build.json`, (route) =>

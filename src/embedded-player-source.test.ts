@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resolvePlayerUrl } from './embedded-player-source'
 
 const options = () => ({
-  manifestUrl: 'https://d2mguycu233w0q.cloudfront.net/player-build.json',
+  manifestUrl: 'https://distrib.ourtaiko.org/player-build.json',
   parentOrigin: 'https://fanmade.ourtaiko.org',
   signal: new AbortController().signal,
 })
@@ -17,7 +17,7 @@ describe('player version discovery', () => {
     vi.stubGlobal('fetch', fetchMock)
     const first = new URL(await resolvePlayerUrl(options()))
     const second = new URL(await resolvePlayerUrl(options()))
-    expect(first.origin).toBe('https://d2mguycu233w0q.cloudfront.net')
+    expect(first.origin).toBe('https://distrib.ourtaiko.org')
     expect(first.pathname).toBe('/player/aaaaaaaaaaaaaaaa/index.html')
     expect(second.pathname).toBe('/player/bbbbbbbbbbbbbbbb/index.html')
     expect(second.searchParams.get('parentOrigin')).toBe('https://fanmade.ourtaiko.org')

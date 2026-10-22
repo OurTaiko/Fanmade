@@ -1,0 +1,122 @@
+# OurTaiko Fanmade API
+
+当前使用独立 OurTaikoSSO，网站以 OIDC 登录、游戏 API 转接认证。首次启动前请按 SSO 接入与迁移（文档 `SSO.md`）配置。
+
+在线音频支持 HTTP 渐进读取与 Range；预览协议、参考实现分析和 Unity 游戏端接入步骤见在线歌曲流播放与游戏端预览改进（文档 `ONLINE_AUDIO_PREVIEW.md`）。
+
+独立的 Go + PostgreSQL 后端仓库。本地示范版已实现账号会话、TJA + OGG / MP3 上传校验、作品查询、试听资源、原文件 / ZIP 下载和本人作品删除、登录用户成绩提交。前端位于相邻的 `../frontend` 仓库，由 pnpm 管理。
+
+## 本地启动
+
+环境：Go 1.26+、PostgreSQL 18、FFmpeg（含 ffprobe）、WebP 工具（cwebp）、Python 3（仅演示导入和 API 测试）。开发机已安装这些工具。
+
+```sh
+# 若本机集群尚未启动（不要重新 initdb）：
+/opt/homebrew/opt/postgresql@18/bin/pg_ctl -D /opt/homebrew/var/postgresql@18 -l /tmp/ourtaiko-postgresql.log start
+
+# 仅首次创建数据库；已创建时跳过：
+createdb ourtaiko_fanmade
+
+# 在本仓库目录执行：
+go mod download
+# 如果还没有 .env，复制模板并按文档 `SSO.md` 填写 SSO 客户端配置：
+cp -n .env.example .env
+go run ./cmd/server
+```
+
+API 默认监听 `http://127.0.0.1:8080`，前端默认地址 `http://127.0.0.1:5173`。请统一使用 127.0.0.1；Origin / Cookie 校验会区分 localhost 和 127.0.0.1。应用启动会事务性执行尚未应用的迁移；只执行迁移可用 `go run ./cmd/server -migrate`。
+
+配置项见 [.env.example](.env.example)。应用启动时通过 godotenv 自动加载工作目录中的 `.env`，已经设置的进程环境变量优先；`.env.example` 不会被读取。真实密码仅放在 Git 忽略的 `.env`，模板保持空密码。默认数据库连接字符串是 `postgres://localhost/ourtaiko_fanmade?host=/tmp&sslmode=disable`，使用本地当前用户。
+
+示范版默认仅监听 loopback。正式部署应配置数据库最小权限账号、密码认证、HTTPS 与安全 Cookie。
+
+## 局域网真机测试
+
+在本仓库目录用以下命令监听局域网：
+
+```sh
+LISTEN_ADDR=0.0.0.0:8080 go run ./cmd/server
+```
+
+手机和 Mac 连接同一个局域网，游戏配置的 `base_url` 填 `http://<Mac 的局域网 IP>:8080`。`0.0.0.0` 是监听地址，不能作为真机的服务器地址；真机上的 `127.0.0.1` 指向真机自己。Mac 可用 `ipconfig getifaddr en0` 查询 Wi-Fi IPv4 地址。
+
+真机浏览器打开 `http://<Mac IP>:8080/readyz`，返回 `{"ok":true}` 表示 API 和数据库可用。游戏使用 `/api/v1/game/login` 和 Bearer token，不发送浏览器 Origin/CSRF；网站仍可通过本机 Vite 代理访问。数据库连接继续使用本机 Unix socket。
+
+当前开发服务在终端运行，可用 Ctrl+C 停止；没有新增开机启动项。
+
+## ESE 演示数据
+
+```sh
+# API 启动后运行，从本地 ESE 原地读取 6 组 TJA / OGG：
+python3 scripts/demo.py seed
+```
+
+默认读取 `~/Documents/GitHub/ESE`，可以设置 `ESE_ROOT`。先在浏览器完成 SSO 登录，将短期会话 Cookie 设置为 FANMADE_SESSION_COOKIE，再运行导入脚本。它实际执行后端校验，不修改源文件；幂等键保证重复运行不会重复导入。脚本不再创建或保存用户密码。
+
+当前选用 Happy Synthesizer、Destr0yer、Natsumatsuri New Audio Chart、God-ish、Aiai、Silent Night。源文件与上传的资源均不提交 Git；资源存储于忽略的 `.data/files`。数据库只保存元数据、资源键和哈希。
+
+## 测试
+
+```sh
+go test ./...
+go vet ./...
+DATABASE_TEST_URL='postgres://localhost/ourtaiko_fanmade?host=/tmp&sslmode=disable' go test ./internal/database ./internal/httpapi -v
+ESE_ROOT=~/Documents/GitHub/ESE go test ./internal/tja -v
+# API 运行中，读取真实 ESE 文件；新测试账号交互输入邮箱与验证码，结束时软删除测试作品：
+python3 scripts/demo.py test
+python3 scripts/score_smoke.py
+python3 scripts/metadata_smoke.py
+```
+
+共享规则测试位于 `contracts/validation.json`。前端保存同内容副本；可用 `cmp contracts/validation.json ../frontend/contracts/validation.json` 检查一致性。
+
+## 设计与边界
+
+API、数据库结构、SSO、管理员、分类、多语言、S3 存储和游戏端接入等技术文档统一放在私有仓库 OurTaikoLogs 的 `FanmadeBackend/docs/` 目录，本仓库不再收录。下文以“文档 `X.md`”指代该目录下的文件。
+
+- [Docker 部署](deploy/README.md)
+
+账号注册、昵称、密码和验证邮件现由 OurTaikoSSO 管理，详见 SSO 接入（文档 `SSO.md`）。
+
+本示范版支持一个 TJA + 一个 Vorbis OGG 或 MP3 音频，TJA 中可有 Easy / Normal / Hard / Oni / Edit 多个难度及 P1 / P2。Tower（塔）和 Dan（段位），包括数字 5 / 6，双端整份拒绝；混合普通难度也不能上传。迁移 012 会下架当前版本含不支持难度的已有作品，保留文件和成绩，所有公开展示及游戏曲库接口排除这些作品。`#NEXTSONG` 多音频谱暂不支持；不承诺完整游戏命令语义。试听在负数 DEMOSTART 时从 0 开始，不改写 TJA。
+
+谱面按"难度 × 侧别"存在 chart_difficulties：每行是 TJA 里真实存在的一个谱面块，course 为五个基础难度，side 为 single / p1 / p2（对应 `#START`、`#START P1`、`#START P2`），同一个文件里三种可以并存，同一槽位重复则拒绝。读哪个谱面块由游戏端决定：单人读 single，缺则 p1；双人 1P 读 p1，缺则 single；双人 2P 读 p2，缺则 single，再缺则 p1。成绩通过 difficulty_id 指向真实游玩的谱面块，每个谱面块各有排行榜。替换 TJA 或音频后旧成绩保留并标为非最新（is_latest=false），排行榜只计最新成绩；新文件里不再存在的谱面块连同其成绩一起删除。上传与成绩接口详见 API（文档 `API.md`）。
+
+后续功能：邮箱补绑与找回密码、管理员界面、评论收藏、自动清理与备份。示范版软删除后停止公开访问，保留数据库和资源供开发检查。上传失败通常自动清理；数据库 COMMIT 结果不确定或进程崩溃时保留文件供核对，暂未实现后台孤儿文件回收。请同时备份数据库和 `.data/files`。
+
+所有变更使用 Conventional Commits。远端仓库：[OurTaiko/Fanmade_Backend](https://github.com/OurTaiko/Fanmade_Backend)，使用 `ourtaiko` 远端管理。
+
+所有名称翻译统一保存在 `title_translations` / `subtitle_translations`（en/ja/zh/ko）。接口完整返回语言字典，由网页和游戏选择显示语言；`title` / `subtitle` 保留 TJA 原文。作者或管理员可用 `PATCH /api/v1/charts/{id}` 修改各语言名称、副标题，支持 null 从当前 TJA 恢复原值。修改只影响网站元数据和搜索，原始 TJA 与成绩不变；前端详情页已提供编辑弹窗。管理员配置说明（文档 `ADMIN.md`）。
+
+## TJA 编码与保存
+
+新上传的 TJA 统一保存为无 BOM 的 UTF-8。前端自动检测常见源编码并转换，API 仍独立验证声明的 `utf-8` 或 `shift-jis`，拒绝损坏文本；原输入和 UTF-8 输出都受 2 MiB 上限约束。文件 SHA-256、字节数、下载和 ZIP 均以实际保存的 UTF-8 内容为准，音频保持原字节。已有文件不迁移，也无需变更数据库结构。
+
+`internal/tja/encoding_test.go` 覆盖严格解码与转换边界；`internal/httpapi/encoding_upload_test.go` 使用隔离 PostgreSQL schema 验证保存编码、文件哈希、大小、下载及转换前后相同内容的幂等重试。
+
+## 谱面分类
+
+支持 Game / Virtual Singer / Pop / Classic / Variety / Anime 多选分类。迁移 013 使用独立分类关联表，旧作品归入 Variety；迁移 017 增加 Anime（`anime` / `ANIME`），保留已有歌曲归属。游戏在模式选择到选曲的过场中取得分类与数量，进入服务器文件夹时刷新所有分类的谱面列表，网页上传与作者信息编辑支持多选。游戏与后端须配套更新，详见分类接口、迁移和验证（文档 `CATEGORIES.md`）。
+
+## 难度制作者
+
+迁移 014 将旧的版本级 maker 回填到每个难度并删除旧列。上传页面支持按谱面块填写署名；作品响应的 maker 为各块署名去重后以 ` | ` 连接，difficulties[].maker 返回具体署名，供网页切换难度显示。部署新后端时启动会自动迁移，旧后端不能继续使用迁移后的 schema。详见 API（文档 `API.md`）和数据库结构（文档 `DATABASE.md`）。
+
+
+## 歌曲与谱面替换
+
+作者或管理员可以通过 `PUT /api/v1/charts/{id}/files` 整体替换歌曲，提交完整的新 TJA，可选更换音频。歌曲地址保留，成功后删除旧资源及全体玩家的旧成绩，只保存当前文件，即使难度未变也不继承。新文件校验或事务失败时保留旧数据；幂等重试不会删除新成绩。迁移 024 全面移除歌曲版本 ID，成绩、难度和下载只按歌曲 ID 关联；保留幂等收据与持久文件删除队列，启动及每 30 秒重试未完成的文件删除。详细字段及行为见 API（文档 `API.md`）。
+
+
+## 用户昵称
+
+账号注册、昵称、密码和验证邮件现由 OurTaikoSSO 管理，详见 SSO 接入（文档 `SSO.md`）。
+
+## 网站歌曲封面
+
+发布歌曲可通过 multipart `cover` 字段附带 `.jpg` / `.jpeg` / `.png` / `.webp`（仅静态图片）；封面可选，最大 8 MiB、1600 万像素、单边 8192 像素。
+服务器完整解码图片，经 cwebp 转成最长边不超过 1600px 的 WebP，并只将转换后的二进制保存在 PostgreSQL。
+网站 owner 可通过 `PUT /api/v1/charts/{id}/cover` 单独替换封面；读取使用 `GET /api/v1/charts/{id}/cover`。
+封面不会进入游戏曲库响应或下载包，也不会重置成绩。详情见 封面 API（文档 `API.md`）。
+
+当前歌曲 ID 协议及 S3 游戏客户端接入见游戏端实施文档（文档 `GAME_CLIENT_RESOURCE_DOWNLOAD.md`）。新协议用文件 SHA-256 判断缓存更新；迁移旧数据库需保留备份，schema 025/026 回退必须恢复匹配的数据库和程序。当前数据库仅有 7 张 public 业务表；歌曲信息集中在 charts，四类资源统一在 chart_resources，认证和维护表分别位于 auth/internal。详见数据库结构（文档 `DATABASE.md`）。

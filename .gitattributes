@@ -198,10 +198,10 @@ Procfile          text
 # Ignore files (like .npmignore or .gitignore)
 *.*ignore         text
 # Prevents massive diffs from built files
-dist/**           binary
+web/dist/**           binary
 
 # Preserve generated Unity and decoder assets byte-for-byte.
-public/edit/builds/** -text -diff
+web/public/edit/builds/** -text -diff
 # Unity editor binaries are materialized by CI and the publish script.
-public/edit/builds/**/Build/*.data filter=lfs diff=lfs merge=lfs -text
-public/edit/builds/**/Build/*.wasm filter=lfs diff=lfs merge=lfs -text
+web/public/edit/builds/**/Build/*.data filter=lfs diff=lfs merge=lfs -text
+web/public/edit/builds/**/Build/*.wasm filter=lfs diff=lfs merge=lfs -text

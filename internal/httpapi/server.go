@@ -1,0 +1,235 @@
+package httpapi
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"log"
+	"net/http"
+	"net/netip"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"ourtaiko.dev/fanmade/api/internal/cover"
+	"ourtaiko.dev/fanmade/api/internal/objectstore"
+	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/fanmade/api/internal/video"
+)
+
+type Config struct {
+	Origin, Storage string
+	Objects         objectstore.Store
+	CookieSecure    bool
+	GameOnly        bool
+	SSO             *SSOClient
+	TrustedProxies  []netip.Prefix
+	// Profile is nil when 段位 attempts earn nothing (no OurTaikoProfile configured).
+	Profile *ProfileClient
+}
+type Server struct {
+	DB      *pgxpool.Pool
+	Config  Config
+	uploads chan struct{}
+	// Accepted uploads: pending bounds how many wait with staged files.
+	pending chan struct{}
+	jobs    chan *uploadJob
+	worker  sync.Once
+	mu      sync.Mutex
+	limits  map[string]window
+}
+type window struct {
+	since time.Time
+	count int
+}
+
+func New(pool *pgxpool.Pool, cfg Config) *Server {
+	if cfg.Objects == nil {
+		cfg.Objects = objectstore.Local{Root: cfg.Storage}
+	}
+	return &Server{DB: pool, Config: cfg, uploads: make(chan struct{}, 2), pending: make(chan struct{}, maxPendingUploads), jobs: make(chan *uploadJob, maxPendingUploads), limits: map[string]window{}}
+}
+func ID() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
+}
+func hash(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
+func respond(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
+}
+func problem(w http.ResponseWriter, status int, code, msg string) {
+	respond(w, status, map[string]any{"code": code, "message": msg, "requestId": w.Header().Get("X-Request-ID"), "validationVersion": tja.Version})
+}
+func internal(w http.ResponseWriter, err error) {
+	log.Printf("request=%s error=%v", w.Header().Get("X-Request-ID"), err)
+	problem(w, 503, "SERVICE_UNAVAILABLE", "服务暂时不可用，请稍后重试")
+}
+func decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	return decodeLimit(w, r, v, 8192)
+}
+func decodeLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) bool {
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+		problem(w, 415, "CONTENT_TYPE_INVALID", "请使用 JSON 请求")
+		return false
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	d := json.NewDecoder(r.Body)
+	d.DisallowUnknownFields()
+	if err := d.Decode(v); err != nil {
+		problem(w, 400, "REQUEST_INVALID", "请求格式不正确")
+		return false
+	}
+	return true
+}
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { respond(w, 200, map[string]bool{"ok": true}) })
+	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+		if e := s.DB.Ping(ctx); e != nil {
+			internal(w, e)
+			return
+		}
+		respond(w, 200, map[string]bool{"ok": true})
+	})
+	mux.HandleFunc("GET /api/v1/upload-rules", func(w http.ResponseWriter, r *http.Request) {
+		respond(w, 200, map[string]any{"validationVersion": tja.Version, "maxTjaBytes": tja.MaxTJA, "maxAudioBytes": tja.MaxAudio, "maxCoverBytes": cover.MaxBytes, "coverExtensions": []string{".jpg", ".png", ".webp"}, "encodings": []string{"utf-8", "shift-jis"}, "audioCodecs": []string{"vorbis", "mp3"}, "audioExtensions": []string{".ogg", ".mp3"},
+			"maxMovieBytes": video.MaxBytes, "movieExtensions": []string{".mp4", ".webm", ".mov"},
+			"movieOutput": map[string]any{"codec": "h264", "extension": "." + video.Extension, "maxWidth": video.MaxWidth, "maxHeight": video.MaxHeight, "maxFps": video.MaxFPS, "maxKbps": video.MaxKbps, "audio": false}})
+	})
+	mux.HandleFunc("POST /api/v1/game/login", s.login)
+	mux.HandleFunc("GET /api/v1/game/catalog", s.gameCatalog)
+	mux.HandleFunc("GET /api/v1/categories", s.categories)
+	mux.HandleFunc("GET /api/v1/users", s.listUsers)
+	mux.HandleFunc("GET /api/v1/users/{id}", s.userSpace)
+	mux.HandleFunc("GET /api/v1/users/{id}/scores", s.userScores)
+	mux.HandleFunc("GET /api/v1/dans", s.listDans)
+	mux.HandleFunc("GET /api/v1/dans/{id}", s.danDetail)
+	mux.HandleFunc("POST /api/v1/dans", s.createDan)
+	mux.HandleFunc("PUT /api/v1/dans/{id}", s.updateDan)
+	mux.HandleFunc("DELETE /api/v1/dans/{id}", s.deleteDan)
+	mux.HandleFunc("PUT /api/v1/dans/{id}/official", s.markDanOfficial)
+	mux.HandleFunc("GET /api/v1/game/dans", s.gameDans)
+	mux.HandleFunc("POST /api/v1/game/dan-attempts", s.submitDanAttempt)
+	mux.HandleFunc("GET /api/v1/game/scores", s.gameScoreList)
+	mux.HandleFunc("GET /api/v1/game/playlists", s.gamePlaylistList)
+	mux.HandleFunc("POST /api/v1/game/scores", s.submitScore)
+	mux.HandleFunc("POST /api/v1/auth/email-code", s.retiredAccountAPI)
+	mux.HandleFunc("POST /api/v1/auth/register", s.retiredAccountAPI)
+	mux.HandleFunc("POST /api/v1/auth/login", s.retiredAccountAPI)
+	mux.HandleFunc("GET /api/v1/auth/sso/login", s.ssoLogin)
+	mux.HandleFunc("GET /api/v1/auth/sso/callback", s.ssoCallback)
+	mux.HandleFunc("GET /api/v1/auth/account/{page}", s.accountRedirect)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.logout)
+	mux.HandleFunc("GET /api/v1/me", s.me)
+	mux.HandleFunc("PATCH /api/v1/me", s.retiredAccountAPI)
+	mux.HandleFunc("POST /api/v1/scores", s.submitScore)
+	mux.HandleFunc("GET /api/v1/charts", s.list)
+	mux.HandleFunc("GET /api/v1/game/search", s.gameSearch)
+	mux.HandleFunc("GET /api/v1/me/charts", s.mine)
+	mux.HandleFunc("POST /api/v1/charts", s.upload)
+	mux.HandleFunc("GET /api/v1/charts/{id}", s.detail)
+	mux.HandleFunc("GET /api/v1/charts/{id}/cover", s.getCover)
+	mux.HandleFunc("PUT /api/v1/charts/{id}/cover", s.replaceCover)
+	mux.HandleFunc("GET /api/v1/charts/{id}/leaderboard", s.leaderboard)
+	mux.HandleFunc("PATCH /api/v1/charts/{id}", s.editMetadata)
+	mux.HandleFunc("PUT /api/v1/charts/{id}/files", s.upload)
+	mux.HandleFunc("DELETE /api/v1/charts/{id}", s.remove)
+	mux.HandleFunc("PUT /api/v1/charts/{id}/vote", s.voteChart)
+	mux.HandleFunc("GET /api/v1/charts/{id}/comments", s.chartComments)
+	mux.HandleFunc("POST /api/v1/charts/{id}/comments", s.createComment)
+	mux.HandleFunc("GET /api/v1/comments/{id}", s.commentThread)
+	mux.HandleFunc("PATCH /api/v1/comments/{id}", s.editComment)
+	mux.HandleFunc("DELETE /api/v1/comments/{id}", s.deleteComment)
+	mux.HandleFunc("PUT /api/v1/comments/{id}/vote", s.voteComment)
+	mux.HandleFunc("GET /api/v1/users/{id}/comments", s.userComments)
+	mux.HandleFunc("POST /api/v1/charts/{id}/collaborations", s.inviteCollaborator)
+	mux.HandleFunc("DELETE /api/v1/charts/{id}/owners/me", s.leaveChart)
+	mux.HandleFunc("POST /api/v1/me/notifications/{id}/respond", s.respondCollaboration)
+	mux.HandleFunc("GET /api/v1/me/notifications", s.listNotifications)
+	mux.HandleFunc("GET /api/v1/me/notifications/unread", s.unreadNotifications)
+	mux.HandleFunc("POST /api/v1/me/notifications/read", s.readAllNotifications)
+	mux.HandleFunc("PATCH /api/v1/me/notifications/{id}", s.markNotification)
+	mux.HandleFunc("DELETE /api/v1/me/notifications/{id}", s.dismissNotification)
+	mux.HandleFunc("GET /api/v1/me/notification-settings", s.notificationSettings)
+	mux.HandleFunc("PUT /api/v1/me/notification-settings", s.updateNotificationSettings)
+	mux.HandleFunc("GET /api/v1/playlists", s.listPlaylists)
+	mux.HandleFunc("POST /api/v1/playlists", s.createPlaylist)
+	mux.HandleFunc("GET /api/v1/playlists/system", s.listSystemPlaylists)
+	mux.HandleFunc("GET /api/v1/me/playlists", s.myPlaylists)
+	mux.HandleFunc("GET /api/v1/playlists/{id}", s.playlistDetail)
+	mux.HandleFunc("PATCH /api/v1/playlists/{id}", s.editPlaylist)
+	mux.HandleFunc("DELETE /api/v1/playlists/{id}", s.deletePlaylist)
+	mux.HandleFunc("GET /api/v1/playlists/{id}/cover", s.getPlaylistCover)
+	mux.HandleFunc("PUT /api/v1/playlists/{id}/cover", s.replacePlaylistCover)
+	mux.HandleFunc("DELETE /api/v1/playlists/{id}/cover", s.removePlaylistCover)
+	mux.HandleFunc("PUT /api/v1/playlists/{id}/items/{chart}", s.addPlaylistItem)
+	mux.HandleFunc("DELETE /api/v1/playlists/{id}/items/{chart}", s.removePlaylistItem)
+	mux.HandleFunc("PUT /api/v1/playlists/{id}/order", s.orderPlaylist)
+	mux.HandleFunc("PUT /api/v1/playlists/{id}/favorite", s.favoritePlaylist)
+	mux.HandleFunc("DELETE /api/v1/playlists/{id}/favorite", s.unfavoritePlaylist)
+	mux.HandleFunc("GET /api/v1/charts/{id}/{kind}", s.download)
+	mux.HandleFunc("GET /api/v1/charts/{id}/audio", s.streamAudio)
+	mux.HandleFunc("GET /api/v1/charts/{id}/resources", s.resourceLinks)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-ID", ID())
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		if s.Config.GameOnly && (strings.HasPrefix(r.URL.Path, "/api/v1/auth/") || strings.HasPrefix(r.URL.Path, "/api/v1/me") || ((r.Method != "GET" && r.Method != "HEAD") && !isGameRequest(r))) {
+			problem(w, 404, "GAME_ONLY", "此测试入口仅提供游戏 API")
+			return
+		}
+		if r.Method != "GET" && r.Method != "HEAD" {
+			if (isGameRequest(r) && r.Header.Get("Origin") != "") || (!isGameRequest(r) && r.Header.Get("Origin") != s.Config.Origin) {
+				problem(w, 403, "ORIGIN_INVALID", "请求来源无效，请从本站页面操作")
+				return
+			}
+		}
+		if (r.Method != "GET" && r.Method != "HEAD") || r.URL.Path == "/api/v1/auth/sso/login" {
+			host := s.clientIP(r)
+			s.mu.Lock()
+			now := time.Now()
+			for k, v := range s.limits {
+				if now.Sub(v.since) > time.Minute {
+					delete(s.limits, k)
+				}
+			}
+			limit := s.limits[host]
+			if limit.since.IsZero() {
+				limit.since = now
+			}
+			limit.count++
+			s.limits[host] = limit
+			s.mu.Unlock()
+			if limit.count > 40 {
+				problem(w, 429, "RATE_LIMITED", "操作过于频繁，请稍后再试")
+				return
+			}
+		}
+		defer func() {
+			if e := recover(); e != nil {
+				log.Printf("panic: %v", e)
+				problem(w, 500, "INTERNAL_ERROR", "服务内部错误")
+			}
+		}()
+		mux.ServeHTTP(w, r)
+	})
+}
+func (s *Server) EnsureStorage() error {
+	if s.Config.Storage == "" {
+		return errors.New("storage directory required")
+	}
+	return os.MkdirAll(s.Config.Storage, 0700)
+}

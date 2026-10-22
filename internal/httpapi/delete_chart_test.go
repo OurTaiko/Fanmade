@@ -1,0 +1,110 @@
+package httpapi
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"ourtaiko.dev/fanmade/api/internal/teststore"
+)
+
+func TestDeleteChartRemovesScoresRowAndUnsharedFiles(t *testing.T) {
+	pool := scoreTestDB(t)
+	ctx := context.Background()
+	const owner, other = "d46774d30dd13b92d9e536808da468a4", "9b893bc6d9422c93536ff0df503b81e9"
+	tokens := map[string]string{owner: strings.Repeat("1", 64), other: strings.Repeat("2", 64)}
+	if _, err := pool.Exec(ctx, `INSERT INTO users(id,username,password_hash,is_admin) VALUES($1,'owner','unused',false),($2,'other','unused',false)`, owner, other); err != nil {
+		t.Fatal(err)
+	}
+	for id, token := range tokens {
+		if _, err := pool.Exec(ctx, `INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at) VALUES($1,$2,'csrf',now()+interval '1 day')`, hash(token), id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := teststore.New(t)
+	// "shared" is the deleted song's audio and also the kept song's audio.
+	keys := []string{"gone/tja", "shared", "gone/cover", "gone/preview", "kept/tja"}
+	for _, key := range keys {
+		teststore.Seed(t, store, key, []byte("test file data"))
+	}
+	_, err := pool.Exec(ctx, `BEGIN;
+ INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file,cover_file,preview_file) VALUES
+  ('gone',ARRAY['`+owner+`'],'Gone',120,10,test_file('gone/tja','a.tja',repeat('a',64),14),test_file('shared','a.ogg',repeat('a',64),14),
+   test_file('gone/cover','cover.webp',repeat('a',64),14),test_file('gone/preview','preview.ogg',repeat('a',64),14)),
+  ('kept',ARRAY['`+owner+`'],'Kept',120,10,test_file('kept/tja','a.tja',repeat('a',64),14),test_file('shared','a.ogg',repeat('a',64),14),NULL,NULL);
+ COMMIT;`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO upload_requests(user_id,idempotency_key,payload_digest,chart_id,tja_sha256,audio_sha256) VALUES($1,'gone-upload-receipt',repeat('a',64),'gone',repeat('a',64),repeat('a',64))`, owner); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []struct{ id, user, song string }{{"s1", owner, "gone"}, {"s2", other, "gone"}, {"s3", other, "kept"}} {
+		if _, err = pool.Exec(ctx, `INSERT INTO scores(id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,payload_digest) VALUES($1,$2,test_slot($3,'Oni'),1,0,0,1000,0,1,repeat('a',64))`, s.id, s.user, s.song); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler := testServer(t, pool, Config{Objects: store, Storage: t.TempDir(), Origin: "http://localhost"}).Handler()
+	remove := func(actor string) int {
+		r := httptest.NewRequest("DELETE", "/api/v1/charts/gone", nil)
+		r.Header.Set("Origin", "http://localhost")
+		r.Header.Set("X-CSRF-Token", "csrf")
+		r.AddCookie(&http.Cookie{Name: "ourtaiko_session", Value: tokens[actor]})
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w.Code
+	}
+	count := func(query string, args ...any) int {
+		t.Helper()
+		var n int
+		if err := pool.QueryRow(ctx, query, args...).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	exists := func(key string) bool {
+		f, err := store.Open(ctx, key)
+		if err == nil {
+			f.Close()
+		}
+		return err == nil
+	}
+	if code := remove(other); code != 403 {
+		t.Fatal("non-owner delete", code)
+	}
+	if count(`SELECT count(*) FROM scores`) != 3 || !exists("gone/tja") {
+		t.Fatal("rejected delete changed data")
+	}
+	if code := remove(owner); code != 200 {
+		t.Fatal("owner delete", code)
+	}
+	if count(`SELECT count(*) FROM scores`) != 1 || count(`SELECT count(*) FROM scores WHERE difficulty_id=test_slot('kept','Oni')`) != 1 || count(`SELECT count(*) FROM chart_difficulties WHERE chart_id='gone'`) != 0 {
+		t.Fatal("scores not limited to the deleted song")
+	}
+	if count(`SELECT count(*) FROM chart_resources WHERE storage_key LIKE 'gone/%'`) != 0 || count(`SELECT count(*) FROM chart_resources WHERE storage_key IN ('kept/tja','shared')`) != 2 {
+		t.Fatal("resources not limited to the deleted song")
+	}
+	if count(`SELECT count(*) FROM charts WHERE id='gone'`) != 0 || count(`SELECT count(*) FROM charts WHERE id='kept'`) != 1 {
+		t.Fatal("chart rows not limited to the deleted song")
+	}
+	// The upload receipt survives so a retried upload reports the removal.
+	if count(`SELECT count(*) FROM upload_requests WHERE idempotency_key='gone-upload-receipt' AND chart_id IS NULL`) != 1 {
+		t.Fatal("upload receipt not detached")
+	}
+	for _, key := range []string{"gone/tja", "gone/cover", "gone/preview"} {
+		if exists(key) {
+			t.Fatal("file retained", key)
+		}
+	}
+	if !exists("shared") || !exists("kept/tja") {
+		t.Fatal("deleted a file another song uses")
+	}
+	if count(`SELECT count(*) FROM retired_files`) != 0 {
+		t.Fatal("cleanup queue not drained")
+	}
+	if code := remove(owner); code != 404 {
+		t.Fatal("repeated delete", code)
+	}
+}

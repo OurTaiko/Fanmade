@@ -203,7 +203,7 @@ func (s *Server) checkDan(ctx context.Context, w http.ResponseWriter, in danInpu
 			title[language] = text
 		}
 	}
-	if len(title) == 0 || in.Color < 0 || in.Color > 7 || len(in.Songs) == 0 || len(in.Songs) > danMaxSongs {
+	if len(title) == 0 || in.Color < 0 || in.Color > 6 || len(in.Songs) == 0 || len(in.Songs) > danMaxSongs {
 		problem(w, 422, "DAN_INVALID", "段位需要名称和 1–3 首歌曲")
 		return nil, nil, nil, nil, false
 	}

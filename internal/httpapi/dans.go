@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -20,6 +21,10 @@ import (
 // OurTaikoProfile for the titles and 段位 badge they earn.
 
 const danMaxSongs = 3
+
+// A player publishes at most this many courses that are not official; the ones administrators
+// mark official do not count.
+const danCommunityLimit = 10
 
 var danLanguages = map[string]bool{"ja": true, "en": true, "zh": true, "zh_tw": true, "ko": true}
 var danExamTypes = map[string]bool{"gauge": true, "good": true, "ok": true, "bad": true, "hits": true, "score": true, "combo": true, "rolls": true}
@@ -180,8 +185,9 @@ type danSongRow struct {
 	hidden                bool
 }
 
-// checkDan validates a course from the website and pins each song to the TJA its chart has now.
-func (s *Server) checkDan(ctx context.Context, w http.ResponseWriter, in danInput) (map[string]string, []danSongRow, json.RawMessage, json.RawMessage, bool) {
+// checkDan validates a course from the website (made by owner) and pins each song to the TJA its
+// chart has now.
+func (s *Server) checkDan(ctx context.Context, w http.ResponseWriter, in danInput, owner string) (map[string]string, []danSongRow, json.RawMessage, json.RawMessage, bool) {
 	title := map[string]string{}
 	for language, text := range in.Title {
 		text = strings.TrimSpace(text)
@@ -207,6 +213,9 @@ func (s *Server) checkDan(ctx context.Context, w http.ResponseWriter, in danInpu
 		problem(w, 422, "DAN_REWARDS_INVALID", "奖励设置无效")
 		return nil, nil, nil, nil, false
 	}
+	if !s.checkDanTitles(ctx, w, rewards, owner) {
+		return nil, nil, nil, nil, false
+	}
 	songs := []danSongRow{}
 	for _, song := range in.Songs {
 		if !danCourses[song.Course] {
@@ -227,6 +236,48 @@ func (s *Server) checkDan(ctx context.Context, w http.ResponseWriter, in danInpu
 		songs = append(songs, danSongRow{chartID: song.ChartID, course: song.Course, hash: hash, hidden: song.Hidden})
 	}
 	return title, songs, exams, rewards, true
+}
+
+// checkDanTitles makes sure each reward title is one the course can give: it is on
+// OurTaikoProfile, and official or a community title of the course's maker (or of Profile's
+// administrators). An official title on a course that is not official yet is accepted: Profile
+// gives it once the course is. Without Profile, or while it does not answer, titles are not
+// checked; Profile skips the ones it cannot give.
+func (s *Server) checkDanTitles(ctx context.Context, w http.ResponseWriter, rewards json.RawMessage, owner string) bool {
+	var r danRewards
+	json.Unmarshal(rewards, &r)
+	if s.Config.Profile == nil || len(r.Titles) == 0 {
+		return true
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	// A title made a moment ago may not be in the kept catalog yet: one more look before saying no.
+	for _, fresh := range []bool{false, true} {
+		titles, err := s.Config.Profile.Titles(ctx, fresh)
+		if err != nil {
+			log.Printf("dan reward titles not checked: %v", err)
+			return true
+		}
+		code, message, id := "", "", ""
+		for _, reward := range r.Titles {
+			title, found := titles[reward.ID]
+			if !found {
+				code, message, id = "DAN_TITLE_NOT_FOUND", "称号不存在：", reward.ID
+				break
+			}
+			if !title.Official && title.OwnerID != nil && *title.OwnerID != owner {
+				code, message, id = "DAN_TITLE_NOT_OWNED", "只能使用段位创建者自己的社区称号或官方称号：", reward.ID
+				break
+			}
+		}
+		if code == "" {
+			return true
+		}
+		if fresh {
+			problem(w, 422, code, message+id)
+		}
+	}
+	return false
 }
 
 const danColumns = `d.id,d.owner_id,d.title,d.color,d.official,d.exams,d.rewards,d.created_at,d.updated_at`
@@ -351,7 +402,7 @@ func (s *Server) createDan(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	title, songs, exams, rewards, ok := s.checkDan(r.Context(), w, in)
+	title, songs, exams, rewards, ok := s.checkDan(r.Context(), w, in, u.User.ID)
 	if !ok {
 		return
 	}
@@ -363,6 +414,20 @@ func (s *Server) createDan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
+	// A player's courses one at a time, so two requests cannot both take the last place.
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('dan-courses:'||$1,0))`, u.User.ID); err != nil {
+		internal(w, err)
+		return
+	}
+	var count int
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM dan_courses WHERE owner_id=$1 AND status='published' AND NOT official`, u.User.ID).Scan(&count); err != nil {
+		internal(w, err)
+		return
+	}
+	if count >= danCommunityLimit {
+		problem(w, 409, "DAN_LIMIT_REACHED", "每人最多发布 10 个非官方段位")
+		return
+	}
 	var id int64
 	if err = tx.QueryRow(ctx, `INSERT INTO dan_courses(owner_id,title,color,exams,rewards) VALUES($1,$2,$3,$4,$5) RETURNING id`, u.User.ID, titleJSON, in.Color, exams, rewards).Scan(&id); err != nil {
 		internal(w, err)
@@ -384,11 +449,11 @@ func (s *Server) createDan(w http.ResponseWriter, r *http.Request) {
 	respond(w, 201, courses[0])
 }
 
-// ownDan is the course for its owner or an administrator to change.
-func (s *Server) ownDan(w http.ResponseWriter, r *http.Request) (session, int64, bool) {
+// ownDan is the course (and its maker) for its owner or an administrator to change.
+func (s *Server) ownDan(w http.ResponseWriter, r *http.Request) (session, int64, string, bool) {
 	u, ok := s.required(w, r, true)
 	if !ok {
-		return u, 0, false
+		return u, 0, "", false
 	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	var owner string
@@ -401,17 +466,17 @@ func (s *Server) ownDan(w http.ResponseWriter, r *http.Request) (session, int64,
 		} else {
 			internal(w, err)
 		}
-		return u, 0, false
+		return u, 0, "", false
 	}
 	if owner != u.User.ID && !u.User.IsAdmin {
 		problem(w, 403, "FORBIDDEN", "只有创建者或管理员可以修改")
-		return u, 0, false
+		return u, 0, "", false
 	}
-	return u, id, true
+	return u, id, owner, true
 }
 
 func (s *Server) updateDan(w http.ResponseWriter, r *http.Request) {
-	_, id, ok := s.ownDan(w, r)
+	_, id, owner, ok := s.ownDan(w, r)
 	if !ok {
 		return
 	}
@@ -419,7 +484,7 @@ func (s *Server) updateDan(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	title, songs, exams, rewards, ok := s.checkDan(r.Context(), w, in)
+	title, songs, exams, rewards, ok := s.checkDan(r.Context(), w, in, owner)
 	if !ok {
 		return
 	}
@@ -453,7 +518,7 @@ func (s *Server) updateDan(w http.ResponseWriter, r *http.Request) {
 
 // deleteDan takes a course off the lists; its attempts stay recorded.
 func (s *Server) deleteDan(w http.ResponseWriter, r *http.Request) {
-	_, id, ok := s.ownDan(w, r)
+	_, id, _, ok := s.ownDan(w, r)
 	if !ok {
 		return
 	}
@@ -515,8 +580,9 @@ type DanAttempt struct {
 // submitDanAttempt is POST /api/v1/game/dan-attempts {courseId, verdict 0–6, songsPlayed}
 // with an Idempotency-Key, from a signed-in game. The result is trusted as single scores are.
 // When OurTaikoProfile is configured it is asked for what the attempt earns; its reply is kept,
-// and a retry of an attempt it did not answer asks again. The songs' own scores go to
-// POST /api/v1/game/scores as usual.
+// and a retry of an attempt it did not answer asks again (profileError: Profile could not be
+// reached or failed). profileRejected (Profile's error code) means it never will. The songs'
+// own scores go to POST /api/v1/game/scores as usual.
 func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.required(w, r, false)
 	if !ok {
@@ -575,7 +641,11 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 		reply["profile"] = json.RawMessage(granted)
 	} else if s.Config.Profile != nil {
 		answer, err := s.Config.Profile.Award(ctx, danAward(c, a, u.User.ID))
-		if err != nil {
+		var rejected *ProfileRejection
+		if errors.As(err, &rejected) {
+			// Profile will never take this attempt; without profileError the game stops sending it.
+			reply["profileRejected"] = rejected.Code
+		} else if err != nil {
 			reply["profileError"] = err.Error()
 		} else {
 			if _, err = s.DB.Exec(ctx, `UPDATE dan_attempts SET granted=$2 WHERE id=$1`, a.ID, []byte(answer)); err != nil {
@@ -589,9 +659,10 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 }
 
 // danAward is what Profile is asked to give for an attempt: the course's 段位 (official
-// courses only) and the reward titles whose level the verdict reached.
+// courses only) and the reward titles whose level the verdict reached. Profile gives a
+// player's community title only for that player's courses, so it is told who made the course.
 func danAward(c DanCourse, a DanAttempt, user string) AwardRequest {
-	request := AwardRequest{Key: a.ID, UserID: user, CourseID: c.ID, Official: c.Official, Verdict: a.Verdict, Titles: []string{}}
+	request := AwardRequest{Key: a.ID, UserID: user, CourseID: c.ID, CourseOwner: c.OwnerID, Official: c.Official, Verdict: a.Verdict, Titles: []string{}}
 	for _, language := range []string{"ja", "zh", "en", "ko", "zh_tw"} {
 		if title := c.Title[language]; title != "" {
 			request.CourseTitle = title

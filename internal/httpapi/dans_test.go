@@ -29,17 +29,36 @@ func TestDanCourses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// A stand-in OurTaikoProfile: records each award request and answers what it granted.
+	// A stand-in OurTaikoProfile: its title catalog, and each award request recorded and answered
+	// with what it granted.
 	var mu sync.Mutex
 	asked := []AwardRequest{}
-	var down atomic.Bool
+	var down, reject atomic.Bool
+	var catalogReads atomic.Int32
+	titles := []map[string]any{
+		{"id": "ten-dan", "official": false, "ownerId": alice},
+		{"id": "ten-dan-gold", "official": true, "ownerId": nil},
+		{"id": "shared", "official": false, "ownerId": nil},
+		{"id": "carols", "official": false, "ownerId": carol},
+	}
 	profile := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if down.Load() {
+			w.WriteHeader(503)
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/api/v1/titles" {
+			catalogReads.Add(1)
+			mu.Lock()
+			defer mu.Unlock()
+			respond(w, 200, map[string]any{"titles": titles})
+			return
+		}
 		if r.URL.Path != "/internal/v1/awards" || r.Header.Get("X-Service-ID") != "fanmade" || r.Header.Get("X-Service-Key") != strings.Repeat("k", 64) {
 			w.WriteHeader(401)
 			return
 		}
-		if down.Load() {
-			w.WriteHeader(503)
+		if reject.Load() {
+			respond(w, 422, map[string]string{"code": "AWARD_INVALID", "message": "奖励请求无效"})
 			return
 		}
 		var request AwardRequest
@@ -116,6 +135,29 @@ func TestDanCourses(t *testing.T) {
 		expect(call("POST", "/api/v1/dans", bad, alice), 422, nil)
 	}
 	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"course":"Oni","hidden"`, `"course":"Edit","hidden"`, 1), alice), 422, nil)
+
+	// Reward titles are on Profile, and official or the maker's own community titles.
+	var problemBody struct{ Code string }
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"ten-dan-gold"`, `"missing"`, 1), alice), 422, &problemBody)
+	if problemBody.Code != "DAN_TITLE_NOT_FOUND" {
+		t.Fatal(problemBody)
+	}
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"ten-dan-gold"`, `"carols"`, 1), alice), 422, &problemBody)
+	if problemBody.Code != "DAN_TITLE_NOT_OWNED" {
+		t.Fatal(problemBody)
+	}
+	reads := catalogReads.Load()
+	var withShared DanCourse
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"ten-dan-gold"`, `"shared"`, 1), alice), 201, &withShared)
+	if catalogReads.Load() != reads {
+		t.Fatal("the catalog is kept for a minute")
+	}
+	// A title made a moment ago is found by reading the catalog again.
+	mu.Lock()
+	titles = append(titles, map[string]any{"id": "brand-new", "official": false, "ownerId": alice})
+	mu.Unlock()
+	expect(call("PUT", "/api/v1/dans/"+withShared.ID, strings.Replace(course, `"ten-dan-gold"`, `"brand-new"`, 1), alice), 200, nil)
+	expect(call("DELETE", "/api/v1/dans/"+withShared.ID, "", alice), 200, nil)
 	var created DanCourse
 	expect(call("POST", "/api/v1/dans", course, alice), 201, &created)
 	if created.Official || created.Owner != "Alice" || created.Title["en"] != "10th Dan" || len(created.Songs) != 2 || !created.Songs[1].Hidden ||
@@ -151,7 +193,7 @@ func TestDanCourses(t *testing.T) {
 
 	// Not official yet: the titles come, no 段位.
 	reply := attempt("attempt-key-0001", `{"courseId":"`+created.ID+`","verdict":5,"songsPlayed":2}`, 200)
-	if len(asked) != 1 || asked[0].Official || asked[0].Dan != nil || strings.Join(asked[0].Titles, ",") != "ten-dan,ten-dan-gold" || asked[0].CourseTitle != "十段" || asked[0].UserID != carol {
+	if len(asked) != 1 || asked[0].Official || asked[0].Dan != nil || strings.Join(asked[0].Titles, ",") != "ten-dan,ten-dan-gold" || asked[0].CourseTitle != "十段" || asked[0].UserID != carol || asked[0].CourseOwner != alice {
 		t.Fatalf("award request %+v", asked)
 	}
 	if !strings.Contains(string(reply["profile"]), `"granted"`) {
@@ -183,6 +225,13 @@ func TestDanCourses(t *testing.T) {
 	if len(asked) != 3 || asked[2].Verdict != 0 || len(asked[2].Titles) != 0 || string(retried["profile"]) == "null" {
 		t.Fatal("retried award", asked, retried)
 	}
+	// When Profile turns the request down for good, the game is told to stop sending it.
+	reject.Store(true)
+	refused := attempt("attempt-key-0004", `{"courseId":"`+created.ID+`","verdict":1,"songsPlayed":2}`, 200)
+	reject.Store(false)
+	if string(refused["profile"]) != "null" || len(refused["profileError"]) != 0 || string(refused["profileRejected"]) != `"AWARD_INVALID"` {
+		t.Fatal("rejected", refused)
+	}
 
 	// A replaced chart leaves the course listed but unplayable.
 	if _, err = pool.Exec(ctx, `UPDATE charts SET tja_file=test_file('tja-a2','a.tja',repeat('e',64),1) WHERE id=$1`, songA); err != nil {
@@ -213,4 +262,25 @@ func TestDanCourses(t *testing.T) {
 		io.WriteString(io.Discard, w.Body.String())
 		t.Fatal(w.Code)
 	}
+
+	// While Profile does not answer, titles are not checked (Profile skips what it cannot give).
+	down.Store(true)
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"ten-dan-gold"`, `"missing"`, 1), alice), 201, nil)
+	down.Store(false)
+
+	// At most ten courses that are not official each; an official one frees its place.
+	resetRateLimit(s)
+	plain := strings.Replace(course, `,"titles":[{"id":"ten-dan","on":"red"},{"id":"ten-dan-gold","on":"gold"}]`, ``, 1)
+	var first DanCourse
+	expect(call("POST", "/api/v1/dans", plain, carol), 201, &first)
+	for i := 1; i < danCommunityLimit; i++ {
+		expect(call("POST", "/api/v1/dans", plain, carol), 201, nil)
+	}
+	expect(call("POST", "/api/v1/dans", plain, carol), 409, &problemBody)
+	if problemBody.Code != "DAN_LIMIT_REACHED" {
+		t.Fatal(problemBody)
+	}
+	expect(call("PUT", "/api/v1/dans/"+first.ID+"/official", `{"official":true}`, boss), 200, nil)
+	expect(call("POST", "/api/v1/dans", plain, carol), 201, nil)
+	expect(call("POST", "/api/v1/dans", plain, carol), 409, nil)
 }

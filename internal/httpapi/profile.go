@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,10 +21,14 @@ type ProfileConfig struct {
 	URL, ServiceID, ServiceKey string
 }
 
-// ProfileClient calls POST /internal/v1/awards.
+// ProfileClient calls POST /internal/v1/awards and reads the title catalog.
 type ProfileClient struct {
 	config ProfileConfig
 	http   *http.Client
+
+	mu       sync.Mutex
+	titles   map[string]ProfileTitle
+	titlesAt time.Time
 }
 
 func NewProfile(cfg ProfileConfig) (*ProfileClient, error) {
@@ -44,6 +49,7 @@ type AwardRequest struct {
 	UserID      string   `json:"userId"`
 	CourseID    string   `json:"courseId"`
 	CourseTitle string   `json:"courseTitle"`
+	CourseOwner string   `json:"courseOwnerId"`
 	Official    bool     `json:"official"`
 	Verdict     int      `json:"verdict"`
 	Dan         *int     `json:"dan"`
@@ -72,8 +78,65 @@ func (c *ProfileClient) Award(ctx context.Context, request AwardRequest) (json.R
 	if err != nil {
 		return nil, err
 	}
+	if res.StatusCode == 400 || res.StatusCode == 409 || res.StatusCode == 422 {
+		var problem struct {
+			Code string `json:"code"`
+		}
+		json.Unmarshal(body, &problem)
+		return nil, &ProfileRejection{Status: res.StatusCode, Code: problem.Code}
+	}
 	if res.StatusCode != 200 || !json.Valid(body) {
 		return nil, fmt.Errorf("OurTaikoProfile answered HTTP %d", res.StatusCode)
 	}
 	return body, nil
+}
+
+// ProfileRejection is Profile turning an award down for good because the request itself is
+// wrong, unlike Profile being unreachable or failing for a while: asking again cannot help.
+type ProfileRejection struct {
+	Status int
+	Code   string
+}
+
+func (e *ProfileRejection) Error() string {
+	return fmt.Sprintf("OurTaikoProfile rejected the award: HTTP %d %s", e.Status, e.Code)
+}
+
+// ProfileTitle is what a course needs to know of a title of Profile's catalog: whether it is
+// official, and the player who made it (none for the titles Profile's administrators keep).
+type ProfileTitle struct {
+	ID       string  `json:"id"`
+	Official bool    `json:"official"`
+	OwnerID  *string `json:"ownerId"`
+}
+
+// Titles is Profile's title catalog (GET /api/v1/titles) by id, kept for a minute; fresh reads
+// it again.
+func (c *ProfileClient) Titles(ctx context.Context, fresh bool) (map[string]ProfileTitle, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !fresh && c.titles != nil && time.Since(c.titlesAt) < time.Minute {
+		return c.titles, nil
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", c.config.URL+"/api/v1/titles", nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, errors.New("OurTaikoProfile unreachable")
+	}
+	defer res.Body.Close()
+	var catalog struct {
+		Titles []ProfileTitle `json:"titles"`
+	}
+	if res.StatusCode != 200 || json.NewDecoder(io.LimitReader(res.Body, 4<<20)).Decode(&catalog) != nil {
+		return nil, fmt.Errorf("OurTaikoProfile answered HTTP %d", res.StatusCode)
+	}
+	titles := make(map[string]ProfileTitle, len(catalog.Titles))
+	for _, title := range catalog.Titles {
+		titles[title.ID] = title
+	}
+	c.titles, c.titlesAt = titles, time.Now()
+	return titles, nil
 }

@@ -84,7 +84,7 @@ API、数据库结构、SSO、管理员、分类、多语言、S3 存储和游�
 
 后续功能：邮箱补绑与找回密码、管理员界面、评论收藏、自动清理与备份。示范版软删除后停止公开访问，保留数据库和资源供开发检查。上传失败通常自动清理；数据库 COMMIT 结果不确定或进程崩溃时保留文件供核对，暂未实现后台孤儿文件回收。请同时备份数据库和 `.data/files`。
 
-所有变更使用 Conventional Commits。远端仓库：[OurTaiko/Fanmade_Backend](https://github.com/OurTaiko/Fanmade_Backend)，使用 `ourtaiko` 远端管理。
+所有变更使用 Conventional Commits。远端仓库：[OurTaiko/Fanmade](https://github.com/OurTaiko/Fanmade)，使用 `ourtaiko` 远端管理。
 
 所有名称翻译统一保存在 `title_translations` / `subtitle_translations`（en/ja/zh/ko）。接口完整返回语言字典，由网页和游戏选择显示语言；`title` / `subtitle` 保留 TJA 原文。作者或管理员可用 `PATCH /api/v1/charts/{id}` 修改各语言名称、副标题，支持 null 从当前 TJA 恢复原值。修改只影响网站元数据和搜索，原始 TJA 与成绩不变；前端详情页已提供编辑弹窗。管理员配置说明（文档 `ADMIN.md`）。
 

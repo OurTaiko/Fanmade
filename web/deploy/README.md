@@ -13,7 +13,7 @@ Actions 的 **Deploy frontend → Run workflow** 中选择 `main` 手动重试�
 
 ## GitHub Secrets
 
-在 [前端仓库的 Actions Secrets 设置](https://github.com/OurTaiko/Fanmade_Frontend/settings/secrets/actions)
+在 [前端仓库的 Actions Secrets 设置](https://github.com/OurTaiko/Fanmade/settings/secrets/actions)
 选择 **New repository secret**，逐项添加：
 
 | Secret               | 必填 | 内容                                                                             |
@@ -23,7 +23,7 @@ Actions 的 **Deploy frontend → Run workflow** 中选择 `main` 手动重试�
 | `DEPLOY_PASSWORD`    | 是   | 对应用户的 SSH 登录密码                                                          |
 | `DEPLOY_FINGERPRINT` | 是   | SSH 主机公钥的 SHA256 指纹，包含 `SHA256:` 前缀                                  |
 | `DEPLOY_PORT`        | 否   | SSH 端口，默认 `22`                                                              |
-| `DEPLOY_BASE_PATH`   | 否   | 应用根目录，默认 `/opt/ourtaiko-fanmade`；源码位于其 `src/frontend`              |
+| `DEPLOY_BASE_PATH`   | 否   | 应用根目录，默认 `/opt/ourtaiko-fanmade`；源码位于其 `src/fanmade`              |
 | `DEPLOY_SITE_PATH`   | 否   | 1Panel 站点目录，默认 `/opt/1panel/www/sites/fanmade.ourtaiko.org`               |
 | `DEPLOY_GIT_REMOTE`  | 否   | **服务器上**的 Git 远端名，默认 `origin`；如服务器使用 `ourtaiko`，填 `ourtaiko` |
 
@@ -47,7 +47,7 @@ ECDSA 主机密钥，已经用同版本客户端及本机可信 `known_hosts` �
 - 沿用已经部署好的 Ubuntu / 1Panel / OpenResty 站点及 SPA 和 `/api/` 配置。
   该工作流负责更新前端，不初始化服务器。
 - SSH 端口能被 GitHub 托管 runner 访问，并允许部署用户通过密码登录。
-- 应用根目录下 `src/frontend` 是当前仓库的干净 `main` 分支，部署用户可写。
+- 应用根目录下 `src/fanmade` 是当前仓库的干净 `main` 分支，部署用户可写。
   该用户已经能够无需交互拉取 GitHub 仓库及 TJARenderer 子模块。
   GitHub Actions 的登录密码不提供服务器到 GitHub 的访问权限；私有仓库需在服务器
   配置已有的只读 deploy key 等 Git 凭据。
@@ -72,7 +72,7 @@ ECDSA 主机密钥，已经用同版本客户端及本机可信 `known_hosts` �
 仍可直接在服务器手动更新最新 `main`：
 
 ```sh
-bash /opt/ourtaiko-fanmade/src/frontend/deploy/publish.sh
+bash /opt/ourtaiko-fanmade/src/fanmade/deploy/publish.sh
 ```
 
 使用自定义目录或远端时，手动执行也需设置对应的 `DEPLOY_BASE_PATH`、

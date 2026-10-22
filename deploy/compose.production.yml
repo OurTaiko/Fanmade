@@ -2,7 +2,7 @@ name: ourtaiko-fanmade
 services:
   fanmade:
     image: ourtaiko-fanmade:release
-    build: ${FANMADE_SOURCE_DIR:-/opt/ourtaiko-fanmade/src/frontend}
+    build: ${FANMADE_SOURCE_DIR:-/opt/ourtaiko-fanmade/src/fanmade}
     container_name: ourtaiko-fanmade
     restart: unless-stopped
     env_file:

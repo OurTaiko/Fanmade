@@ -3,7 +3,7 @@ set -euo pipefail
 base=${DEPLOY_BASE_PATH:-/opt/ourtaiko-fanmade}
 remote=${DEPLOY_GIT_REMOTE:-origin}
 export GIT_TERMINAL_PROMPT=0
-cd "$base/src/frontend"
+cd "$base/src/fanmade"
 
 # Serialize automatic and manual deployments before changing the checkout.
 exec 9>"$(git rev-parse --git-path fanmade-publish.lock)"

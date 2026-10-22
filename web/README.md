@@ -2,9 +2,9 @@
 
 React + TypeScript + Vite 前端，独立 Git 仓库。**仅使用 pnpm**，提交 `pnpm-lock.yaml`；包管理器版本记录在 package.json。Go / PostgreSQL 后端位于相邻的 `../backend` 独立仓库。
 
-远端仓库：[OurTaiko/Fanmade_Frontend](https://github.com/OurTaiko/Fanmade_Frontend)，使用 `ourtaiko` 远端管理。
+远端仓库：[OurTaiko/Fanmade](https://github.com/OurTaiko/Fanmade)，使用 `ourtaiko` 远端管理。
 
-生产服务器通过 Git 拉取本仓库及 TJARenderer 子模块，使用 pnpm 构建，1Panel OpenResty 提供静态文件和同域 `/api/`。服务器更新入口为 `bash /opt/ourtaiko-fanmade/src/frontend/deploy/publish.sh`，按 Git 版本保存构建并切换站点目录；不会启动 Vite 开发服务。完整部署路径记录在私有仓库 OurTaikoLogs 的 `FanmadeBackend/docs/DEPLOYMENT.md`。
+生产由同一个 Go 程序提供内嵌网站和 `/api/`，1Panel OpenResty 转发全站请求。CI 构建统一 Docker 镜像并传输到服务器发布；服务器更新入口为 `bash /opt/ourtaiko-fanmade/src/fanmade/deploy/publish.sh`。完整部署路径记录在私有仓库 OurTaikoLogs 的 `FanmadeBackend/docs/DEPLOYMENT.md`。
 
 推送 `main` 后，GitHub Actions 会先执行 lint、单元测试和生产构建，再通过 SSH 自动发布本次提交。服务器地址、用户名、密码和主机指纹通过 GitHub Secrets 配置，详见 [前端自动部署说明](deploy/README.md)。
 

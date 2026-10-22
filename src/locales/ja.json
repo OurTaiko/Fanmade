@@ -465,7 +465,10 @@
     "PLAYLIST_FULL": "1 つのプレイリストに登録できるのは 500 曲までです。",
     "PLAYLIST_CHANGED": "プレイリストの内容が変更されました。更新してからもう一度お試しください。",
     "OWN_PLAYLIST": "自分のプレイリストはお気に入りに追加できません。",
-    "FAVORITE_LIMIT": "お気に入りに追加できるプレイリストは 200 個までです。"
+    "FAVORITE_LIMIT": "お気に入りに追加できるプレイリストは 200 個までです。",
+    "DAN_TITLE_NOT_FOUND": "その称号は OurTaiko Profile にありません。",
+    "DAN_TITLE_NOT_OWNED": "使えるのは段位の作成者自身のコミュニティ称号か公式称号だけです。",
+    "DAN_LIMIT_REACHED": "公式でない段位は 1 人 10 個までです。"
   },
   "interactions": {
     "upvote": "高評価",
@@ -764,10 +767,9 @@
       "less": "未満"
     },
     "rewards": "報酬",
-    "rewardsExplained": "段位バッジは公式段位のみ。称号には OurTaiko Profile の称号 ID を入れ、選んだ結果以上で付与します。コミュニティ段位はコミュニティ称号のみ付与できます。",
+    "rewardsExplained": "段位バッジは公式段位でのみ授与されます。称号は OurTaiko Profile から選び、選んだ結果以上で授与されます。段位の作成者自身のコミュニティ称号か公式称号を使えます。公式称号は段位が公式になってから授与されます。",
     "rewardDan": "段位バッジ：{{dan}}",
     "rewardDanNeedsOfficial": "（公式にすると有効）",
-    "rewardTitle": "称号 {{title}}：{{level}}",
     "noRewards": "報酬はありません。",
     "rewardDanLabel": "段位バッジ",
     "noDan": "なし",
@@ -775,7 +777,7 @@
     "rewardLevel": "付与条件",
     "addReward": "称号を追加",
     "removeReward": "称号を外す",
-    "titleCatalog": "OurTaiko Profile の称号一覧を見る",
+    "titleCatalog": "OurTaiko Profile で称号を作成・確認する",
     "levels": {
       "red": "赤合格以上",
       "red1": "赤合格以上",
@@ -803,7 +805,15 @@
     "unmarkOfficial": "公式を外す",
     "save": "保存",
     "cancel": "キャンセル",
-    "signInToEdit": "ログインしてください。"
+    "signInToEdit": "ログインしてください。",
+    "rewardTitleLabel": "称号",
+    "titleMissing": "（OurTaiko Profile にもうない称号のため授与されません）",
+    "titleNotUsable": "（他のプレイヤーのコミュニティ称号のため授与されません）",
+    "officialTitleLater": "公式称号：段位が公式になってから授与",
+    "titlesUnavailable": "OurTaiko Profile の称号を読み込めません。称号 ID を直接入力するか、後で再読み込みしてください。",
+    "reloadTitles": "称号を再読み込み",
+    "noUsableTitles": "使える称号がまだありません。",
+    "limitExplained": "公式でない段位は 1 人 {{limit}} 個まで公開できます。公式になった段位は数に含まれません。"
   },
   "ourtaikoProfile": {
     "view": "OurTaiko Profile ですべてのスコア・称号・段位を見る",

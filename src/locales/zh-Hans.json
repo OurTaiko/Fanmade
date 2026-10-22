@@ -465,7 +465,10 @@
     "PLAYLIST_FULL": "每个歌单最多收录 500 首歌曲。",
     "PLAYLIST_CHANGED": "歌单内容已变化，请刷新后重试。",
     "OWN_PLAYLIST": "不能收藏自己的歌单。",
-    "FAVORITE_LIMIT": "最多收藏 200 个歌单。"
+    "FAVORITE_LIMIT": "最多收藏 200 个歌单。",
+    "DAN_TITLE_NOT_FOUND": "OurTaiko Profile 上没有这个称号。",
+    "DAN_TITLE_NOT_OWNED": "只能使用段位创建者自己的社区称号或官方称号。",
+    "DAN_LIMIT_REACHED": "每人最多发布 10 个非官方段位。"
   },
   "interactions": {
     "upvote": "赞",
@@ -764,10 +767,9 @@
       "less": "未满"
     },
     "rewards": "奖励",
-    "rewardsExplained": "段位徽章只有官方段位会授予。称号填写 OurTaiko Profile 的称号 ID，达到所选结果时授予；社区段位只能授予社区称号。",
+    "rewardsExplained": "段位徽章只有官方段位会授予。称号从 OurTaiko Profile 选择，达到所选结果时授予：可以用段位创建者自己的社区称号和官方称号，官方称号要等段位标记为官方后才授予。",
     "rewardDan": "段位徽章：{{dan}}",
     "rewardDanNeedsOfficial": "（标记为官方后生效）",
-    "rewardTitle": "称号 {{title}}：{{level}}",
     "noRewards": "没有奖励。",
     "rewardDanLabel": "段位徽章",
     "noDan": "无",
@@ -775,7 +777,7 @@
     "rewardLevel": "授予条件",
     "addReward": "添加称号",
     "removeReward": "移除称号",
-    "titleCatalog": "查看 OurTaiko Profile 的称号目录",
+    "titleCatalog": "在 OurTaiko Profile 创建或查看称号",
     "levels": {
       "red": "赤合格以上",
       "red1": "赤合格以上",
@@ -803,7 +805,15 @@
     "unmarkOfficial": "取消官方",
     "save": "保存",
     "cancel": "取消",
-    "signInToEdit": "请先登录。"
+    "signInToEdit": "请先登录。",
+    "rewardTitleLabel": "称号",
+    "titleMissing": "（OurTaiko Profile 上已没有这个称号，不会授予）",
+    "titleNotUsable": "（这是别人的社区称号，不会授予）",
+    "officialTitleLater": "官方称号：段位标记为官方后才授予",
+    "titlesUnavailable": "暂时读不到 OurTaiko Profile 的称号，请直接填写称号 ID，或稍后刷新。",
+    "reloadTitles": "重新读取称号",
+    "noUsableTitles": "你还没有可用的称号。",
+    "limitExplained": "每人最多发布 {{limit}} 个非官方段位，被标记为官方的不计入。"
   },
   "ourtaikoProfile": {
     "view": "在 OurTaiko Profile 查看全部成绩、称号与段位",

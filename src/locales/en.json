@@ -468,7 +468,10 @@
     "PLAYLIST_FULL": "A playlist can hold up to 500 songs.",
     "PLAYLIST_CHANGED": "The playlist has changed. Refresh and try again.",
     "OWN_PLAYLIST": "You cannot favorite your own playlist.",
-    "FAVORITE_LIMIT": "You can favorite up to 200 playlists."
+    "FAVORITE_LIMIT": "You can favorite up to 200 playlists.",
+    "DAN_TITLE_NOT_FOUND": "That title is not on OurTaiko Profile.",
+    "DAN_TITLE_NOT_OWNED": "A course can only give its maker's own community titles or official titles.",
+    "DAN_LIMIT_REACHED": "Each player can publish up to 10 courses that are not official."
   },
   "interactions": {
     "upvote": "Upvote",
@@ -776,10 +779,9 @@
       "less": "less than"
     },
     "rewards": "Rewards",
-    "rewardsExplained": "Only official courses give a dan badge. Titles are OurTaiko Profile title IDs, given at the chosen result or better; community courses can give community titles only.",
+    "rewardsExplained": "Only official courses give a dan badge. Titles come from OurTaiko Profile and are given at the chosen result: the course maker's own community titles, or official titles, which are given once the course is official.",
     "rewardDan": "Dan badge: {{dan}}",
     "rewardDanNeedsOfficial": "(once marked official)",
-    "rewardTitle": "Title {{title}}: {{level}}",
     "noRewards": "No rewards.",
     "rewardDanLabel": "Dan badge",
     "noDan": "None",
@@ -787,7 +789,7 @@
     "rewardLevel": "Given at",
     "addReward": "Add a title",
     "removeReward": "Remove the title",
-    "titleCatalog": "See the title catalog on OurTaiko Profile",
+    "titleCatalog": "Make or browse titles on OurTaiko Profile",
     "levels": {
       "red": "Red pass or better",
       "red1": "Red pass or better",
@@ -815,7 +817,15 @@
     "unmarkOfficial": "Unmark official",
     "save": "Save",
     "cancel": "Cancel",
-    "signInToEdit": "Please sign in first."
+    "signInToEdit": "Please sign in first.",
+    "rewardTitleLabel": "Title",
+    "titleMissing": "(no longer on OurTaiko Profile; not given)",
+    "titleNotUsable": "(another player's community title; not given)",
+    "officialTitleLater": "Official title: given once the course is official",
+    "titlesUnavailable": "OurTaiko Profile's titles cannot be read right now. Enter title IDs, or reload later.",
+    "reloadTitles": "Reload titles",
+    "noUsableTitles": "You have no titles to give yet.",
+    "limitExplained": "Each player can publish up to {{limit}} courses that are not official; official ones do not count."
   },
   "ourtaikoProfile": {
     "view": "All scores, titles and dan on OurTaiko Profile",

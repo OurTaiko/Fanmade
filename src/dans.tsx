@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  ArrowClockwiseIcon,
   MedalIcon,
   PencilSimpleIcon,
   PlusIcon,
@@ -24,6 +25,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Modal, Notice } from '@/notifications'
+import {
+  TitleBand,
+  profileTitlesPage,
+  titleText,
+  titleUsableBy,
+  useProfileTitles,
+} from '@/profile-titles'
 import { useSession } from '@/session-context'
 import { cn } from '@/lib/utils'
 
@@ -62,6 +70,8 @@ const examTypes = ['gauge', 'good', 'ok', 'bad', 'hits', 'score', 'combo', 'roll
 const rewardLevels = ['red', 'red2', 'red3', 'gold', 'gold5', 'gold6'] as const
 const courses = ['Easy', 'Normal', 'Hard', 'Oni', 'Edit'] as const
 const colors = [0, 1, 2, 3, 4, 5, 6, 7] as const
+// A player publishes at most this many courses that are not official.
+const communityLimit = 10
 
 // The course's name in the page's language, else Japanese, else any.
 export function danTitle(title: Record<string, string>, language?: string) {
@@ -220,6 +230,7 @@ export function DanPage() {
   const [dan, setDan] = useState<Dan | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const { titles: profileTitles } = useProfileTitles()
   useEffect(() => {
     const controller = new AbortController()
     api<Dan>(endpoints.dan(id), { signal: controller.signal })
@@ -314,11 +325,30 @@ export function DanPage() {
                   )}
                 </li>
               )}
-              {(dan.rewards.titles ?? []).map((title) => (
-                <li key={title.id + title.on}>
-                  {t('dans.rewardTitle', { title: title.id, level: t(`dans.levels.${title.on}`) })}
-                </li>
-              ))}
+              {(dan.rewards.titles ?? []).map((reward) => {
+                const title = profileTitles?.find((p) => p.id === reward.id)
+                return (
+                  <li key={reward.id + reward.on} className="flex flex-wrap items-center gap-2">
+                    {title ? (
+                      <TitleBand title={title} language={i18n.resolvedLanguage} />
+                    ) : (
+                      <code className="text-xs">{reward.id}</code>
+                    )}
+                    <span>{t(`dans.levels.${reward.on}`)}</span>
+                    {title?.official && !dan.official && (
+                      <span className="text-muted-foreground">
+                        {t('dans.rewardDanNeedsOfficial')}
+                      </span>
+                    )}
+                    {profileTitles && !title && (
+                      <span className="text-destructive">{t('dans.titleMissing')}</span>
+                    )}
+                    {title && !titleUsableBy(title, dan.ownerId) && (
+                      <span className="text-destructive">{t('dans.titleNotUsable')}</span>
+                    )}
+                  </li>
+                )
+              })}
               {dan.rewards.dan === undefined && !dan.rewards.titles?.length && (
                 <li className="text-muted-foreground">{t('dans.noRewards')}</li>
               )}
@@ -500,14 +530,18 @@ export function DanEditorPage() {
   ])
   const [rewardDan, setRewardDan] = useState('none')
   const [rewardTitles, setRewardTitles] = useState<DanRewardTitle[]>([])
+  // Who made the course being changed (its titles must be theirs) and whether it is official.
+  const [made, setMade] = useState<{ owner: string; official: boolean } | null>(null)
   const [picking, setPicking] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const profile = useProfileTitles()
   useEffect(() => {
     if (!id) return
     const controller = new AbortController()
     api<Dan>(endpoints.dan(id), { signal: controller.signal })
       .then(async (dan) => {
+        setMade({ owner: dan.ownerId, official: dan.official })
         setTitles(dan.title)
         setColor(dan.color)
         setExams(toExamRows(dan.exams, dan.songs.length))
@@ -537,6 +571,20 @@ export function DanEditorPage() {
   }, [id])
   if (session.loading) return null
   if (!session.user) return <Notice>{t('dans.signInToEdit')}</Notice>
+  const owner = made?.owner ?? session.user.id
+  const official = made?.official ?? false
+  // The titles this course may give, and any it already names that it may not (kept so that
+  // saving shows why).
+  const usable = (profile.titles ?? []).filter((title) => titleUsableBy(title, owner))
+  const titleItems = (current: string) => {
+    const items = usable.map((title) => ({
+      value: title.id,
+      label: `${titleText(title, i18n.resolvedLanguage)}（${title.official ? t('dans.official') : t('dans.community')}）`,
+    }))
+    return current && !usable.some((title) => title.id === current)
+      ? [{ value: current, label: current }, ...items]
+      : items
+  }
   const setSongCount = (next: SongSlot[]) => {
     setSongs(next)
     setExams((rows) =>
@@ -579,6 +627,11 @@ export function DanEditorPage() {
       <h1 className="text-3xl font-bold tracking-tight">
         {id ? t('dans.editHeading') : t('dans.createHeading')}
       </h1>
+      {!id && (
+        <p className="text-sm text-muted-foreground">
+          {t('dans.limitExplained', { limit: communityLimit })}
+        </p>
+      )}
       {error && <Notice>{error}</Notice>}
       <Card className="rounded-3xl">
         <CardHeader>
@@ -823,58 +876,97 @@ export function DanEditorPage() {
               ...danNames.map((name, i) => ({ value: String(i), label: name })),
             ]}
           />
-          {rewardTitles.map((reward, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-3">
-              <Input
-                className="w-64 font-mono"
-                aria-label={t('dans.titleId')}
-                placeholder="taiko-master"
-                value={reward.id}
-                onChange={(e) =>
-                  setRewardTitles(
-                    rewardTitles.map((r, j) => (j === i ? { ...r, id: e.target.value.trim() } : r)),
-                  )
-                }
-              />
-              <ChoiceSelect
-                label={t('dans.rewardLevel')}
-                value={reward.on}
-                onValueChange={(v) =>
-                  setRewardTitles(
-                    rewardTitles.map((r, j) =>
-                      j === i ? { ...r, on: v as DanRewardTitle['on'] } : r,
-                    ),
-                  )
-                }
-                items={rewardLevels.map((level) => ({
-                  value: level,
-                  label: t(`dans.levels.${level}`),
-                }))}
-              />
+          {rewardTitles.map((reward, i) => {
+            const title = profile.titles?.find((p) => p.id === reward.id)
+            return (
+              <div key={i} className="flex flex-wrap items-center gap-3">
+                {profile.titles ? (
+                  <ChoiceSelect
+                    label={t('dans.rewardTitleLabel')}
+                    value={reward.id}
+                    onValueChange={(v) =>
+                      setRewardTitles(rewardTitles.map((r, j) => (j === i ? { ...r, id: v } : r)))
+                    }
+                    items={titleItems(reward.id)}
+                  />
+                ) : (
+                  <Input
+                    className="w-64 font-mono"
+                    aria-label={t('dans.titleId')}
+                    placeholder="taiko-master"
+                    value={reward.id}
+                    onChange={(e) =>
+                      setRewardTitles(
+                        rewardTitles.map((r, j) =>
+                          j === i ? { ...r, id: e.target.value.trim() } : r,
+                        ),
+                      )
+                    }
+                  />
+                )}
+                <ChoiceSelect
+                  label={t('dans.rewardLevel')}
+                  value={reward.on}
+                  onValueChange={(v) =>
+                    setRewardTitles(
+                      rewardTitles.map((r, j) =>
+                        j === i ? { ...r, on: v as DanRewardTitle['on'] } : r,
+                      ),
+                    )
+                  }
+                  items={rewardLevels.map((level) => ({
+                    value: level,
+                    label: t(`dans.levels.${level}`),
+                  }))}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t('dans.removeReward')}
+                  onClick={() => setRewardTitles(rewardTitles.filter((_, j) => j !== i))}
+                >
+                  <XIcon aria-hidden="true" />
+                </Button>
+                {title && <TitleBand title={title} language={i18n.resolvedLanguage} />}
+                {title?.official && !official && (
+                  <span className="text-xs text-muted-foreground">
+                    {t('dans.officialTitleLater')}
+                  </span>
+                )}
+                {title && !titleUsableBy(title, owner) && (
+                  <span className="text-xs text-destructive">{t('dans.titleNotUsable')}</span>
+                )}
+                {profile.titles && reward.id && !title && (
+                  <span className="text-xs text-destructive">{t('dans.titleMissing')}</span>
+                )}
+              </div>
+            )
+          })}
+          {profile.failed && <Notice>{t('dans.titlesUnavailable')}</Notice>}
+          <div className="flex flex-wrap items-center gap-3">
+            {rewardTitles.length < 10 && (
               <Button
                 type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t('dans.removeReward')}
-                onClick={() => setRewardTitles(rewardTitles.filter((_, j) => j !== i))}
+                variant="outline"
+                disabled={!!profile.titles && usable.length === 0}
+                onClick={() =>
+                  setRewardTitles([...rewardTitles, { id: usable[0]?.id ?? '', on: 'red' }])
+                }
               >
-                <XIcon aria-hidden="true" />
+                <PlusIcon aria-hidden="true" />
+                {t('dans.addReward')}
               </Button>
-            </div>
-          ))}
-          {rewardTitles.length < 10 && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setRewardTitles([...rewardTitles, { id: '', on: 'red' }])}
-            >
-              <PlusIcon aria-hidden="true" />
-              {t('dans.addReward')}
+            )}
+            <Button type="button" variant="ghost" onClick={profile.reload}>
+              <ArrowClockwiseIcon aria-hidden="true" />
+              {t('dans.reloadTitles')}
             </Button>
-          )}
+          </div>
           <p className="text-xs text-muted-foreground">
+            {profile.titles && usable.length === 0 && `${t('dans.noUsableTitles')} `}
             <a
-              href="https://profile.ourtaiko.org/titles"
+              href={profileTitlesPage}
               target="_blank"
               rel="noopener noreferrer"
               className="underline"

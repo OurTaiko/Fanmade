@@ -55,7 +55,15 @@ jobs:
 
       - name: Build unified image
         working-directory: .
-        run: docker build -t ourtaiko-fanmade:check .
+        run: docker build --label org.opencontainers.image.revision=${{ github.sha }} -t ourtaiko-fanmade:${{ github.sha }} .
+
+      - name: Package unified image
+        id: image
+        working-directory: .
+        run: |
+          docker save ourtaiko-fanmade:${{ github.sha }} | gzip -1 > fanmade-image.tar.gz
+          digest=$(sha256sum fanmade-image.tar.gz)
+          echo "sha256=${digest%% *}" >> "$GITHUB_OUTPUT"
 
       - name: Validate deployment secrets
         env:
@@ -70,6 +78,19 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Upload unified image
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
+        with:
+          version: v1.8.1
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          fingerprint: ${{ secrets.DEPLOY_FINGERPRINT }}
+          source: fanmade-image.tar.gz
+          target: ${{ secrets.DEPLOY_BASE_PATH || '/opt/ourtaiko-fanmade' }}/incoming/${{ github.sha }}
+          command_timeout: 15m
 
       - name: Prepare the publish script from this commit
         working-directory: .
@@ -87,6 +108,8 @@ jobs:
           DEPLOY_REVISION: ${{ github.sha }}
           DEPLOY_BASE_PATH: ${{ secrets.DEPLOY_BASE_PATH }}
           DEPLOY_GIT_REMOTE: ${{ secrets.DEPLOY_GIT_REMOTE }}
+          DEPLOY_IMAGE_ARCHIVE: ${{ secrets.DEPLOY_BASE_PATH || '/opt/ourtaiko-fanmade' }}/incoming/${{ github.sha }}/fanmade-image.tar.gz
+          DEPLOY_IMAGE_SHA256: ${{ steps.image.outputs.sha256 }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           port: ${{ secrets.DEPLOY_PORT || '22' }}
@@ -95,5 +118,5 @@ jobs:
           fingerprint: ${{ secrets.DEPLOY_FINGERPRINT }}
           version: '1.8.1'
           command_timeout: 30m
-          envs: DEPLOY_REVISION,DEPLOY_BASE_PATH,DEPLOY_GIT_REMOTE
+          envs: DEPLOY_REVISION,DEPLOY_BASE_PATH,DEPLOY_GIT_REMOTE,DEPLOY_IMAGE_ARCHIVE,DEPLOY_IMAGE_SHA256
           script_path: ${{ runner.temp }}/publish-fanmade.sh

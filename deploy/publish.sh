@@ -29,7 +29,23 @@ git lfs pull --include="web/public/edit/**"
 # Build both halves from the same commit before replacing the running service.
 export FANMADE_SOURCE_DIR="$PWD"
 compose="$PWD/deploy/compose.production.yml"
-sudo -n --preserve-env=FANMADE_SOURCE_DIR docker compose -f "$compose" build fanmade
+archive=${DEPLOY_IMAGE_ARCHIVE:-}
+if [ -n "$archive" ]; then
+  test "$archive" = "$base/incoming/$revision/fanmade-image.tar.gz"
+  [[ "${DEPLOY_IMAGE_SHA256:-}" =~ ^[0-9a-f]{64}$ ]]
+  actual=$(sha256sum -- "$archive")
+  test "${actual%% *}" = "$DEPLOY_IMAGE_SHA256" || { echo 'Image archive checksum mismatch'; exit 1; }
+  sudo -n docker load < "$archive"
+  label=$(sudo -n docker image inspect "ourtaiko-fanmade:$revision" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')
+  test "$label" = "$revision" || { echo 'Image revision mismatch'; exit 1; }
+  sudo -n docker tag "ourtaiko-fanmade:$revision" ourtaiko-fanmade:release
+else
+  sudo -n --preserve-env=FANMADE_SOURCE_DIR docker compose -f "$compose" build fanmade
+fi
 sudo -n --preserve-env=FANMADE_SOURCE_DIR docker compose -f "$compose" up -d --wait --no-deps fanmade
 curl -fsS http://127.0.0.1:8080/readyz
 echo "Published Fanmade $revision (API and website)"
+if [ -n "$archive" ]; then
+  rm -f -- "$archive"
+  rmdir -- "$(dirname "$archive")"
+fi

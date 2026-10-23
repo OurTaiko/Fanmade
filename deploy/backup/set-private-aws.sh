@@ -5,10 +5,10 @@
 set -euo pipefail
 host=${1:-ourtaiko-prod}
 
-read -rp 'Copy the Access key ID to the clipboard, then press Enter: '
+read -rsp 'Copy the Access key ID to the clipboard, then press Enter (do not paste here): '; echo
 id=$(pbpaste | tr -d '[:space:]')
 [[ "$id" =~ ^AKIA[A-Z0-9]{16}$ ]] || { echo 'That does not look like an access key ID (AKIA… 20 characters).' >&2; exit 1; }
-read -rp 'Copy the Secret access key to the clipboard, then press Enter: '
+read -rsp 'Copy the Secret access key to the clipboard, then press Enter (do not paste here): '; echo
 secret=$(pbpaste | tr -d '[:space:]')
 [[ ${#secret} -eq 40 ]] || { echo 'That does not look like a secret access key (40 characters).' >&2; exit 1; }
 

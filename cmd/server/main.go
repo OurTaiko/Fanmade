@@ -105,11 +105,14 @@ func main() {
 	// or broken tool is a deployment error, found now rather than at the first upload.
 	tja.Inspector = charthash.CLI{Bin: env("TJAPARSER_BIN", "tjaparser")}
 	tja.InspectDir = env("STORAGE_DIR", ".data/files")
-	if version, err := tja.Inspector.(charthash.CLI).Version(ctx); err != nil {
+	// Its own deadline: the start-up context above is cancelled once the database is migrated.
+	toolCtx, cancelTool := context.WithTimeout(context.Background(), 30*time.Second)
+	version, err := tja.Inspector.(charthash.CLI).Version(toolCtx)
+	cancelTool()
+	if err != nil {
 		log.Fatalf("tjaparser is not usable: %v", err)
-	} else {
-		log.Printf("tjaparser hash algorithm %s", version)
 	}
+	log.Printf("tjaparser hash algorithm %s", version)
 	app := httpapi.New(pool, httpapi.Config{Site: site, Profile: profile, GameOnly: os.Getenv("GAME_ONLY") == "true", Objects: objects, SSO: sso, TrustedProxies: proxies, Origin: env("APP_ORIGIN", "http://127.0.0.1:5173"), Storage: env("STORAGE_DIR", ".data/files"), CookieSecure: env("COOKIE_SECURE", "false") == "true"})
 	if err = app.EnsureStorage(); err != nil {
 		log.Fatal(err)

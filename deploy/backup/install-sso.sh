@@ -13,6 +13,7 @@ unit=ourtaiko-sso-backup
 test -x /usr/local/libexec/ourtaiko-fanmade-backup
 test -r /etc/ourtaiko-sso/docker/sso.env
 test -r /etc/ourtaiko-sso/backup.env
+test -r /etc/ourtaiko-private/aws.env
 if grep -q 'REPLACE_WITH_' /etc/ourtaiko-sso/backup.env; then
   echo 'Configure the private backup bucket before installation.' >&2
   exit 1

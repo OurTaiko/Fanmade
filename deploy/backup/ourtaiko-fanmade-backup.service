@@ -13,6 +13,8 @@ Group=root
 UMask=0077
 EnvironmentFile=/etc/ourtaiko-fanmade/docker/storage.env
 EnvironmentFile=/etc/ourtaiko-fanmade/backup.env
+# Last, so the shared private-bucket IAM user overrides the media credentials.
+EnvironmentFile=/etc/ourtaiko-private/aws.env
 ExecStart=/usr/local/libexec/ourtaiko-fanmade-backup
 TimeoutStartSec=2h
 Restart=on-failure

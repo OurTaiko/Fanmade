@@ -34,7 +34,7 @@ S3 失败会保留已验证的本地副本，不会清理旧备份。进程锁�
 ## 安装或更新
 
 要求 Linux/systemd、Docker（支持 BuildKit 本地输出）、现有 PostgreSQL 容器，
-以及 `/etc/ourtaiko-fanmade/docker/storage.env` 中的 S3 配置和凭据。
+以及 `/etc/ourtaiko-fanmade/docker/storage.env` 中的 S3 区域配置。写私有桶用的是私有桶通用 IAM 用户 `ourtaiko-private` 的密钥，放在 `/etc/ourtaiko-private/aws.env`（root 600，示例 `private-aws.env.example`），unit 最后加载它，覆盖应用媒体身份的密钥。在 Mac 上运行 `deploy/backup/set-private-aws.sh` 可从剪贴板写入或轮换这对密钥（不显示内容）。
 不需要安装 AWS CLI，也不需要给 API 容器挂载 Docker socket。
 
 ```sh

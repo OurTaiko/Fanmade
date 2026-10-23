@@ -15,6 +15,7 @@ if [[ "$active" != inactive && "$active" != failed && -n "$active" ]]; then
   exit 1
 fi
 test -r /etc/ourtaiko-fanmade/docker/storage.env
+test -r /etc/ourtaiko-private/aws.env
 build=$(mktemp -d)
 trap 'rm -rf -- "$build"' EXIT
 docker build --file "$repo/deploy/backup/Dockerfile" --output "type=local,dest=$build" "$repo"

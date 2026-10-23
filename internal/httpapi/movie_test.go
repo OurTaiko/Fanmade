@@ -135,7 +135,11 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 	if partial.MovieHash != "" || len(partial.FailedFiles) != 1 || partial.FailedFiles[0] != (fileFailure{"movie", "MOVIE_INVALID"}) {
 		t.Fatalf("undecodable movie: %+v", partial)
 	}
-	if data, err := read(partial.TJAHash + ".tja"); err != nil || !strings.Contains(string(data), "\nBGMOVIE:\nMOVIEOFFSET:-0.5\n") {
+	var partialKey string
+	if err = pool.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, partial.ID).Scan(&partialKey); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := read(partialKey); err != nil || !strings.Contains(string(data), "\nBGMOVIE:\nMOVIEOFFSET:-0.5\n") {
 		t.Fatal("stored TJA still declares the rejected movie", err)
 	}
 	remove := func(id string) int {
@@ -174,9 +178,17 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 	if err != nil || strings.TrimSpace(string(probe)) != "h264,video,1280,720,60/1" {
 		t.Fatalf("stored movie format %q %v", probe, err)
 	}
+	// The API no longer tells the stored TJA's hash; its storage key comes from the database.
+	tjaKey := func(id string) string {
+		var key string
+		if err := pool.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, id).Scan(&key); err != nil {
+			t.Fatal(err)
+		}
+		return key
+	}
 	text := get("/api/v1/charts/" + chart.ID + "/tja")
 	if remote {
-		data, err := read(chart.TJAHash + ".tja")
+		data, err := read(tjaKey(chart.ID))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -214,11 +226,12 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 	// A replacement that still declares BGMOVIE keeps the stored movie without a new upload.
 	files := "/api/v1/charts/" + chart.ID + "/files"
 	confirm := part{"confirmReset", "", []byte("true")}
+	originalKey := tjaKey(chart.ID)
 	kept := decode(send("PUT", files, ID(), tja("B", "BGMOVIE:renamed.webm\nMOVIEOFFSET:1.25\n"), confirm), 200)
-	if kept.MovieHash != chart.MovieHash || kept.MovieOffset != 1.25 || kept.Title != "B" || kept.TJAHash == chart.TJAHash {
+	if kept.MovieHash != chart.MovieHash || kept.MovieOffset != 1.25 || kept.Title != "B" || tjaKey(kept.ID) == originalKey {
 		t.Fatalf("movie not kept: %+v", kept)
 	}
-	if data, err := read(kept.TJAHash + ".tja"); err != nil || !strings.Contains(string(data), "\nBGMOVIE:"+chart.MovieHash+".mp4\n") {
+	if data, err := read(tjaKey(kept.ID)); err != nil || !strings.Contains(string(data), "\nBGMOVIE:"+chart.MovieHash+".mp4\n") {
 		t.Fatal("replacement TJA does not name the kept movie", err)
 	}
 	// Dropping BGMOVIE removes the movie; the offset falls back to zero.

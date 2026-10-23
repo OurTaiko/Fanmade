@@ -105,7 +105,7 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 	if editedResponse.Code != http.StatusOK || json.Unmarshal(editedResponse.Body.Bytes(), &edited) != nil {
 		t.Fatalf("metadata edit failed: %s", editedResponse.Body.String())
 	}
-	if edited.TitleTranslations["zh"] != "新译名" || edited.CoverHash != coverHash || edited.TJAHash != strings.Repeat("a", 64) || edited.AudioHash != strings.Repeat("b", 64) {
+	if edited.TitleTranslations["zh"] != "新译名" || edited.CoverHash != coverHash || edited.AudioHash != strings.Repeat("b", 64) {
 		t.Fatalf("metadata response lost cover or changed resources: %+v", edited)
 	}
 	detailResponse := httptest.NewRecorder()
@@ -143,7 +143,13 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 	}
 	restored := call("d46774d30dd13b92d9e536808da468a4", "csrf", `{"titleTranslations":{"en":null,"ja":null},"subtitleTranslations":{"en":null}}`)
 	var restoredChart Chart
-	if restored.Code != 200 || json.Unmarshal(restored.Body.Bytes(), &restoredChart) != nil || restoredChart.TitleTranslations["en"] != "Source English" || restoredChart.TitleTranslations["ja"] != "原文" || restoredChart.TitleTranslations["ko"] != "한국어" || restoredChart.SubtitleTranslations["en"] != "Raw subtitle" {
+	// The source has no SUBTITLEEN: restoring "en" from it removes the key (the subtitle itself
+	// is the origin, not an English translation).
+	if restored.Code != 200 || json.Unmarshal(restored.Body.Bytes(), &restoredChart) != nil {
+		t.Fatalf("source restore failed: %s", restored.Body.String())
+	}
+	_, subtitleEn := restoredChart.SubtitleTranslations["en"]
+	if restoredChart.TitleTranslations["en"] != "Source English" || restoredChart.TitleTranslations["ja"] != "原文" || restoredChart.TitleTranslations["ko"] != "한국어" || subtitleEn {
 		t.Fatalf("source restore lost translations: %s", restored.Body.String())
 	}
 	// The edited title is the chart's own; null restores the stored TJA's.

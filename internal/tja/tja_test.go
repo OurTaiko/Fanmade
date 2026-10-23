@@ -7,6 +7,9 @@ import (
 )
 
 func TestSharedContract(t *testing.T) {
+	if !Available() {
+		t.Skip("tjaparser not found: set TJAPARSER_BIN or put it on PATH")
+	}
 	data, err := os.ReadFile("../../contracts/validation.json")
 	if err != nil {
 		t.Fatal(err)

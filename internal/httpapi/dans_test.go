@@ -117,7 +117,7 @@ func TestDanCourses(t *testing.T) {
 			}
 		}
 	}
-	course := `{"title":{"ja":"十段","en":" 10th Dan "},"color":3,"songs":[{"chartId":"` + songA + `","course":"Oni"},{"chartId":"` + songB + `","course":"Oni","hidden":true}],
+	course := `{"title":{"ja":"十段","en":" 10th Dan "},"color":3,"songs":[{"chartId":"` + songA + `","course":"Oni","side":"single"},{"chartId":"` + songB + `","course":"Oni","side":"single","hidden":true}],
  "exams":[{"type":"gauge","range":"more","value":[100]},{"type":"bad","range":"less","value":[[10,5],null]}],
  "rewards":{"dan":20,"titles":[{"id":"ten-dan","on":"red"},{"id":"ten-dan-gold","on":"gold"}]}}`
 
@@ -132,10 +132,13 @@ func TestDanCourses(t *testing.T) {
 		strings.Replace(course, `"dan":20`, `"dan":25`, 1),
 		strings.Replace(course, `"dan":20`, `"dan":5`, 1),
 		strings.Replace(course, `"title":{"ja":"十段","en":" 10th Dan "}`, `"title":{"fr":"x"}`, 1),
+		// Each song names the block it plays: the side is required and must exist.
+		strings.Replace(course, `"course":"Oni","side":"single"}`, `"course":"Oni"}`, 1),
+		strings.Replace(course, `"course":"Oni","side":"single"}`, `"course":"Oni","side":"p2"}`, 1),
 	} {
 		expect(call("POST", "/api/v1/dans", bad, alice), 422, nil)
 	}
-	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"course":"Oni","hidden"`, `"course":"Edit","hidden"`, 1), alice), 422, nil)
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"course":"Oni","side":"single","hidden"`, `"course":"Edit","side":"single","hidden"`, 1), alice), 422, nil)
 
 	// Reward titles are on Profile, and official or the maker's own community titles.
 	var problemBody struct{ Code string }
@@ -162,7 +165,7 @@ func TestDanCourses(t *testing.T) {
 	var created DanCourse
 	expect(call("POST", "/api/v1/dans", course, alice), 201, &created)
 	if created.Official || created.Owner != "Alice" || created.Title["en"] != "10th Dan" || len(created.Songs) != 2 || !created.Songs[1].Hidden ||
-		created.Songs[0].Chart.TjaHash != strings.Repeat("a", 64) || created.Songs[0].Level != 9 || !created.Songs[0].Available || created.Songs[1].Title != "Beta" {
+		created.Songs[0].Chart.Side != "single" || created.Songs[0].Level != 9 || !created.Songs[0].Valid || !created.Songs[0].Available || created.Songs[1].Title != "Beta" {
 		t.Fatalf("created %+v", created)
 	}
 
@@ -267,15 +270,25 @@ func TestDanCourses(t *testing.T) {
 		t.Fatal("rejected", refused)
 	}
 
-	// A replaced chart leaves the course listed but unplayable.
+	// A block whose content changed (the chart_difficulties trigger) leaves the course listed
+	// but unplayable, and the game's code lookup no longer finds it; a file change that plays
+	// the same does nothing.
 	if _, err = pool.Exec(ctx, `UPDATE charts SET tja_file=test_file('tja-a2','a.tja',repeat('e',64),1) WHERE id=$1`, songA); err != nil {
 		t.Fatal(err)
 	}
 	var detail DanCourse
 	expect(call("GET", "/api/v1/dans/"+created.ID, "", ""), 200, &detail)
-	if detail.Songs[0].Available || detail.Songs[0].Chart.TjaHash != strings.Repeat("a", 64) || !detail.Official {
+	if !detail.Songs[0].Available || !detail.Songs[0].Valid {
+		t.Fatalf("same blocks in a new file %+v", detail.Songs[0])
+	}
+	if _, err = pool.Exec(ctx, `UPDATE chart_difficulties SET content_hash='v1:'||repeat('e',64) WHERE chart_id=$1 AND course='Oni' AND side='single'`, songA); err != nil {
+		t.Fatal(err)
+	}
+	expect(call("GET", "/api/v1/dans/"+created.ID, "", ""), 200, &detail)
+	if detail.Songs[0].Available || detail.Songs[0].Valid || detail.Songs[0].Chart.Side != "single" || !detail.Official {
 		t.Fatalf("replaced chart %+v", detail.Songs[0])
 	}
+	expect(call("GET", "/api/v1/game/dans/"+created.Code, "", ""), 404, nil)
 
 	// The owner (or an administrator) changes and removes it; others cannot.
 	changed := strings.Replace(course, `"十段"`, `"十段・改"`, 1)
@@ -284,6 +297,10 @@ func TestDanCourses(t *testing.T) {
 	if detail.Title["ja"] != "十段・改" || !detail.Songs[0].Available {
 		t.Fatalf("saving again pins the current chart %+v", detail)
 	}
+	// The write rate limit is per minute; this test writes more than a user would.
+	s.mu.Lock()
+	s.limits = map[string]window{}
+	s.mu.Unlock()
 	expect(call("DELETE", "/api/v1/dans/"+created.ID, "", carol), 403, nil)
 	expect(call("DELETE", "/api/v1/dans/"+created.ID, "", alice), 200, nil)
 	expect(call("GET", "/api/v1/dans/"+created.ID, "", ""), 404, nil)

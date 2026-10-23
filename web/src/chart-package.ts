@@ -3,7 +3,7 @@ import { endpoints } from './api/endpoints'
 import type { Chart } from './api/types'
 import { withChartTitles } from './tja-titles'
 
-type PackageFile = { url: string; name: string; sha256: string; size?: number }
+type PackageFile = { url: string; name: string; sha256?: string; size?: number; tja?: boolean }
 type Manifest = {
   resources: Partial<Record<string, { url: string; sha256: string; size: number }>>
 }
@@ -32,8 +32,10 @@ export function entryName(url: string, sha256: string) {
 
 /** Without direct resource links the API serves the same stored files itself. */
 function apiFiles(chart: Chart): PackageFile[] {
-  const files = [
-    { url: endpoints.resource(chart, 'tja'), name: `${chart.tjaHash}.tja`, sha256: chart.tjaHash },
+  // The API does not publish the stored TJA's hash any more (a chart's identity is each
+  // block's chartHash); the fallback trusts the API's own file route for it.
+  const files: PackageFile[] = [
+    { url: endpoints.resource(chart, 'tja'), name: chart.tjaName, tja: true },
     { url: endpoints.resource(chart, 'audio'), name: chart.wave, sha256: chart.audioHash },
   ]
   if (chart.movieHash)
@@ -57,11 +59,11 @@ async function packageFiles(chart: Chart, signal: AbortSignal): Promise<PackageF
   if (!response.ok) throw new Error('PACKAGE_RESOURCES_UNAVAILABLE')
   const { resources } = (await response.json()) as Manifest
   // The page may be older than the files it would name the archive after.
-  if (resources.tja?.sha256 !== chart.tjaHash || resources.audio?.sha256 !== chart.audioHash)
+  if (!resources.tja || resources.audio?.sha256 !== chart.audioHash)
     throw new Error('PACKAGE_CHART_CHANGED')
   return packaged.flatMap((kind) => {
     const file = resources[kind]
-    return file ? [{ ...file, name: entryName(file.url, file.sha256) }] : []
+    return file ? [{ ...file, name: entryName(file.url, file.sha256), tja: kind === 'tja' }] : []
   })
 }
 
@@ -77,15 +79,18 @@ async function sha256(data: ArrayBuffer) {
 export async function buildChartPackage(chart: Chart, signal: AbortSignal): Promise<Blob> {
   const files = await packageFiles(chart, signal)
   const entries = await Promise.all(
-    files.map(async ({ url, name, sha256: expected, size }) => {
+    files.map(async ({ url, name, sha256: expected, size, tja }) => {
       const response = await fetch(url, { signal, credentials: 'omit' })
       if (!response.ok) throw new Error('PACKAGE_DOWNLOAD_FAILED')
       const input = await response.arrayBuffer()
-      if ((size !== undefined && input.byteLength !== size) || (await sha256(input)) !== expected)
+      if (
+        (size !== undefined && input.byteLength !== size) ||
+        (expected !== undefined && (await sha256(input)) !== expected)
+      )
         throw new Error('PACKAGE_INTEGRITY_FAILED')
       // After the check, the TJA's headers get the chart's own names; the
       // stored file keeps what was uploaded.
-      if (expected === chart.tjaHash) {
+      if (tja) {
         const text = new TextDecoder('utf-8', { fatal: true }).decode(input)
         return {
           name,

@@ -14,9 +14,11 @@ import (
 
 	"github.com/joho/godotenv"
 	fanmade "ourtaiko.dev/fanmade/api"
+	"ourtaiko.dev/fanmade/api/internal/charthash"
 	"ourtaiko.dev/fanmade/api/internal/database"
 	"ourtaiko.dev/fanmade/api/internal/httpapi"
 	"ourtaiko.dev/fanmade/api/internal/objectstore"
+	"ourtaiko.dev/fanmade/api/internal/tja"
 )
 
 func env(key, fallback string) string {
@@ -99,6 +101,15 @@ func main() {
 	if site == nil {
 		log.Print("website not built: run pnpm build in web; serving API only")
 	}
+	// TJAParser reads chart bodies for every upload and the content-hash backfill; a missing
+	// or broken tool is a deployment error, found now rather than at the first upload.
+	tja.Inspector = charthash.CLI{Bin: env("TJAPARSER_BIN", "tjaparser")}
+	tja.InspectDir = env("STORAGE_DIR", ".data/files")
+	if version, err := tja.Inspector.(charthash.CLI).Version(ctx); err != nil {
+		log.Fatalf("tjaparser is not usable: %v", err)
+	} else {
+		log.Printf("tjaparser hash algorithm %s", version)
+	}
 	app := httpapi.New(pool, httpapi.Config{Site: site, Profile: profile, GameOnly: os.Getenv("GAME_ONLY") == "true", Objects: objects, SSO: sso, TrustedProxies: proxies, Origin: env("APP_ORIGIN", "http://127.0.0.1:5173"), Storage: env("STORAGE_DIR", ".data/files"), CookieSecure: env("COOKIE_SECURE", "false") == "true"})
 	if err = app.EnsureStorage(); err != nil {
 		log.Fatal(err)
@@ -111,6 +122,7 @@ func main() {
 	go app.RunFileCleanup(cleanupCtx)
 	go app.RunPreviewBackfill(cleanupCtx)
 	go app.RunFileRekey(cleanupCtx)
+	go app.RunContentHashBackfill(cleanupCtx)
 	go app.RunNotificationPrune(cleanupCtx)
 	srv := &http.Server{Addr: env("LISTEN_ADDR", "127.0.0.1:8080"), Handler: app.Handler(), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 180 * time.Second, WriteTimeout: 240 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 * 1024}
 	go func() {

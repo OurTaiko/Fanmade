@@ -22,12 +22,19 @@ export type Difficulty = {
   level: number
   maker: string
   branching?: boolean
+  /**
+   * The server's content hash of the block as played ("v1:" + 64 hex): the block's identity for
+   * scores and 段位 courses. Null until the server has computed it; absent in the browser's own parse.
+   */
+  chartHash?: string | null
 }
+/** Title dictionaries as the TJA has them: `origin` is TITLE/SUBTITLE itself, the rest locales. */
+export type TitleTexts = Partial<Record<'origin' | 'en' | 'ja' | 'zh' | 'ko' | 'zh_tw', string>>
 export type Metadata = {
   title: string
   subtitle: string
-  titleTranslations?: Partial<Record<'en' | 'ja' | 'zh' | 'ko', string>>
-  subtitleTranslations?: Partial<Record<'en' | 'ja' | 'zh' | 'ko', string>>
+  titleTranslations?: TitleTexts
+  subtitleTranslations?: TitleTexts
   maker: string
   bpm: number
   offset: number

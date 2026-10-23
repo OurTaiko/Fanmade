@@ -99,11 +99,12 @@ func (s *Server) copyAudio(ctx context.Context, c *Chart, dir string) (*stagedFi
 	return f, nil
 }
 
-// retireChart keeps a replaced chart's scores. When the TJA or the audio
-// changed they stop being scores of the current files; which older files a
-// score belongs to is not recorded.
-func retireChart(ctx context.Context, tx pgx.Tx, chartID, description string, filesChanged bool) error {
-	if filesChanged {
+// retireChart keeps a replaced chart's scores. When the audio changed they all
+// stop being scores of the current files; a changed TJA retires only the
+// blocks whose content hash changed (the chart_difficulties trigger, from
+// setDifficulties). Which older files a score belongs to is not recorded.
+func retireChart(ctx context.Context, tx pgx.Tx, chartID, description string, audioChanged bool) error {
+	if audioChanged {
 		if _, err := tx.Exec(ctx, `UPDATE scores SET is_latest=false WHERE is_latest AND difficulty_id IN (SELECT id FROM chart_difficulties WHERE chart_id=$1)`, chartID); err != nil {
 			return err
 		}

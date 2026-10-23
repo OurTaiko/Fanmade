@@ -77,7 +77,12 @@ export function UpdatePage() {
   if (!chart || session.loading) return <p role="status">{t('messages.loadingSong')}</p>
   if (!session.user || (!isChartOwner(chart, session.user.id) && !session.user.isAdmin))
     return <p>{t('messages.onlyTheUploaderOrAnAdministratorCanUpdateThisSong')}</p>
-  return <UploadPage key={`${chart.id}:${chart.tjaHash}:${chart.audioHash}`} existing={chart} />
+  return (
+    <UploadPage
+      key={`${chart.id}:${chart.difficulties.map((d) => d.chartHash ?? '').join(',')}:${chart.audioHash}`}
+      existing={chart}
+    />
+  )
 }
 
 export function UploadPage({ existing }: { existing?: Chart }) {

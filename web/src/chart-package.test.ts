@@ -12,7 +12,8 @@ const cover = 'RIFF cover'
 const cdn = 'https://cdn.example/fanmade'
 const chart = {
   id: 'song',
-  tjaHash: hash(tja),
+  tjaName: 'song.tja',
+  difficulties: [],
   audioHash: hash(audio),
   coverHash: hash(cover),
   wave: `${hash(audio)}.ogg`,
@@ -21,7 +22,7 @@ const chart = {
   subtitle: 'Artist',
   titleTranslations: { ja: '改名' },
   subtitleTranslations: {},
-} as Chart
+} as unknown as Chart
 
 /** Names and contents of the stored (uncompressed) entries, in archive order. */
 async function entries(archive: Blob) {
@@ -146,8 +147,9 @@ describe('chart package', () => {
     })
     const withMovie = { ...chart, movieHash: hash('ftyp movie') }
     const archive = await buildChartPackage(withMovie, new AbortController().signal)
+    // Without a manifest the TJA keeps its uploaded name: the API no longer tells its hash.
     expect(await entries(archive)).toEqual({
-      [`${hash(tja)}.tja`]: packagedTja,
+      'song.tja': packagedTja,
       [`${hash(audio)}.ogg`]: audio,
       [`${hash('ftyp movie')}.mp4`]: 'ftyp movie',
       [`${hash(cover)}.webp`]: cover,
@@ -156,7 +158,8 @@ describe('chart package', () => {
 
   it('rejects changed, corrupt or missing files', async () => {
     const signal = new AbortController().signal
-    serve(stored, manifest({ audio: resource(audio, 'ogg'), tja: resource('newer', 'tja') }))
+    // The page is older than the files when the audio it names is gone.
+    serve(stored, manifest({ audio: resource('newer audio', 'ogg'), tja: resource(tja, 'tja') }))
     await expect(buildChartPackage(chart, signal)).rejects.toThrow('PACKAGE_CHART_CHANGED')
     serve(
       { ...stored, [`${cdn}/${hash(audio)}.ogg`]: 'OggS AUDIO bytes' },

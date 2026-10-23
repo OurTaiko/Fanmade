@@ -1,8 +1,12 @@
 package tja
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math"
+	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -10,10 +14,11 @@ import (
 
 	"golang.org/x/text/unicode/norm"
 	"ourtaiko.dev/fanmade/api/internal/audio"
+	"ourtaiko.dev/fanmade/api/internal/charthash"
 	"ourtaiko.dev/fanmade/api/internal/video"
 )
 
-const Version = "tja-upload-v10"
+const Version = "tja-upload-v11"
 const MaxTJA = 2 * 1024 * 1024
 const MaxAudio = 100 * 1024 * 1024
 
@@ -38,16 +43,21 @@ func fail(code, message string, line int) *Issue {
 // Legacy fields are in-memory only, used by pre-028 database backfills.
 type Difficulty struct {
 	// ID is the chart_difficulties row; zero for a file not yet stored.
-	ID                 int64  `json:"id,omitempty"`
-	Course             string `json:"course"`
-	Side               string `json:"side"`
-	Level              int    `json:"level"`
-	Maker              string `json:"maker"`
-	Branching          bool   `json:"branching"`
-	BlockIndex         int    `json:"-"`
-	Player             string `json:"-"`
-	Style              string `json:"-"`
-	CloudScoreEligible bool   `json:"-"`
+	ID        int64  `json:"id,omitempty"`
+	Course    string `json:"course"`
+	Side      string `json:"side"`
+	Level     int    `json:"level"`
+	Maker     string `json:"maker"`
+	Branching bool   `json:"branching"`
+	// Hash is the block's content hash from TJAParser ("v1:" + 64 hex): what the block plays
+	// as, whatever its headers say. Scores and 段位 songs follow it (chart_difficulties.content_hash).
+	Hash               string   `json:"chartHash,omitempty"`
+	Line               int      `json:"-"`
+	Warnings           []string `json:"-"`
+	BlockIndex         int      `json:"-"`
+	Player             string   `json:"-"`
+	Style              string   `json:"-"`
+	CloudScoreEligible bool     `json:"-"`
 }
 type Metadata struct {
 	Title                string            `json:"title"`
@@ -84,13 +94,97 @@ func numeric(s string) (float64, bool) {
 	return n, e == nil && number.MatchString(s) && !math.IsNaN(n) && !math.IsInf(n, 0)
 }
 
-func Parse(data []byte, encoding, audioName string) (Metadata, *Issue) {
-	return parse(data, encoding, audioName, true)
+// Inspector is the TJAParser tool that reads chart bodies: the game's own parser, built into
+// the image at the tag the game references. The header checks below are the upload gate; the
+// blocks, their hashes and the titles as the game reads them come from here. InspectDir holds
+// the file it reads (the staging directory in production).
+var Inspector charthash.Inspector = charthash.CLI{Bin: os.Getenv("TJAPARSER_BIN")}
+var InspectDir = os.TempDir()
+
+// Available reports whether the tool can be run, for tests that need it.
+func Available() bool {
+	cli, ok := Inspector.(charthash.CLI)
+	if !ok {
+		return Inspector != nil
+	}
+	_, err := exec.LookPath(cli.Bin)
+	if cli.Bin == "" {
+		_, err = exec.LookPath("tjaparser")
+	}
+	return err == nil
 }
 
-// ParseLegacy supports historical schema backfills before the mode migration.
+// Parse validates an upload and reads it as the game does. The header and structure rules of
+// the upload contract (contracts/validation.json) are checked here first; the blocks and their
+// content hashes then come from TJAParser, which also refuses what the game cannot list.
+func Parse(data []byte, encoding, audioName string) (Metadata, *Issue) {
+	m, issue := parse(data, encoding, audioName, true)
+	if issue != nil {
+		return m, issue
+	}
+	return inspect(m, data, encoding)
+}
+
+// ParseLegacy supports historical schema backfills before the mode migration: the header scan
+// alone, with no block hashes.
 func ParseLegacy(data []byte, encoding, audioName string) (Metadata, *Issue) {
 	return parse(data, encoding, audioName, false)
+}
+
+// inspect completes a scanned chart with TJAParser's reading of it: titles by locale as the
+// game maps them (origin + en/ja/ko/zh/zh_tw), each block's maker (NOTESDESIGNERn, else
+// MAKER), content hash and parse warnings. A block the game cannot play is refused.
+func inspect(m Metadata, data []byte, encoding string) (Metadata, *Issue) {
+	normalized, issue := NormalizeUTF8(data, encoding)
+	if issue != nil {
+		return m, issue
+	}
+	result, err := charthash.InspectBytes(context.Background(), Inspector, InspectDir, normalized)
+	var unreadable *charthash.Unreadable
+	if errors.As(err, &unreadable) {
+		return m, fail("TJA_STRUCTURE_INVALID", "游戏无法读取这个谱面文件："+unreadable.Message, issueLine(unreadable.Message))
+	}
+	if err != nil {
+		return m, fail("TJA_PARSER_UNAVAILABLE", "谱面解析服务暂时不可用，请稍后重试", 0)
+	}
+	if len(result.Blocks) != len(m.Difficulties) {
+		return m, fail("TJA_STRUCTURE_INVALID", fmt.Sprintf("谱面块数量不一致（校验 %d，解析 %d）", len(m.Difficulties), len(result.Blocks)), 0)
+	}
+	for i := range m.Difficulties {
+		d, b := &m.Difficulties[i], result.Blocks[i]
+		if d.Course != b.Name || d.Side != b.Side {
+			return m, fail("TJA_STRUCTURE_INVALID", fmt.Sprintf("第 %d 个谱面块不一致（校验 %s/%s，解析 %s/%s）", i+1, d.Course, d.Side, b.Name, b.Side), b.Line)
+		}
+		if b.Error != "" {
+			return m, fail("TJA_CHART_UNPLAYABLE", fmt.Sprintf("%s/%s 游戏无法播放：%s", b.Name, b.Side, b.Error), b.Line)
+		}
+		if b.Hash == "" {
+			return m, fail("TJA_PARSER_UNAVAILABLE", "谱面解析服务没有给出内容哈希", b.Line)
+		}
+		d.Hash, d.Line, d.Warnings = b.Hash, b.Line, b.Warnings
+		if b.Maker != "" {
+			d.Maker = b.Maker
+		}
+	}
+	m.TitleTranslations = result.Titles
+	m.SubtitleTranslations = result.Subtitles
+	if title, ok := result.Titles["origin"]; ok {
+		m.Title = title
+	}
+	if subtitle, ok := result.Subtitles["origin"]; ok {
+		m.Subtitle = subtitle
+	}
+	return m, nil
+}
+
+var lineInMessage = regexp.MustCompile(`\(lines? (\d+)`)
+
+func issueLine(message string) int {
+	if match := lineInMessage.FindStringSubmatch(message); match != nil {
+		n, _ := strconv.Atoi(match[1])
+		return n
+	}
+	return 0
 }
 
 func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Issue) {

@@ -39,10 +39,11 @@ var profileTitleID = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 // A reward title is given at this verdict or better: red 1, gold 4, or one of red1..gold6.
 var danRewardLevels = map[string]int{"red": 1, "gold": 4, "red1": 1, "red2": 2, "red3": 3, "gold4": 4, "gold5": 5, "gold6": 6}
 
+// DanSongChart names the block a course song plays: a chart, a course and a side.
 type DanSongChart struct {
-	ID      string `json:"id"`
-	Course  string `json:"course"`
-	TjaHash string `json:"tjaHash"`
+	ID     string `json:"id"`
+	Course string `json:"course"`
+	Side   string `json:"side"`
 }
 
 // DanSong is a song of a course: the block the game plays, with what the website shows.
@@ -51,8 +52,11 @@ type DanSong struct {
 	Title    string       `json:"title"`
 	Subtitle string       `json:"subtitle"`
 	Hidden   bool         `json:"hidden"`
-	// The block's level, and whether the chart is still the one the course was set up on.
+	// The block's level; Valid is false once the block's content changed or went (the
+	// chart_difficulties triggers), until the maker picks a block again. Available is Valid
+	// and the chart still published: what the game may challenge.
 	Level     int  `json:"level"`
+	Valid     bool `json:"valid"`
 	Available bool `json:"available"`
 }
 
@@ -96,7 +100,9 @@ type danInput struct {
 	Songs []struct {
 		ChartID string `json:"chartId"`
 		Course  string `json:"course"`
-		Hidden  bool   `json:"hidden"`
+		// The block's side (single, p1, p2): the maker picks one of those the course has.
+		Side   string `json:"side"`
+		Hidden bool   `json:"hidden"`
 	} `json:"songs"`
 	Exams   json.RawMessage `json:"exams"`
 	Rewards json.RawMessage `json:"rewards"`
@@ -196,12 +202,14 @@ func cleanDanRewards(raw json.RawMessage) (json.RawMessage, bool) {
 }
 
 type danSongRow struct {
-	chartID, course, hash string
+	chartID, course, side string
 	hidden                bool
 }
 
-// checkDan validates a course from the website (made by owner) and pins each song to the TJA its
-// chart has now.
+var danSides = map[string]bool{"single": true, "p1": true, "p2": true}
+
+// checkDan validates a course from the website (made by owner): each song names a block the
+// chart has now, by course and side.
 func (s *Server) checkDan(ctx context.Context, w http.ResponseWriter, in danInput, owner string) (map[string]string, []danSongRow, json.RawMessage, json.RawMessage, bool) {
 	title := map[string]string{}
 	for language, text := range in.Title {
@@ -238,18 +246,26 @@ func (s *Server) checkDan(ctx context.Context, w http.ResponseWriter, in danInpu
 			problem(w, 422, "DAN_INVALID", "难度无效")
 			return nil, nil, nil, nil, false
 		}
-		var hash string
-		err := s.DB.QueryRow(ctx, `SELECT tf.sha256 FROM charts c JOIN chart_resources tf ON tf.id=c.tja_file
- WHERE c.id=$1 AND `+publishedChart+` AND EXISTS(SELECT 1 FROM chart_difficulties d WHERE d.chart_id=c.id AND d.course=$2 AND d.side IN ('single','p1'))`, song.ChartID, song.Course).Scan(&hash)
+		if !danSides[song.Side] {
+			problem(w, 422, "DAN_SIDE_REQUIRED", "请为每首歌选择要挑战的谱面块（单人／1P／2P）")
+			return nil, nil, nil, nil, false
+		}
+		var hashed bool
+		err := s.DB.QueryRow(ctx, `SELECT d.content_hash IS NOT NULL FROM charts c JOIN chart_difficulties d ON d.chart_id=c.id
+ WHERE c.id=$1 AND `+publishedChart+` AND d.course=$2 AND d.side=$3`, song.ChartID, song.Course, song.Side).Scan(&hashed)
 		if errors.Is(err, pgx.ErrNoRows) {
-			problem(w, 422, "DAN_SONG_NOT_FOUND", "找不到歌曲或该难度："+song.ChartID)
+			problem(w, 422, "DAN_SONG_NOT_FOUND", "找不到歌曲或该难度的这个谱面块："+song.ChartID)
 			return nil, nil, nil, nil, false
 		}
 		if err != nil {
 			internal(w, err)
 			return nil, nil, nil, nil, false
 		}
-		songs = append(songs, danSongRow{chartID: song.ChartID, course: song.Course, hash: hash, hidden: song.Hidden})
+		if !hashed {
+			problem(w, 422, "DAN_SONG_NOT_FOUND", "这个谱面块还没有内容哈希，请稍后再试："+song.ChartID)
+			return nil, nil, nil, nil, false
+		}
+		songs = append(songs, danSongRow{chartID: song.ChartID, course: song.Course, side: song.Side, hidden: song.Hidden})
 	}
 	return title, songs, exams, rewards, true
 }
@@ -328,10 +344,10 @@ func (s *Server) loadDans(ctx context.Context, where string, args ...any) ([]Dan
 		id, _ := strconv.ParseInt(c.ID, 10, 64)
 		ids = append(ids, id)
 	}
-	rows, err = s.DB.Query(ctx, `SELECT s.course_id,s.chart_id,s.course,s.tja_hash,s.hidden,COALESCE(c.title,''),COALESCE(c.subtitle,''),
- COALESCE((SELECT b.level FROM chart_difficulties b WHERE b.chart_id=s.chart_id AND b.course=s.course AND b.side IN ('single','p1') ORDER BY b.side='p1' DESC LIMIT 1),0),
- COALESCE(c.status='published' AND tf.sha256=s.tja_hash,false)
- FROM dan_course_songs s LEFT JOIN charts c ON c.id=s.chart_id LEFT JOIN chart_resources tf ON tf.id=c.tja_file
+	rows, err = s.DB.Query(ctx, `SELECT s.course_id,s.chart_id,s.course,s.side,s.hidden,COALESCE(c.title,''),COALESCE(c.subtitle,''),
+ COALESCE((SELECT b.level FROM chart_difficulties b WHERE b.chart_id=s.chart_id AND b.course=s.course AND b.side=s.side),0),
+ s.valid,COALESCE(c.status='published' AND s.valid,false)
+ FROM dan_course_songs s LEFT JOIN charts c ON c.id=s.chart_id
  WHERE s.course_id=ANY($1) ORDER BY s.course_id,s.position`, ids)
 	if err != nil {
 		return nil, err
@@ -340,7 +356,7 @@ func (s *Server) loadDans(ctx context.Context, where string, args ...any) ([]Dan
 	for rows.Next() {
 		var course int64
 		var song DanSong
-		if err = rows.Scan(&course, &song.Chart.ID, &song.Chart.Course, &song.Chart.TjaHash, &song.Hidden, &song.Title, &song.Subtitle, &song.Level, &song.Available); err != nil {
+		if err = rows.Scan(&course, &song.Chart.ID, &song.Chart.Course, &song.Chart.Side, &song.Hidden, &song.Title, &song.Subtitle, &song.Level, &song.Valid, &song.Available); err != nil {
 			return nil, err
 		}
 		c := &courses[index[strconv.FormatInt(course, 10)]]
@@ -404,7 +420,7 @@ func (s *Server) saveDanSongs(ctx context.Context, tx pgx.Tx, course int64, song
 		return err
 	}
 	for i, song := range songs {
-		if _, err := tx.Exec(ctx, `INSERT INTO dan_course_songs(course_id,position,chart_id,course,tja_hash,hidden) VALUES($1,$2,$3,$4,$5,$6)`, course, i, song.chartID, song.course, song.hash, song.hidden); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO dan_course_songs(course_id,position,chart_id,course,side,hidden,valid) VALUES($1,$2,$3,$4,$5,$6,true)`, course, i, song.chartID, song.course, song.side, song.hidden); err != nil {
 			return err
 		}
 	}
@@ -612,7 +628,8 @@ func (s *Server) gameDans(w http.ResponseWriter, r *http.Request) {
 }
 
 // gameDanByCode is GET /api/v1/game/dans/{code}: one published course, official or not, by
-// the code the game's 外伝 entry took.
+// the code the game's 外伝 entry took. A course with a song that is no longer available is
+// not found: the game only challenges courses it can play whole.
 func (s *Server) gameDanByCode(w http.ResponseWriter, r *http.Request) {
 	code := strings.ToUpper(strings.TrimSpace(r.PathValue("code")))
 	if !danCodePattern.MatchString(code) {
@@ -624,11 +641,21 @@ func (s *Server) gameDanByCode(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	if len(courses) == 0 {
+	if len(courses) == 0 || !danPlayable(courses[0]) {
 		problem(w, 404, "DAN_NOT_FOUND", "段位不存在")
 		return
 	}
 	respond(w, 200, courses[0])
+}
+
+// danPlayable: every song of the course is still the block it was set up on.
+func danPlayable(c DanCourse) bool {
+	for _, song := range c.Songs {
+		if !song.Available {
+			return false
+		}
+	}
+	return len(c.Songs) > 0
 }
 
 var danCodePattern = regexp.MustCompile(`^[A-Z0-9]{6}$`)

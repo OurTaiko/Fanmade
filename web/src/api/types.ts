@@ -29,14 +29,14 @@ export type Chart = Metadata & {
   encoding: string
   tjaName: string
   audioName: string
-  tjaHash: string
   audioHash: string
   audioSize: number
   /** Transcoded background movie; absent when the chart has none. */
   movieHash?: string
   movieSize?: number
-  titleTranslations: Partial<Record<Locale, string>>
-  subtitleTranslations: Partial<Record<Locale, string>>
+  /** As the TJA has them: `origin` is TITLE/SUBTITLE itself, the other keys locales. */
+  titleTranslations: Partial<Record<Locale | 'origin' | 'zh_tw', string>>
+  subtitleTranslations: Partial<Record<Locale | 'origin' | 'zh_tw', string>>
   score: number
   upvotes: number
   downvotes: number
@@ -208,15 +208,19 @@ export type DanRewardTitle = {
   on: 'red' | 'red1' | 'red2' | 'red3' | 'gold' | 'gold4' | 'gold5' | 'gold6'
 }
 export type DanSong = {
+  /** The block the course plays: a chart, a course and a side. */
   chart: {
     id: string | number
     course: 'Easy' | 'Normal' | 'Hard' | 'Oni' | 'Edit'
-    tjaHash: string
+    side: 'single' | 'p1' | 'p2'
   }
   title: string
   subtitle: string
   hidden: boolean
   level: number
+  /** False once the block's content changed or went, until the maker picks a block again. */
+  valid: boolean
+  /** Valid and the chart still published: the game may challenge it. */
   available: boolean
 }
 export type Dan = {
@@ -244,7 +248,7 @@ export type DanInput = {
   color: number
   /** Chosen on creation; left out for a random one. */
   code?: string
-  songs: { chartId: string; course: string; hidden: boolean }[]
+  songs: { chartId: string; course: string; side: string; hidden: boolean }[]
   exams: DanExam[]
   rewards: { dan?: number; titles?: DanRewardTitle[] }
 }

@@ -39,9 +39,11 @@ type Chart struct {
 	Encoding          string    `json:"encoding"`
 	TJAName           string    `json:"tjaName"`
 	AudioName         string    `json:"audioName"`
-	TJAHash           string    `json:"tjaHash"`
-	AudioHash         string    `json:"audioHash"`
-	AudioSize         int64     `json:"audioSize"`
+	// The stored file's hash: object key and download check, not the chart's identity (that is
+	// each block's chartHash). Not in the JSON; the resource manifest carries it as sha256.
+	TJAHash   string `json:"-"`
+	AudioHash string `json:"audioHash"`
+	AudioSize int64  `json:"audioSize"`
 	// Votes and comments; MyVote is only filled for the signed-in detail view.
 	Score        int    `json:"score"`
 	Upvotes      int    `json:"upvotes"`
@@ -65,7 +67,7 @@ const publishedChart = `c.status='published'`
 const slotOrder = `array_position(ARRAY['Easy','Normal','Hard','Oni','Edit'],d.course),array_position(ARRAY['single','p1','p2'],d.side)`
 
 const chartSelect = `SELECT c.id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,
- COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'course',d.course,'side',d.side,'level',d.level,'maker',d.maker,'branching',d.branching) ORDER BY ` + slotOrder + `) FROM chart_difficulties d WHERE d.chart_id=c.id),'[]'),
+ COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'course',d.course,'side',d.side,'level',d.level,'maker',d.maker,'branching',d.branching,'chartHash',d.content_hash) ORDER BY ` + slotOrder + `) FROM chart_difficulties d WHERE d.chart_id=c.id),'[]'),
  c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE id=c.preview_file),''),
  c.movie_offset,COALESCE(mf.sha256,''),COALESCE(mf.byte_size,0),COALESCE(mf.storage_key,''),
  COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0)

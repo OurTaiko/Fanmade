@@ -234,7 +234,7 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 		movieFile = &file
 	}
 	if j.existingID != "" {
-		if err = retireChart(ctx, tx, chartID, j.description, replacedTJA != tjaSHA || replacedAudio != af.sha); err != nil {
+		if err = retireChart(ctx, tx, chartID, j.description, replacedAudio != af.sha); err != nil {
 			return failed(err)
 		}
 	}

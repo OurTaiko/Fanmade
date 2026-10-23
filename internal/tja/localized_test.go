@@ -14,8 +14,12 @@ func TestLocalizedTitles(t *testing.T) {
 	if issue != nil {
 		t.Fatal(issue)
 	}
-	if m.Title != "English" || m.Subtitle != "--Default" || len(m.TitleTranslations) != 4 || m.TitleTranslations["en"] != "English" || m.SubtitleTranslations["en"] != "--Default" || m.TitleTranslations["ja"] != "日本語" || m.TitleTranslations["zh"] != "中文" || m.TitleTranslations["ko"] != "한국어" || m.SubtitleTranslations["ja"] != "--副題" || m.SubtitleTranslations["zh"] != "++副标题" {
+	// The dictionaries are the file's: "origin" is TITLE/SUBTITLE itself; "en" only when written.
+	if m.Title != "English" || m.Subtitle != "--Default" || len(m.TitleTranslations) != 4 || m.TitleTranslations["origin"] != "English" || m.SubtitleTranslations["origin"] != "--Default" || m.TitleTranslations["ja"] != "日本語" || m.TitleTranslations["zh"] != "中文" || m.TitleTranslations["ko"] != "한국어" || m.SubtitleTranslations["ja"] != "--副題" || m.SubtitleTranslations["zh"] != "++副标题" {
 		t.Fatalf("lost localization: %+v", m)
+	}
+	if _, ok := m.TitleTranslations["en"]; ok {
+		t.Fatal("en is not defaulted from TITLE any more")
 	}
 	if v, ok := m.SubtitleTranslations["ko"]; !ok || v != "" {
 		t.Fatal("explicit empty translation lost")
@@ -39,7 +43,12 @@ func TestLocalizedTitles(t *testing.T) {
 		t.Fatalf("Shift-JIS: %+v %v", m, issue)
 	}
 	m, issue = Parse([]byte("TITLE:English\n"+chart), "utf-8", "music.ogg")
-	if issue != nil || m.TitleTranslations == nil || m.SubtitleTranslations == nil || len(m.TitleTranslations) != 1 || m.TitleTranslations["en"] != "English" {
-		t.Fatal("default English must be included")
+	if issue != nil || m.TitleTranslations == nil || m.SubtitleTranslations == nil || len(m.TitleTranslations) != 1 || m.TitleTranslations["origin"] != "English" {
+		t.Fatal("the origin must be included")
+	}
+	// The game's locale mapping applies: TITLEJP and TITLECN are ja and zh too.
+	m, issue = Parse([]byte("TITLE:English\nTITLEJP:日本\nSUBTITLECN:--中\n"+chart), "utf-8", "music.ogg")
+	if issue != nil || m.TitleTranslations["ja"] != "日本" || m.SubtitleTranslations["zh"] != "--中" {
+		t.Fatalf("locale aliases: %+v %v", m, issue)
 	}
 }

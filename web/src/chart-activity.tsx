@@ -82,7 +82,9 @@ export function ChartActivity({
   // chosen block's slot key.
   const groups = groupCourses(chart.difficulties)
   const group = groups.find((g) => g.base === baseCourse(course))
-  const { id, tjaHash, encoding } = chart
+  const { id, encoding } = chart
+  // Reload the text when any block changed (the file behind it did).
+  const blockHashes = chart.difficulties.map((d) => d.chartHash ?? '').join(',')
   // The image and the player name the chart as the site does, not as the
   // stored TJA's headers may.
   const titled = useMemo(() => (source ? withChartTitles(source, chart) : ''), [source, chart])
@@ -113,7 +115,7 @@ export function ChartActivity({
     }
     void load()
     return () => controller.abort()
-  }, [id, tjaHash, encoding, attempt])
+  }, [id, blockHashes, encoding, attempt])
 
   return (
     <Tabs

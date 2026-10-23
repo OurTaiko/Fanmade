@@ -79,12 +79,14 @@ func TestUploadStoresCanonicalUTF8(t *testing.T) {
 				t.Fatal(w.Code, w.Body.String())
 			}
 			digest := sha256.Sum256(stored)
-			if chart.Encoding != "utf-8" || chart.TJAHash != hex.EncodeToString(digest[:]) || chart.Title != "初音ミク" {
+			if chart.Encoding != "utf-8" || chart.Title != "初音ミク" {
 				t.Fatal("noncanonical metadata", chart.Encoding, chart.Title)
 			}
+			// The stored file is the normalized bytes (the API no longer tells its hash).
 			var size int64
-			if err := pool.QueryRow(ctx, `SELECT r.byte_size FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, chart.ID).Scan(&size); err != nil || size != int64(len(stored)) {
-				t.Fatal("incorrect normalized byte size", size, err)
+			var storedHash string
+			if err := pool.QueryRow(ctx, `SELECT r.byte_size,r.sha256 FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, chart.ID).Scan(&size, &storedHash); err != nil || size != int64(len(stored)) || storedHash != hex.EncodeToString(digest[:]) {
+				t.Fatal("incorrect normalized file", size, storedHash, err)
 			}
 			for _, kind := range []string{"tja", "download"} {
 				w = httptest.NewRecorder()

@@ -66,20 +66,22 @@ func applyDifficultyMakers(raw string, difficulties []tja.Difficulty) error {
 
 // chartDifficulties reads a chart's blocks in the order the API lists them.
 func chartDifficulties(ctx context.Context, tx pgx.Tx, chartID string) ([]tja.Difficulty, error) {
-	rows, err := tx.Query(ctx, `SELECT d.id,d.course,d.side,d.level,d.maker,d.branching FROM chart_difficulties d WHERE d.chart_id=$1 ORDER BY `+slotOrder, chartID)
+	rows, err := tx.Query(ctx, `SELECT d.id,d.course,d.side,d.level,d.maker,d.branching,COALESCE(d.content_hash,'') FROM chart_difficulties d WHERE d.chart_id=$1 ORDER BY `+slotOrder, chartID)
 	if err != nil {
 		return nil, err
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (tja.Difficulty, error) {
 		var d tja.Difficulty
-		return d, row.Scan(&d.ID, &d.Course, &d.Side, &d.Level, &d.Maker, &d.Branching)
+		return d, row.Scan(&d.ID, &d.Course, &d.Side, &d.Level, &d.Maker, &d.Branching, &d.Hash)
 	})
 }
 
 // setDifficulties makes chart_difficulties hold exactly the given blocks of a
 // chart. A slot that remains keeps its row, and with it the ID scores refer
-// to. A slot the new file no longer has is removed with its scores, whose
-// request keys are kept so a retried submission is not stored again.
+// to; when its content hash changes the trigger retires the row's scores and
+// invalidates 段位 songs on it. A slot the new file no longer has is removed
+// with its scores, whose request keys are kept so a retried submission is not
+// stored again.
 func setDifficulties(ctx context.Context, tx pgx.Tx, chartID string, blocks []tja.Difficulty) error {
 	stored, err := chartDifficulties(ctx, tx, chartID)
 	if err != nil {
@@ -104,9 +106,13 @@ func setDifficulties(ctx context.Context, tx pgx.Tx, chartID string, blocks []tj
 		}
 	}
 	for _, d := range blocks {
-		if _, err = tx.Exec(ctx, `INSERT INTO chart_difficulties(chart_id,course,side,level,maker,branching) VALUES($1,$2,$3,$4,$5,$6)
- ON CONFLICT(chart_id,course,side) DO UPDATE SET level=EXCLUDED.level,maker=EXCLUDED.maker,branching=EXCLUDED.branching`,
-			chartID, d.Course, d.Side, d.Level, d.Maker, d.Branching); err != nil {
+		var hash *string
+		if d.Hash != "" {
+			hash = &d.Hash
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO chart_difficulties(chart_id,course,side,level,maker,branching,content_hash) VALUES($1,$2,$3,$4,$5,$6,$7)
+ ON CONFLICT(chart_id,course,side) DO UPDATE SET level=EXCLUDED.level,maker=EXCLUDED.maker,branching=EXCLUDED.branching,content_hash=COALESCE(EXCLUDED.content_hash,chart_difficulties.content_hash)`,
+			chartID, d.Course, d.Side, d.Level, d.Maker, d.Branching, hash); err != nil {
 			return err
 		}
 	}

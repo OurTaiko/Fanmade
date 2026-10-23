@@ -211,6 +211,7 @@ function DanCard({ dan }: { dan: Dan }) {
             <span className="truncate">{song.title}</span>
             <span className="ml-auto shrink-0 text-xs text-muted-foreground">
               {t(`dans.courses.${song.chart.course}`)} ★{song.level}
+              {song.chart.side !== 'single' && ` · ${t(`dans.sides.${song.chart.side}`)}`}
             </span>
           </li>
         ))}
@@ -369,6 +370,7 @@ export function DanPage() {
                   </Link>
                   <span className="ml-auto text-sm text-muted-foreground">
                     {t(`dans.courses.${song.chart.course}`)} ★{song.level}
+                    {song.chart.side !== 'single' && ` · ${t(`dans.sides.${song.chart.side}`)}`}
                   </span>
                   {song.hidden && <Badge variant="outline">{t('dans.hidden')}</Badge>}
                   {!song.available && <Badge variant="destructive">{t('dans.changed')}</Badge>}
@@ -543,11 +545,14 @@ function SongPicker({
   )
 }
 
+type SongBlock = { course: string; side: string; level: number }
 type SongSlot = {
   chartId: string
   title: string
-  courses: { course: string; level: number }[]
+  /** The blocks the chart has; the maker must pick one (no default). */
+  blocks: SongBlock[]
   course: string
+  side: string
   hidden: boolean
 }
 type ExamRow = {
@@ -557,16 +562,17 @@ type ExamRow = {
   values: string[][]
 }
 
-function slotCourses(chart: Chart) {
-  return courses
-    .map((course) =>
-      chart.difficulties.find(
-        (d) => d.course === course && (d.side === 'single' || d.side === 'p1'),
-      ),
-    )
-    .filter((d): d is NonNullable<typeof d> => Boolean(d))
-    .map((d) => ({ course: d.course, level: d.level }))
+const sides = ['single', 'p1', 'p2'] as const
+/** Every block of the chart, Easy to Edit and single, 1P, 2P: the game plays exactly one. */
+function slotBlocks(chart: Chart): SongBlock[] {
+  return courses.flatMap((course) =>
+    sides.flatMap((side) => {
+      const d = chart.difficulties.find((x) => x.course === course && x.side === side)
+      return d ? [{ course: d.course, side: d.side, level: d.level }] : []
+    }),
+  )
 }
+const blockKey = (b: { course: string; side: string }) => `${b.course}/${b.side}`
 
 function toExamRows(exams: DanExam[], songs: number): ExamRow[] {
   return exams.map((exam) => {
@@ -641,10 +647,11 @@ export function DanEditorPage() {
           dan.songs.map((s, i) => ({
             chartId: String(s.chart.id),
             title: s.title,
-            courses: charts[i]
-              ? slotCourses(charts[i])
-              : [{ course: s.chart.course, level: s.level }],
+            blocks: charts[i]
+              ? slotBlocks(charts[i])
+              : [{ course: s.chart.course, side: s.chart.side, level: s.level }],
             course: s.chart.course,
+            side: s.chart.side,
             hidden: s.hidden,
           })),
         )
@@ -681,13 +688,22 @@ export function DanEditorPage() {
   }
   const save = async (event: FormEvent) => {
     event.preventDefault()
+    if (songs.some((s) => !s.side)) {
+      setError(t('dans.sideRequired'))
+      return
+    }
     setBusy(true)
     setError('')
     const body: DanInput = {
       title: Object.fromEntries(Object.entries(titles).filter(([, v]) => v.trim())),
       color,
       ...(!id && code.trim() ? { code: code.trim().toUpperCase() } : {}),
-      songs: songs.map((s) => ({ chartId: s.chartId, course: s.course, hidden: s.hidden })),
+      songs: songs.map((s) => ({
+        chartId: s.chartId,
+        course: s.course,
+        side: s.side,
+        hidden: s.hidden,
+      })),
       exams: fromExamRows(exams, songs.length),
       rewards: {
         ...(rewardDan === 'none' ? {} : { dan: Number(rewardDan) }),
@@ -778,14 +794,15 @@ export function DanEditorPage() {
               <span className="text-lg font-bold tabular-nums text-muted-foreground">{i + 1}</span>
               <span className="min-w-0 flex-1 truncate font-medium">{song.title}</span>
               <ChoiceSelect
-                label={t('dans.course')}
-                value={song.course}
-                onValueChange={(v) =>
-                  setSongs(songs.map((s, j) => (j === i ? { ...s, course: v } : s)))
-                }
-                items={song.courses.map((c) => ({
-                  value: c.course,
-                  label: `${t(`dans.courses.${c.course as (typeof courses)[number]}`)} ★${c.level}`,
+                label={t('dans.side')}
+                value={song.side ? blockKey(song) : ''}
+                onValueChange={(v) => {
+                  const [course, side] = v.split('/')
+                  setSongs(songs.map((s, j) => (j === i ? { ...s, course, side } : s)))
+                }}
+                items={song.blocks.map((b) => ({
+                  value: blockKey(b),
+                  label: `${t(`dans.courses.${b.course as (typeof courses)[number]}`)} ★${b.level} · ${t(`dans.sides.${b.side as (typeof sides)[number]}`)}`,
                 }))}
               />
               <label className="flex items-center gap-2 text-sm">
@@ -1093,22 +1110,17 @@ export function DanEditorPage() {
         <SongPicker
           onDismiss={() => setPicking(null)}
           onPick={(chart) => {
-            const available = slotCourses(chart)
-            if (available.length === 0) {
+            const blocks = slotBlocks(chart)
+            if (blocks.length === 0) {
               setError(t('dans.noPlayableCourse'))
               setPicking(null)
               return
             }
             const text = chartText(chart, i18n.resolvedLanguage)
+            // No block is chosen for the maker: the course names the one it plays.
             setSongCount([
               ...songs,
-              {
-                chartId: String(chart.id),
-                title: text.title,
-                courses: available,
-                course: available.at(-1)!.course,
-                hidden: false,
-              },
+              { chartId: String(chart.id), title: text.title, blocks, course: '', side: '', hidden: false },
             ])
             setPicking(null)
           }}

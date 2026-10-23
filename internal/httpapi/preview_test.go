@@ -107,7 +107,7 @@ func TestPreviewLifecycle(t *testing.T) {
 			if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &updated) != nil || updated.DemoEnd != 0.4 || updated.DemoStart != 0.2 || updated.PreviewPath == c.PreviewPath {
 				t.Fatal(w.Code, w.Body.String())
 			}
-			if updated.AudioHash != c.AudioHash || updated.TJAHash != c.TJAHash {
+			if updated.AudioHash != c.AudioHash {
 				t.Fatal("source resources changed")
 			}
 			app.cleanupReplacedFiles()

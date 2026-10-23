@@ -194,15 +194,17 @@ func testChartReplacement(t *testing.T, remote bool) {
 	if updated.DemoStart != 0.1 || updated.DemoEnd != 0.3 || updated.ID != original.ID || updated.TJAHash == original.TJAHash || updated.Title != "Updated" || updated.Maker != "A | B" || updated.Description != "new description" || len(updated.Difficulties) != 2 || updated.AudioHash != original.AudioHash {
 		t.Fatalf("bad updated chart: %+v", updated)
 	}
-	// The block that remains keeps its row and its scores, now of replaced files.
-	if hard(updated) != hard(original) || count(songScores, original.ID) != 2 || count(songScores+` AND sc.is_latest`, original.ID) != 0 || count(`SELECT count(*) FROM charts WHERE id=$1`, original.ID) != 1 || count(`SELECT count(*) FROM chart_difficulties WHERE chart_id=$1`, original.ID) != 2 {
+	// The block that remains keeps its row and its scores; as it plays the same (only the
+	// title changed and a course was added), they are still the latest.
+	if hard(updated) != hard(original) || count(songScores, original.ID) != 2 || count(songScores+` AND sc.is_latest`, original.ID) != 2 || count(`SELECT count(*) FROM charts WHERE id=$1`, original.ID) != 1 || count(`SELECT count(*) FROM chart_difficulties WHERE chart_id=$1`, original.ID) != 2 {
 		t.Fatal("blocks or scores not carried over")
 	}
 	if count(songScores+` AND sc.is_latest`, unrelated.ID) != 1 || count(`SELECT count(*) FROM chart_resources WHERE extension='tja'`) != 2 || count(`SELECT count(*) FROM chart_resources WHERE extension='mp3'`) != 1 {
 		t.Fatal("unrelated data changed or old file rows remain")
 	}
-	// The unrelated chart was uploaded from the same files and still uses them.
-	if original.TJAHash != unrelated.TJAHash || original.AudioHash != unrelated.AudioHash || updated.AudioHash != original.AudioHash {
+	// The unrelated chart was uploaded from the same files and still uses them (the two TJA
+	// rows counted above are the original's and the replacement's).
+	if original.AudioHash != unrelated.AudioHash || updated.AudioHash != original.AudioHash {
 		t.Fatal("identical files are not shared")
 	}
 	for _, key := range []string{original.TJAKey, original.AudioKey} {
@@ -217,30 +219,39 @@ func testChartReplacement(t *testing.T, remote bool) {
 	status(get("/api/v1/charts/"+updated.ID+"/audio"), 200)
 	gameScores := get("/api/v1/game/scores")
 	status(gameScores, 200)
-	if !strings.Contains(gameScores.Body.String(), `"isLatest":false`) || strings.Contains(gameScores.Body.String(), `"isLatest":true`) {
-		t.Fatal("game does not see the old scores as old", gameScores.Body.String())
+	// The Hard block plays the same in the new file, so its scores are still current.
+	if strings.Contains(gameScores.Body.String(), `"isLatest":false`) || !strings.Contains(gameScores.Body.String(), `"isLatest":true`) {
+		t.Fatal("game retired scores of an unchanged block", gameScores.Body.String())
 	}
 	leaderboard := get(fmt.Sprintf("/api/v1/charts/%s/leaderboard?difficultyId=%d", updated.ID, hard(updated)))
 	status(leaderboard, 200)
-	if !strings.Contains(leaderboard.Body.String(), `"items":[]`) {
-		t.Fatal("leaderboard retained old scores")
+	if strings.Contains(leaderboard.Body.String(), `"items":[]`) {
+		t.Fatal("leaderboard lost scores of an unchanged block")
 	}
 	// A retried old submission still finds its score, and no second one is stored.
 	status(score(original, "d46774d30dd13b92d9e536808da468a4", originalScoreKey), 200)
 	status(score(updated, "d46774d30dd13b92d9e536808da468a4"), 201)
 	retry := decode(request("d46774d30dd13b92d9e536808da468a4", "PUT", path, key, replacement, "", nil, fields), 200)
-	if retry.ID != updated.ID || count(songScores, original.ID) != 3 || count(songScores+` AND sc.is_latest`, original.ID) != 1 {
-		t.Fatal("retry retired the new score")
+	if retry.ID != updated.ID || count(songScores, original.ID) != 3 || count(songScores+` AND sc.is_latest`, original.ID) != 3 {
+		t.Fatal("retry retired a score")
 	}
 	status(request("d46774d30dd13b92d9e536808da468a4", "PUT", path, key, source, "", nil, fields), 409)
 	// Storing the same files again is not an update of the chart.
 	status(request("d46774d30dd13b92d9e536808da468a4", "PUT", path, ID(), replacement, "", nil, fields), 200)
-	if count(songScores+` AND sc.is_latest`, original.ID) != 1 {
+	if count(songScores+` AND sc.is_latest`, original.ID) != 3 {
 		t.Fatal("identical files retired a score")
+	}
+	// A replacement whose Hard block plays differently retires its scores (the one submitted
+	// after the first replacement included); the row stays.
+	changedHard := strings.Replace(replacement, "#START\n1000,", "#START\n1010,", 1)
+	changed := decode(request("d46774d30dd13b92d9e536808da468a4", "PUT", path, ID(), changedHard, "", nil, fields), 200)
+	if hard(changed) != hard(original) || count(songScores, original.ID) != 3 || count(songScores+` AND sc.is_latest`, original.ID) != 0 {
+		t.Fatal("a changed block must retire its scores and keep its row")
 	}
 	// Independent replacement requests serialize; both may replace current files.
 	nextFields := map[string]string{"confirmReset": "true"}
-	// Renaming the audio alone would store an identical TJA; change its content too.
+	// Renaming the audio alone would store an identical TJA; change its content too. Its Hard
+	// block is the original 1000, again a change from 1010, so the scores stay retired.
 	nextSource := strings.Replace(strings.Replace(replacement, "cbr.mp3", "next.mp3", 1), "TITLE:Updated", "TITLE:Next", 1)
 	var wg sync.WaitGroup
 	replies := make(chan *httptest.ResponseRecorder, 2)

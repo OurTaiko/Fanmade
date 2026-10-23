@@ -619,7 +619,7 @@ export function Detail() {
         >
           <div className={cn('min-w-0', section !== 'activity' && 'max-lg:hidden')}>
             <ChartActivity
-              key={`${chart.id}:${chart.tjaHash}:${chart.audioHash}`}
+              key={`${chart.id}:${chart.difficulties.map((d) => d.chartHash ?? '').join(',')}:${chart.audioHash}`}
               chart={chart}
               tab={activityTab}
               onTabChange={setActivityTab}

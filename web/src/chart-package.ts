@@ -1,6 +1,7 @@
 import { downloadZip } from 'client-zip'
 import { endpoints } from './api/endpoints'
 import type { Chart } from './api/types'
+import { withChartTitles } from './tja-titles'
 
 type PackageFile = { url: string; name: string; sha256: string; size?: number }
 type Manifest = {
@@ -82,6 +83,16 @@ export async function buildChartPackage(chart: Chart, signal: AbortSignal): Prom
       const input = await response.arrayBuffer()
       if ((size !== undefined && input.byteLength !== size) || (await sha256(input)) !== expected)
         throw new Error('PACKAGE_INTEGRITY_FAILED')
+      // After the check, the TJA's headers get the chart's own names; the
+      // stored file keeps what was uploaded.
+      if (expected === chart.tjaHash) {
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(input)
+        return {
+          name,
+          input: new TextEncoder().encode(withChartTitles(text, chart)),
+          lastModified: new Date(chart.createdAt),
+        }
+      }
       return { name, input, lastModified: new Date(chart.createdAt) }
     }),
   )

@@ -123,7 +123,7 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 	// Every response carries every language. Request language never selects a title.
 	all := call("d46774d30dd13b92d9e536808da468a4", "csrf", `{"titleTranslations":{"en":"English","ja":"日本語","zh":"中文","ko":"한국어"},"subtitleTranslations":{"en":"English subtitle","ja":"副題","zh":"副标题","ko":"부제"}}`)
 	var allChart Chart
-	if all.Code != 200 || json.Unmarshal(all.Body.Bytes(), &allChart) != nil || len(allChart.TitleTranslations) != 4 || allChart.Title != "Original" {
+	if all.Code != 200 || json.Unmarshal(all.Body.Bytes(), &allChart) != nil || len(allChart.TitleTranslations) != 4 || allChart.Title != "Admin edit" {
 		t.Fatalf("incomplete dictionary: %s", all.Body.String())
 	}
 	for _, lang := range []string{"en", "ja", "zh", "ko"} {
@@ -132,7 +132,7 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 		ww := httptest.NewRecorder()
 		handler.ServeHTTP(ww, rr)
 		var got Chart
-		if ww.Code != 200 || json.Unmarshal(ww.Body.Bytes(), &got) != nil || len(got.TitleTranslations) != 4 || len(got.SubtitleTranslations) != 4 || got.Title != "Original" || got.TitleTranslations["en"] != "English" {
+		if ww.Code != 200 || json.Unmarshal(ww.Body.Bytes(), &got) != nil || len(got.TitleTranslations) != 4 || len(got.SubtitleTranslations) != 4 || got.Title != "Admin edit" || got.TitleTranslations["en"] != "English" {
 			t.Fatalf("server selected %s: %s", lang, ww.Body.String())
 		}
 	}
@@ -145,6 +145,14 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 	var restoredChart Chart
 	if restored.Code != 200 || json.Unmarshal(restored.Body.Bytes(), &restoredChart) != nil || restoredChart.TitleTranslations["en"] != "Source English" || restoredChart.TitleTranslations["ja"] != "原文" || restoredChart.TitleTranslations["ko"] != "한국어" || restoredChart.SubtitleTranslations["en"] != "Raw subtitle" {
 		t.Fatalf("source restore lost translations: %s", restored.Body.String())
+	}
+	// The edited title is the chart's own; null restores the stored TJA's.
+	if restoredChart.Title != "Admin edit" {
+		t.Fatalf("translation restore changed the title: %q", restoredChart.Title)
+	}
+	names := call("d46774d30dd13b92d9e536808da468a4", "csrf", `{"title":null,"subtitle":null}`)
+	if names.Code != 200 || json.Unmarshal(names.Body.Bytes(), &restoredChart) != nil || restoredChart.Title != "Original" || restoredChart.Subtitle != "Raw subtitle" || restoredChart.TitleTranslations["en"] != "Source English" {
+		t.Fatalf("title restore: %s", names.Body.String())
 	}
 	r := httptest.NewRequest("GET", "/api/v1/me", nil)
 	r.AddCookie(&http.Cookie{Name: "ourtaiko_session", Value: tokens["5f63f79d876d201a13f8710453636837"]})

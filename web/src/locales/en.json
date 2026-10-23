@@ -395,7 +395,7 @@
     "metadataTab_preview": "Preview",
     "metadataTab_description": "Description",
     "metadataTab_makers": "Charter credits",
-    "metadataTab_translations": "Translations",
+    "metadataTab_translations": "Names",
     "editMetadataTabsHint": "Changes are kept when switching tabs. Save when finished.",
     "makerValidation": "Charter credits must not exceed 500 bytes or contain control characters.",
     "uploadFilesTab": "Files & cover",
@@ -414,7 +414,10 @@
     "selectPlayerSide": "Select player side",
     "manageChart": "Manage",
     "chartSections": "Chart sections",
-    "chartTab": "Chart"
+    "chartTab": "Chart",
+    "originalNames": "Original names",
+    "originalNamesHint": "The title and subtitle can be changed at any time; the site and the game show these. The chart file is not changed, and the BPM always comes from the TJA.",
+    "titleIsRequired": "The title must not be empty; the title and subtitle are at most 500 bytes without control characters."
   },
   "common": {
     "siteTitle": "OurTaiko Fanmade · Community charts",

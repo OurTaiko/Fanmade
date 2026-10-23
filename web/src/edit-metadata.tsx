@@ -28,6 +28,8 @@ const getLanguages = () =>
 type Language = Locale
 type Draft = Record<Language, { title: string; subtitle: string; restore: boolean }>
 type Patch = {
+  title?: string
+  subtitle?: string
   description?: string
   difficultyMakers?: { course: string; side: string; maker: string }[]
   demoStart?: number
@@ -62,6 +64,10 @@ export function EditMetadata({
     zh: initial('zh'),
     ko: initial('ko'),
   }))
+  // The chart's own title and subtitle, apart from the translations; editing
+  // them leaves the stored TJA as it is.
+  const [names, setNames] = useState({ title: chart.title, subtitle: chart.subtitle })
+  const namesChanged = names.title !== chart.title || names.subtitle !== chart.subtitle
   const [tab, setTab] = useState('categories')
   const [description, setDescription] = useState(chart.description)
   const [makers, setMakers] = useState(
@@ -88,6 +94,7 @@ export function EditMetadata({
     makersChanged ||
     categoriesChanged ||
     previewChanged ||
+    namesChanged ||
     languages.some(
       ({ code }) =>
         draft[code].restore ||
@@ -135,6 +142,23 @@ export function EditMetadata({
       }
       patch.demoStart = start
       patch.demoEnd = end
+    }
+    const invalidText = (text: string) =>
+      new TextEncoder().encode(text).length > 500 ||
+      Array.from(text).some((char) => {
+        const code = char.codePointAt(0)!
+        return code < 32 || (code >= 127 && code <= 159)
+      })
+    if (namesChanged) {
+      const title = names.title.trim(),
+        subtitle = names.subtitle.trim()
+      if (!title || invalidText(title) || invalidText(subtitle)) {
+        setTab('translations')
+        setError(t('messages.titleIsRequired'))
+        return
+      }
+      patch.title = title
+      patch.subtitle = subtitle
     }
     for (const { code, label } of languages) {
       const current = draft[code],
@@ -305,6 +329,37 @@ export function EditMetadata({
               ))}
             </TabsContent>
             <TabsContent value="translations" className="space-y-4 pt-3">
+              <fieldset
+                className="min-w-0 space-y-4 rounded-2xl border p-4 [&>legend]:px-2 [&>legend]:font-medium"
+                disabled={busy}
+              >
+                <legend>{t('messages.originalNames')}</legend>
+                <div className="grid gap-4 sm:grid-cols-2 [&>label]:flex [&>label]:flex-col [&>label]:items-start [&>label]:gap-2">
+                  <Label htmlFor="edit-original-title">
+                    {t('messages.title')}
+                    <Input
+                      id="edit-original-title"
+                      value={names.title}
+                      required
+                      maxLength={500}
+                      autoComplete="off"
+                      onChange={(e) => setNames((n) => ({ ...n, title: e.target.value }))}
+                    />
+                  </Label>
+                  <Label htmlFor="edit-original-subtitle">
+                    {t('messages.subtitle')}
+                    <Input
+                      id="edit-original-subtitle"
+                      value={names.subtitle}
+                      maxLength={500}
+                      autoComplete="off"
+                      placeholder={t('messages.optional')}
+                      onChange={(e) => setNames((n) => ({ ...n, subtitle: e.target.value }))}
+                    />
+                  </Label>
+                </div>
+                <small className="text-muted-foreground">{t('messages.originalNamesHint')}</small>
+              </fieldset>
               {languages.map(({ code, label, caption }) => (
                 <fieldset
                   key={code}

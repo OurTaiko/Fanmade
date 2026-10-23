@@ -395,7 +395,7 @@
     "metadataTab_preview": "미리 듣기",
     "metadataTab_description": "보면 소개",
     "metadataTab_makers": "보면 제작자 명의",
-    "metadataTab_translations": "번역명",
+    "metadataTab_translations": "곡명·번역명",
     "editMetadataTabsHint": "탭을 전환해도 변경 사항이 유지됩니다. 완료 후 저장하세요.",
     "makerValidation": "제작자 명의는 500바이트 이내이며 제어 문자를 포함할 수 없습니다.",
     "uploadFilesTab": "파일 및 커버",
@@ -414,7 +414,10 @@
     "selectPlayerSide": "플레이어 쪽 선택",
     "manageChart": "관리",
     "chartSections": "채보 정보 구역",
-    "chartTab": "채보"
+    "chartTab": "채보",
+    "originalNames": "원래 곡명",
+    "originalNamesHint": "곡명과 부제는 언제든지 바꿀 수 있으며 사이트와 게임에 이 이름이 표시됩니다. 채보 파일은 바뀌지 않고 BPM은 TJA를 따릅니다.",
+    "titleIsRequired": "곡명은 비워 둘 수 없습니다. 곡명과 부제는 500바이트 이하이며 제어 문자를 쓸 수 없습니다."
   },
   "common": {
     "siteTitle": "OurTaiko Fanmade · 창작 채보",

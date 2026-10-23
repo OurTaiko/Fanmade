@@ -25,6 +25,7 @@ import { useNotification } from './notification-context'
 import { parsePreviewTja } from './preview-tja'
 import { maxTja, parseTja, ValidationError } from './tja'
 import type { Side } from './tja'
+import { withChartTitles } from './tja-titles'
 
 const ChartPreview = lazy(() => import('./chart-preview'))
 const TjaEditor = lazy(() => import('@/components/tja-editor'))
@@ -90,10 +91,12 @@ export function ChartEditorPage() {
         if (bytes.byteLength > maxTja)
           throw new Error(i18n.t('messages.chartExceedsThePreviewSizeLimit'))
         // The editor keeps lines apart by "\n", so other line breaks are
-        // normalized before anything compares.
-        const source = new TextDecoder(loaded.encoding, { fatal: true })
-          .decode(bytes)
-          .replace(/\r\n?/g, '\n')
+        // normalized before anything compares. The title headers are the
+        // chart's own names, so saving keeps them.
+        const source = withChartTitles(
+          new TextDecoder(loaded.encoding, { fatal: true }).decode(bytes).replace(/\r\n?/g, '\n'),
+          loaded,
+        )
         if (aborter.signal.aborted) return
         setChart(loaded)
         setOriginal(source)

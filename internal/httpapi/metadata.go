@@ -86,35 +86,43 @@ func (p metadataPatch) apply(o *metadataTranslations, original metadataTranslati
 	if len(p.Title)+len(p.Subtitle)+len(p.TitleTranslations)+len(p.SubtitleTranslations)+len(p.CategoryIDs)+len(p.DemoStart)+len(p.DemoEnd)+len(p.Description)+len(p.DifficultyMakers) == 0 {
 		return false
 	}
-	// Legacy scalar writes are aliases for English only. Reads remain raw source
-	// text plus complete dictionaries, independent of request locale.
-	for _, pair := range [][2]json.RawMessage{{p.Title, p.TitleTranslations}, {p.Subtitle, p.SubtitleTranslations}} {
-		if len(pair[0]) > 0 {
-			var dict map[string]json.RawMessage
-			_ = json.Unmarshal(pair[1], &dict)
-			if _, exists := dict["en"]; exists {
-				return false
-			}
-		}
-	}
-	if !patchTranslations(p.TitleTranslations, &o.Titles, original.Titles, true) || !patchTranslations(p.SubtitleTranslations, &o.Subtitles, original.Subtitles, false) {
-		return false
-	}
+	return patchTranslations(p.TitleTranslations, &o.Titles, original.Titles, true) && patchTranslations(p.SubtitleTranslations, &o.Subtitles, original.Subtitles, false)
+}
+
+// names applies title and subtitle edits (R042 of the official database, adopted
+// here): the chart's own names, independent of the translations, changeable at
+// any time while the stored TJA keeps its headers. null restores the TJA's.
+func (p metadataPatch) names(title, subtitle *string, source func() (tja.Metadata, error)) (bool, error) {
 	for _, field := range []struct {
-		raw      json.RawMessage
-		dst      *map[string]string
-		original map[string]string
-		title    bool
-	}{{p.Title, &o.Titles, original.Titles, true}, {p.Subtitle, &o.Subtitles, original.Subtitles, false}} {
-		if len(field.raw) > 0 {
-			raw := append([]byte(`{"en":`), field.raw...)
-			raw = append(raw, '}')
-			if !patchTranslations(raw, field.dst, field.original, field.title) {
-				return false
-			}
+		raw   json.RawMessage
+		dst   *string
+		title bool
+	}{{p.Title, title, true}, {p.Subtitle, subtitle, false}} {
+		if len(field.raw) == 0 {
+			continue
 		}
+		if bytes.Equal(bytes.TrimSpace(field.raw), []byte("null")) {
+			parsed, err := source()
+			if err != nil {
+				return false, err
+			}
+			*field.dst = parsed.Subtitle
+			if field.title {
+				*field.dst = parsed.Title
+			}
+			continue
+		}
+		var text string
+		if json.Unmarshal(field.raw, &text) != nil {
+			return false, nil
+		}
+		text = strings.TrimSpace(text)
+		if !validDisplayText(text, field.title) {
+			return false, nil
+		}
+		*field.dst = text
 	}
-	return true
+	return true, nil
 }
 func translationReset(raw json.RawMessage) bool {
 	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
@@ -131,28 +139,30 @@ func translationReset(raw json.RawMessage) bool {
 	}
 	return false
 }
-func (s *Server) sourceTranslations(ctx context.Context, tx pgx.Tx, id string) (metadataTranslations, error) {
+
+// sourceMetadata parses the chart's stored TJA, whose headers null restores.
+func (s *Server) sourceMetadata(ctx context.Context, tx pgx.Tx, id string) (tja.Metadata, error) {
 	var key string
 	if err := tx.QueryRow(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, id).Scan(&key); err != nil {
-		return metadataTranslations{}, err
+		return tja.Metadata{}, err
 	}
 	f, err := s.Config.Objects.Open(ctx, key)
 	if err != nil {
-		return metadataTranslations{}, err
+		return tja.Metadata{}, err
 	}
 	defer f.Close()
 	data, err := io.ReadAll(io.LimitReader(f, tja.MaxTJA+1))
 	if err != nil {
-		return metadataTranslations{}, err
+		return tja.Metadata{}, err
 	}
 	if len(data) > tja.MaxTJA {
-		return metadataTranslations{}, fmt.Errorf("source TJA exceeds limit")
+		return tja.Metadata{}, fmt.Errorf("source TJA exceeds limit")
 	}
 	parsed, issue := tja.Parse(data, "utf-8", tja.WaveName(data))
 	if issue != nil {
-		return metadataTranslations{}, issue
+		return tja.Metadata{}, issue
 	}
-	return metadataTranslations{parsed.TitleTranslations, parsed.SubtitleTranslations}, nil
+	return parsed, nil
 }
 
 func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
@@ -195,16 +205,34 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 		problem(w, 403, "FORBIDDEN", "只有作品作者或网站管理员可以修改信息")
 		return
 	}
+	var source *tja.Metadata
+	stored := func() (tja.Metadata, error) {
+		if source == nil {
+			parsed, err := s.sourceMetadata(r.Context(), tx, r.PathValue("id"))
+			if err != nil {
+				return parsed, err
+			}
+			source = &parsed
+		}
+		return *source, nil
+	}
 	original := metadataTranslations{map[string]string{"en": sourceTitle}, map[string]string{"en": sourceSubtitle}}
 	if translationReset(patch.TitleTranslations) || translationReset(patch.SubtitleTranslations) {
-		original, err = s.sourceTranslations(r.Context(), tx, r.PathValue("id"))
+		parsed, err := stored()
 		if err != nil {
 			internal(w, err)
 			return
 		}
+		original = metadataTranslations{parsed.TitleTranslations, parsed.SubtitleTranslations}
 	}
-	if !patch.apply(&translations, original) {
-		problem(w, 422, "METADATA_INVALID", "需要有效的名称／副标题；每项最多 500 字节，名称不能为空，多语言仅支持 en、ja、zh、ko，null 恢复原值")
+	title, subtitle := sourceTitle, sourceSubtitle
+	valid, err := patch.names(&title, &subtitle, stored)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	if !valid || !patch.apply(&translations, original) {
+		problem(w, 422, "METADATA_INVALID", "需要有效的名称／副标题；每项最多 500 字节，名称不能为空，多语言仅支持 en、ja、zh、ko，null 恢复原文件值")
 		return
 	}
 	if len(patch.Description) > 0 {
@@ -288,7 +316,7 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(patch.Title)+len(patch.Subtitle)+len(patch.TitleTranslations)+len(patch.SubtitleTranslations) > 0 {
-		_, err = tx.Exec(r.Context(), `UPDATE charts SET title_translations=$2,subtitle_translations=$3,metadata_updated_at=now() WHERE id=$1`, r.PathValue("id"), translations.Titles, translations.Subtitles)
+		_, err = tx.Exec(r.Context(), `UPDATE charts SET title=$4,subtitle=$5,title_translations=$2,subtitle_translations=$3,metadata_updated_at=now() WHERE id=$1`, r.PathValue("id"), translations.Titles, translations.Subtitles, title, subtitle)
 		if err != nil {
 			internal(w, err)
 			return

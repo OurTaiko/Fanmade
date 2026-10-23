@@ -16,7 +16,7 @@ import {
   TableBody,
   TableCell,
 } from '@/components/ui/table'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   FileAudioIcon as FileMusic,
   TrophyIcon as Trophy,
@@ -36,6 +36,7 @@ import {
   groupName,
 } from './courses'
 import { Notice } from './notifications'
+import { withChartTitles } from './tja-titles'
 import { defaultDifficulty } from './chart-difficulty'
 import { useSession } from './session-context'
 import { maxTja } from './tja'
@@ -82,6 +83,9 @@ export function ChartActivity({
   const groups = groupCourses(chart.difficulties)
   const group = groups.find((g) => g.base === baseCourse(course))
   const { id, tjaHash, encoding } = chart
+  // The image and the player name the chart as the site does, not as the
+  // stored TJA's headers may.
+  const titled = useMemo(() => (source ? withChartTitles(source, chart) : ''), [source, chart])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -237,7 +241,7 @@ export function ChartActivity({
                   </p>
                 }
               >
-                <ChartPreview key={course} chart={chart} source={source} course={course} />
+                <ChartPreview key={course} chart={chart} source={titled} course={course} />
               </Suspense>
             ))}
         </TabsContent>
@@ -254,7 +258,7 @@ export function ChartActivity({
               <p role="status">{t('messages.loadingTjaFromServer')}</p>
             ) : (
               <Suspense fallback={<p role="status">{t('messages.loadingChartPreview')}</p>}>
-                <EmbeddedPlayer chart={chart} source={source} course={course} />
+                <EmbeddedPlayer chart={chart} source={titled} course={course} />
               </Suspense>
             ))}
         </TabsContent>

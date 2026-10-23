@@ -6,6 +6,8 @@ import { buildChartPackage, entryName, packageFilename } from './chart-package'
 const hash = (data: string) => createHash('sha256').update(data).digest('hex')
 const audio = 'OggS audio bytes'
 const tja = `TITLE:Song\nWAVE:${hash(audio)}.ogg\n`
+// The package names the chart as the site does; the stored TJA keeps its headers.
+const packagedTja = `TITLE:Renamed\nSUBTITLE:Artist\nTITLEJA:改名\nWAVE:${hash(audio)}.ogg\n`
 const cover = 'RIFF cover'
 const cdn = 'https://cdn.example/fanmade'
 const chart = {
@@ -15,6 +17,10 @@ const chart = {
   coverHash: hash(cover),
   wave: `${hash(audio)}.ogg`,
   createdAt: '2026-10-12T00:00:00Z',
+  title: 'Renamed',
+  subtitle: 'Artist',
+  titleTranslations: { ja: '改名' },
+  subtitleTranslations: {},
 } as Chart
 
 /** Names and contents of the stored (uncompressed) entries, in archive order. */
@@ -93,7 +99,7 @@ describe('chart package', () => {
     )
     const archive = await buildChartPackage(chart, new AbortController().signal)
     expect(await entries(archive)).toEqual({
-      [`${hash(tja)}.tja`]: tja,
+      [`${hash(tja)}.tja`]: packagedTja,
       [`${hash(audio)}.ogg`]: audio,
       [`${hash(cover)}.webp`]: cover,
     })
@@ -141,7 +147,7 @@ describe('chart package', () => {
     const withMovie = { ...chart, movieHash: hash('ftyp movie') }
     const archive = await buildChartPackage(withMovie, new AbortController().signal)
     expect(await entries(archive)).toEqual({
-      [`${hash(tja)}.tja`]: tja,
+      [`${hash(tja)}.tja`]: packagedTja,
       [`${hash(audio)}.ogg`]: audio,
       [`${hash('ftyp movie')}.mp4`]: 'ftyp movie',
       [`${hash(cover)}.webp`]: cover,

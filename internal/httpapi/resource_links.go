@@ -118,8 +118,6 @@ func (s *Server) resourceLinks(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	// Legacy clients require expiresAt: this is the manifest refresh deadline,
-	// not an expiry on public CDN URLs.
 	public, _ := remote.PublicURL(c.TJAKey)
-	respond(w, 200, map[string]any{"urlsExpire": public == "", "chartId": c.ID, "expiresAt": time.Now().UTC().Add(15 * time.Minute), "resources": resources})
+	respond(w, 200, map[string]any{"urlsExpire": public == "", "chartId": c.ID, "resources": resources})
 }

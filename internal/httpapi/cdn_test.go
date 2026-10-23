@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"ourtaiko.dev/fanmade/api/internal/objectstore"
 	"ourtaiko.dev/fanmade/api/internal/teststore"
@@ -66,8 +65,8 @@ func TestCDNResourcesAndRoutes(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/charts/cdn-song/resources", nil))
 	var payload struct {
-		URLsExpire bool      `json:"urlsExpire"`
-		ExpiresAt  time.Time `json:"expiresAt"`
+		URLsExpire bool    `json:"urlsExpire"`
+		ExpiresAt  *string `json:"expiresAt"`
 		Resources  map[string]struct {
 			URL     string `json:"url"`
 			HeadURL string `json:"headUrl"`
@@ -76,7 +75,7 @@ func TestCDNResourcesAndRoutes(t *testing.T) {
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &payload) != nil {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	if payload.URLsExpire || payload.ExpiresAt.Before(time.Now()) || len(payload.Resources) != 3 {
+	if payload.URLsExpire || payload.ExpiresAt != nil || len(payload.Resources) != 3 {
 		t.Fatal(payload)
 	}
 	for _, r := range payload.Resources {

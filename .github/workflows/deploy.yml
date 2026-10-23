@@ -65,6 +65,22 @@ jobs:
           digest=$(sha256sum fanmade-image.tar.gz)
           echo "sha256=${digest%% *}" >> "$GITHUB_OUTPUT"
 
+      - name: Get AWS credentials for ourtaiko-private
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          # The shared IAM user for ourtaiko-private (organization secrets).
+          aws-access-key-id: ${{ secrets.PRIVATE_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.PRIVATE_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      # Every published image stays here for rollback.yml; the server keeps
+      # only the running one.
+      - name: Archive unified image in ourtaiko-private
+        working-directory: .
+        run: >-
+          aws s3 cp fanmade-image.tar.gz "s3://ourtaiko-private/fanmade/images/${{ github.sha }}.tar.gz"
+          --metadata "sha256=${{ steps.image.outputs.sha256 }}" --only-show-errors
+
       - name: Validate deployment secrets
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}

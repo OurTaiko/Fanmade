@@ -10,22 +10,32 @@ exec 9>"$(git rev-parse --git-path fanmade-publish.lock)"
 flock -n 9 || { echo 'Another Fanmade deployment is running'; exit 1; }
 test -z "$(git status --porcelain)" || { echo 'Fanmade checkout has local changes'; exit 1; }
 test "$(git branch --show-current)" = main || { echo 'Fanmade checkout must be on main'; exit 1; }
-git fetch --no-tags "$remote" main
-latest=$(git rev-parse FETCH_HEAD)
-revision=${DEPLOY_REVISION:-$latest}
-if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
-  echo 'DEPLOY_REVISION must be a full Git commit SHA'
-  exit 1
+if [ "${DEPLOY_ROLLBACK:-}" = true ]; then
+  # A rollback reloads an archived image (rollback.yml); the checkout, and
+  # with it the Compose file, stays at the current main.
+  revision=${DEPLOY_REVISION:-}
+  if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]] || [ -z "${DEPLOY_IMAGE_ARCHIVE:-}" ]; then
+    echo 'A rollback needs DEPLOY_REVISION and DEPLOY_IMAGE_ARCHIVE'
+    exit 1
+  fi
+else
+  git fetch --no-tags "$remote" main
+  latest=$(git rev-parse FETCH_HEAD)
+  revision=${DEPLOY_REVISION:-$latest}
+  if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
+    echo 'DEPLOY_REVISION must be a full Git commit SHA'
+    exit 1
+  fi
+  # A queued or manually re-run workflow must never publish an older commit.
+  if [ "$revision" != "$latest" ]; then
+    echo "Skipping superseded Fanmade revision $revision; main is now $latest"
+    exit 0
+  fi
+  git merge --ff-only "$revision"
+  test "$(git rev-parse HEAD)" = "$revision" || { echo 'Fanmade checkout differs from requested revision'; exit 1; }
+  git submodule update --init --recursive
+  git lfs pull --include="web/public/edit/**"
 fi
-# A queued or manually re-run workflow must never publish an older commit.
-if [ "$revision" != "$latest" ]; then
-  echo "Skipping superseded Fanmade revision $revision; main is now $latest"
-  exit 0
-fi
-git merge --ff-only "$revision"
-test "$(git rev-parse HEAD)" = "$revision" || { echo 'Fanmade checkout differs from requested revision'; exit 1; }
-git submodule update --init --recursive
-git lfs pull --include="web/public/edit/**"
 # Build both halves from the same commit before replacing the running service.
 export FANMADE_SOURCE_DIR="$PWD"
 compose="$PWD/deploy/compose.production.yml"
@@ -49,3 +59,10 @@ if [ -n "$archive" ]; then
   rm -f -- "$archive"
   rmdir -- "$(dirname "$archive")"
 fi
+# Rollback images are kept in ourtaiko-private (fanmade/images/<commit>.tar.gz),
+# not here: drop every other local tag; Docker deletes an image with its last tag.
+sudo -n docker image ls ourtaiko-fanmade --format '{{.Tag}}' | while read -r tag; do
+  if [ "$tag" != release ] && [ "$tag" != "$revision" ] && [ "$tag" != '<none>' ]; then
+    sudo -n docker image rm "ourtaiko-fanmade:$tag" >/dev/null || true
+  fi
+done

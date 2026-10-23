@@ -1,0 +1,98 @@
+name: Roll back Fanmade
+
+# Republishes an earlier image from ourtaiko-private (archived by deploy.yml).
+# The database is not rolled back; an image older than a schema change still
+# runs on the newer schema only if that migration was additive.
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full commit SHA of a previously published image
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fanmade-production
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check the requested revision
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          if [[ ! "$REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::revision must be a full commit SHA"
+            exit 1
+          fi
+
+      - name: Check out main for the publish script
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Get AWS credentials for ourtaiko-private
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          # The shared IAM user for ourtaiko-private (organization secrets).
+          aws-access-key-id: ${{ secrets.PRIVATE_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.PRIVATE_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Download the archived image
+        id: image
+        env:
+          REVISION: ${{ inputs.revision }}
+        run: |
+          key="fanmade/images/$REVISION.tar.gz"
+          expected=$(aws s3api head-object --bucket ourtaiko-private --key "$key" --query 'Metadata.sha256' --output text)
+          aws s3 cp "s3://ourtaiko-private/$key" fanmade-image.tar.gz --only-show-errors
+          digest=$(sha256sum fanmade-image.tar.gz)
+          test "${digest%% *}" = "$expected" || { echo "::error::Archived image checksum mismatch"; exit 1; }
+          echo "sha256=$expected" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the image
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
+        with:
+          version: '1.8.1'
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          fingerprint: ${{ secrets.DEPLOY_FINGERPRINT }}
+          source: fanmade-image.tar.gz
+          target: ${{ secrets.DEPLOY_BASE_PATH || '/opt/ourtaiko-fanmade' }}/incoming/${{ inputs.revision }}
+          command_timeout: 15m
+
+      - name: Prepare the publish script from main
+        run: |
+          {
+            printf "bash -se <<'FANMADE_PUBLISH_SCRIPT'\n"
+            cat deploy/publish.sh
+            printf '\nFANMADE_PUBLISH_SCRIPT\n'
+          } > "$RUNNER_TEMP/publish-fanmade.sh"
+
+      - name: Publish over SSH
+        uses: appleboy/ssh-action@91f3272fc5907f4699dcf59761eb622a07342f5a # v1.2.3
+        env:
+          DEPLOY_ROLLBACK: 'true'
+          DEPLOY_REVISION: ${{ inputs.revision }}
+          DEPLOY_BASE_PATH: ${{ secrets.DEPLOY_BASE_PATH }}
+          DEPLOY_IMAGE_ARCHIVE: ${{ secrets.DEPLOY_BASE_PATH || '/opt/ourtaiko-fanmade' }}/incoming/${{ inputs.revision }}/fanmade-image.tar.gz
+          DEPLOY_IMAGE_SHA256: ${{ steps.image.outputs.sha256 }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          fingerprint: ${{ secrets.DEPLOY_FINGERPRINT }}
+          version: '1.8.1'
+          command_timeout: 30m
+          envs: DEPLOY_ROLLBACK,DEPLOY_REVISION,DEPLOY_BASE_PATH,DEPLOY_IMAGE_ARCHIVE,DEPLOY_IMAGE_SHA256
+          script_path: ${{ runner.temp }}/publish-fanmade.sh

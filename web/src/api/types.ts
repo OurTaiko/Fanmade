@@ -223,6 +223,8 @@ export type Dan = {
   id: string
   title: Record<string, string>
   color: number
+  /** Six capital letters or digits, unique on the server: the game's 外伝 entry takes it. */
+  code: string
   official: boolean
   songs: DanSong[]
   exams: DanExam[]
@@ -240,6 +242,8 @@ export type Dan = {
 export type DanInput = {
   title: Record<string, string>
   color: number
+  /** Chosen on creation; left out for a random one. */
+  code?: string
   songs: { chartId: string; course: string; hidden: boolean }[]
   exams: DanExam[]
   rewards: { dan?: number; titles?: DanRewardTitle[] }

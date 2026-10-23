@@ -471,7 +471,9 @@
     "FAVORITE_LIMIT": "You can favorite up to 200 playlists.",
     "DAN_TITLE_NOT_FOUND": "That title is not on OurTaiko Profile.",
     "DAN_TITLE_NOT_OWNED": "A course can only give its maker's own community titles or official titles.",
-    "DAN_LIMIT_REACHED": "Each player can publish up to 10 courses that are not official."
+    "DAN_LIMIT_REACHED": "Each player can publish up to 10 courses that are not official.",
+    "DAN_CODE_TAKEN": "This course code is already taken.",
+    "DAN_CODE_INVALID": "A course code is six capital letters or digits."
   },
   "interactions": {
     "upvote": "Upvote",
@@ -815,6 +817,11 @@
       "ko": "한국어"
     },
     "color": "Color",
+    "code": "Course code",
+    "codePlaceholder": "Leave empty for a random one",
+    "codeHint": "Six capital letters or digits; left empty, one is drawn for you. Players enter it at the 外伝 entry of the game's 段位道場 to challenge the course.",
+    "codeFixed": "The code cannot be changed after creation.",
+    "codeExplained": "Enter this code at the 外伝 entry of the game's 段位道場 to challenge the course.",
     "colorNamed": "{{name}} ({{number}})",
     "colors": {
       "wood": "Wood",

@@ -468,7 +468,9 @@
     "FAVORITE_LIMIT": "플레이리스트는 최대 200개까지 즐겨찾기에 추가할 수 있습니다.",
     "DAN_TITLE_NOT_FOUND": "OurTaiko Profile에 없는 칭호입니다.",
     "DAN_TITLE_NOT_OWNED": "단위 제작자 본인의 커뮤니티 칭호나 공식 칭호만 쓸 수 있습니다.",
-    "DAN_LIMIT_REACHED": "공식이 아닌 단위는 한 사람당 10개까지입니다."
+    "DAN_LIMIT_REACHED": "공식이 아닌 단위는 한 사람당 10개까지입니다.",
+    "DAN_CODE_TAKEN": "이 단위 코드는 이미 사용 중입니다.",
+    "DAN_CODE_INVALID": "단위 코드는 영문 대문자와 숫자 6자리입니다."
   },
   "interactions": {
     "upvote": "추천",
@@ -803,6 +805,11 @@
       "ko": "한국어"
     },
     "color": "색",
+    "code": "단위 코드",
+    "codePlaceholder": "비워 두면 자동 생성",
+    "codeHint": "영문 대문자와 숫자 6자리. 비워 두면 자동으로 생성됩니다. 게임 단위도장의 「외전」에서 이 코드를 입력하면 도전할 수 있습니다.",
+    "codeFixed": "단위 코드는 만든 뒤 바꿀 수 없습니다.",
+    "codeExplained": "게임 단위도장의 「외전」에서 이 코드를 입력하면 도전할 수 있습니다.",
     "colorNamed": "{{name}} ({{number}})",
     "colors": {
       "wood": "나무",

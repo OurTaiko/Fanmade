@@ -468,7 +468,9 @@
     "FAVORITE_LIMIT": "お気に入りに追加できるプレイリストは 200 個までです。",
     "DAN_TITLE_NOT_FOUND": "その称号は OurTaiko Profile にありません。",
     "DAN_TITLE_NOT_OWNED": "使えるのは段位の作成者自身のコミュニティ称号か公式称号だけです。",
-    "DAN_LIMIT_REACHED": "公式でない段位は 1 人 10 個までです。"
+    "DAN_LIMIT_REACHED": "公式でない段位は 1 人 10 個までです。",
+    "DAN_CODE_TAKEN": "この段位コードはすでに使われています。",
+    "DAN_CODE_INVALID": "段位コードは英大文字と数字 6 桁です。"
   },
   "interactions": {
     "upvote": "高評価",
@@ -803,6 +805,11 @@
       "ko": "한국어"
     },
     "color": "色",
+    "code": "段位コード",
+    "codePlaceholder": "空欄で自動生成",
+    "codeHint": "英大文字と数字 6 桁。空欄なら自動生成します。ゲームの段位道場「外伝」でこのコードを入力すると挑戦できます。",
+    "codeFixed": "段位コードは作成後に変更できません。",
+    "codeExplained": "ゲームの段位道場「外伝」でこのコードを入力すると挑戦できます。",
     "colorNamed": "{{name}}（{{number}}）",
     "colors": {
       "wood": "木",

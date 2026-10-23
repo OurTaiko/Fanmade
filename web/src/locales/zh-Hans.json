@@ -468,7 +468,9 @@
     "FAVORITE_LIMIT": "最多收藏 200 个歌单。",
     "DAN_TITLE_NOT_FOUND": "OurTaiko Profile 上没有这个称号。",
     "DAN_TITLE_NOT_OWNED": "只能使用段位创建者自己的社区称号或官方称号。",
-    "DAN_LIMIT_REACHED": "每人最多发布 10 个非官方段位。"
+    "DAN_LIMIT_REACHED": "每人最多发布 10 个非官方段位。",
+    "DAN_CODE_TAKEN": "这个段位码已被使用。",
+    "DAN_CODE_INVALID": "段位码需为 6 位大写字母或数字。"
   },
   "interactions": {
     "upvote": "赞",
@@ -803,6 +805,11 @@
       "ko": "한국어"
     },
     "color": "颜色",
+    "code": "段位码",
+    "codePlaceholder": "留空自动生成",
+    "codeHint": "6 位大写字母或数字，留空则自动生成。玩家在游戏「段位道場」的外传入口输入这个码即可挑战。",
+    "codeFixed": "段位码创建后不能更改。",
+    "codeExplained": "在游戏「段位道場」的外传入口输入这个码即可挑战。",
     "colorNamed": "{{name}}（{{number}}）",
     "colors": {
       "wood": "木",

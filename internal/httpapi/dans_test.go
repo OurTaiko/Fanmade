@@ -166,15 +166,44 @@ func TestDanCourses(t *testing.T) {
 		t.Fatalf("created %+v", created)
 	}
 
-	// The game reads every course in the format it plays.
+	// Every course gets a six-character code; makers may choose a free one.
+	if !danCodePattern.MatchString(created.Code) {
+		t.Fatal("code", created.Code)
+	}
+	var coded DanCourse
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"color":3`, `"color":3,"code":" ab12cd "`, 1), alice), 201, &coded)
+	if coded.Code != "AB12CD" {
+		t.Fatal("chosen code", coded.Code)
+	}
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"color":3`, `"color":3,"code":"ab12cd"`, 1), alice), 409, &problemBody)
+	if problemBody.Code != "DAN_CODE_TAKEN" {
+		t.Fatal(problemBody)
+	}
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"color":3`, `"color":3,"code":"ab-12"`, 1), alice), 422, &problemBody)
+	if problemBody.Code != "DAN_CODE_INVALID" {
+		t.Fatal(problemBody)
+	}
+	expect(call("DELETE", "/api/v1/dans/"+coded.ID, "", alice), 200, nil)
+	// A deleted course keeps its code.
+	expect(call("POST", "/api/v1/dans", strings.Replace(course, `"color":3`, `"color":3,"code":"AB12CD"`, 1), alice), 409, nil)
+
+	// The game's list carries official courses only; any course answers to its code.
 	var list struct {
 		Dans       []DanCourse
 		DanVersion int
 	}
 	expect(call("GET", "/api/v1/game/dans", "", ""), 200, &list)
-	if list.DanVersion != 1 || len(list.Dans) != 1 || list.Dans[0].Format != 1 || list.Dans[0].ID != created.ID || list.Dans[0].Songs[1].Chart.ID != songB {
-		t.Fatalf("game list %+v", list)
+	if list.DanVersion != 1 || len(list.Dans) != 0 {
+		t.Fatalf("game list before official %+v", list)
 	}
+	var byCode DanCourse
+	expect(call("GET", "/api/v1/game/dans/"+strings.ToLower(created.Code), "", ""), 200, &byCode)
+	if byCode.ID != created.ID || byCode.Format != 1 || byCode.Songs[1].Chart.ID != songB {
+		t.Fatalf("by code %+v", byCode)
+	}
+	expect(call("GET", "/api/v1/game/dans/AB12CD", "", ""), 404, nil)
+	expect(call("GET", "/api/v1/game/dans/ZZZZZZ", "", ""), 404, nil)
+	expect(call("GET", "/api/v1/game/dans/zz", "", ""), 404, nil)
 	var catalog map[string]any
 	expect(call("GET", "/api/v1/game/catalog", "", ""), 200, &catalog)
 	if catalog["danVersion"] != float64(1) {
@@ -204,6 +233,10 @@ func TestDanCourses(t *testing.T) {
 	// Administrators mark official courses.
 	expect(call("PUT", "/api/v1/dans/"+created.ID+"/official", `{"official":true}`, alice), 403, nil)
 	expect(call("PUT", "/api/v1/dans/"+created.ID+"/official", `{"official":true}`, boss), 200, nil)
+	expect(call("GET", "/api/v1/game/dans", "", ""), 200, &list)
+	if len(list.Dans) != 1 || list.Dans[0].ID != created.ID || list.Dans[0].Code != created.Code {
+		t.Fatalf("game list once official %+v", list)
+	}
 	attempt("attempt-key-0002", `{"courseId":"`+created.ID+`","verdict":2,"songsPlayed":2}`, 200)
 	if len(asked) != 2 || !asked[1].Official || asked[1].Dan == nil || *asked[1].Dan != 20 || strings.Join(asked[1].Titles, ",") != "ten-dan" {
 		t.Fatalf("official award %+v", asked[1])

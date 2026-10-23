@@ -12,7 +12,7 @@ func TestDanInteractions(t *testing.T) {
 	c, s := interactionFixture(t)
 	ctx := context.Background()
 	var dan int64
-	if err := s.DB.QueryRow(ctx, `INSERT INTO dan_courses(owner_id,title,exams) VALUES('d46774d30dd13b92d9e536808da468a4','{"ja":"初段","en":"1st Dan"}','[]') RETURNING id`).Scan(&dan); err != nil {
+	if err := s.DB.QueryRow(ctx, `INSERT INTO dan_courses(owner_id,title,code,exams) VALUES('d46774d30dd13b92d9e536808da468a4','{"ja":"初段","en":"1st Dan"}','SHODAN','[]') RETURNING id`).Scan(&dan); err != nil {
 		t.Fatal(err)
 	}
 	path := "/api/v1/dans/" + strconv.FormatInt(dan, 10)

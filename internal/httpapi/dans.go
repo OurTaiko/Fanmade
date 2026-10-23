@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"log"
@@ -56,18 +57,20 @@ type DanSong struct {
 }
 
 type DanCourse struct {
-	Format    int               `json:"format"`
-	ID        string            `json:"id"`
-	Title     map[string]string `json:"title"`
-	Color     int               `json:"color"`
-	Official  bool              `json:"official"`
-	Songs     []DanSong         `json:"songs"`
-	Exams     json.RawMessage   `json:"exams"`
-	Rewards   json.RawMessage   `json:"rewards"`
-	OwnerID   string            `json:"ownerId"`
-	Owner     string            `json:"owner"`
-	CreatedAt time.Time         `json:"createdAt"`
-	UpdatedAt time.Time         `json:"updatedAt"`
+	Format int               `json:"format"`
+	ID     string            `json:"id"`
+	Title  map[string]string `json:"title"`
+	Color  int               `json:"color"`
+	// Six capital letters or digits, unique on this server: the game's 外伝 entry takes it.
+	Code      string          `json:"code"`
+	Official  bool            `json:"official"`
+	Songs     []DanSong       `json:"songs"`
+	Exams     json.RawMessage `json:"exams"`
+	Rewards   json.RawMessage `json:"rewards"`
+	OwnerID   string          `json:"ownerId"`
+	Owner     string          `json:"owner"`
+	CreatedAt time.Time       `json:"createdAt"`
+	UpdatedAt time.Time       `json:"updatedAt"`
 	// Votes and comments as on songs; MyVote is only filled on the detail page.
 	Score        int `json:"score"`
 	Upvotes      int `json:"upvotes"`
@@ -88,6 +91,8 @@ type danRewards struct {
 type danInput struct {
 	Title map[string]string `json:"title"`
 	Color int               `json:"color"`
+	// Optional on creation; ignored on an update.
+	Code  string `json:"code"`
 	Songs []struct {
 		ChartID string `json:"chartId"`
 		Course  string `json:"course"`
@@ -291,7 +296,7 @@ func (s *Server) checkDanTitles(ctx context.Context, w http.ResponseWriter, rewa
 	return false
 }
 
-const danColumns = `d.id,d.owner_id,d.title,d.color,d.official,d.exams,d.rewards,d.created_at,d.updated_at,d.upvotes,d.downvotes,d.comment_count`
+const danColumns = `d.id,d.owner_id,d.title,d.color,d.official,d.exams,d.rewards,d.created_at,d.updated_at,d.code,d.upvotes,d.downvotes,d.comment_count`
 
 // loadDans reads courses (where: a condition on dan_courses d) with their songs as they are now.
 func (s *Server) loadDans(ctx context.Context, where string, args ...any) ([]DanCourse, error) {
@@ -305,7 +310,7 @@ func (s *Server) loadDans(ctx context.Context, where string, args ...any) ([]Dan
 		var c DanCourse
 		var id int64
 		var title, exams, rewards []byte
-		if err = rows.Scan(&id, &c.OwnerID, &title, &c.Color, &c.Official, &exams, &rewards, &c.CreatedAt, &c.UpdatedAt, &c.Upvotes, &c.Downvotes, &c.CommentCount); err != nil {
+		if err = rows.Scan(&id, &c.OwnerID, &title, &c.Color, &c.Official, &exams, &rewards, &c.CreatedAt, &c.UpdatedAt, &c.Code, &c.Upvotes, &c.Downvotes, &c.CommentCount); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -443,7 +448,30 @@ func (s *Server) createDan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var id int64
-	if err = tx.QueryRow(ctx, `INSERT INTO dan_courses(owner_id,title,color,exams,rewards) VALUES($1,$2,$3,$4,$5) RETURNING id`, u.User.ID, titleJSON, in.Color, exams, rewards).Scan(&id); err != nil {
+	code := strings.ToUpper(strings.TrimSpace(in.Code))
+	if code != "" && !danCodePattern.MatchString(code) {
+		problem(w, 422, "DAN_CODE_INVALID", "段位码需为 6 位大写字母或数字")
+		return
+	}
+	// A chosen code must be free; a random one is drawn until it is. Two makers drawing the
+	// same code at once would trip the unique index, which is as unlikely as it sounds.
+	for taken := true; taken; {
+		if code == "" {
+			code = randomDanCode()
+		}
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM dan_courses WHERE code=$1)`, code).Scan(&taken); err != nil {
+			internal(w, err)
+			return
+		}
+		if taken && in.Code != "" {
+			problem(w, 409, "DAN_CODE_TAKEN", "这个段位码已被使用")
+			return
+		}
+		if taken {
+			code = ""
+		}
+	}
+	if err = tx.QueryRow(ctx, `INSERT INTO dan_courses(owner_id,title,color,code,exams,rewards) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, u.User.ID, titleJSON, in.Color, code, exams, rewards).Scan(&id); err != nil {
 		internal(w, err)
 		return
 	}
@@ -571,15 +599,51 @@ func (s *Server) markDanOfficial(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string]bool{"official": body.Official})
 }
 
-// gameDans is GET /api/v1/game/dans: every published course for the game, which finds the
-// songs in this server's catalog and greys a course whose chart changed (tjaHash).
+// gameDans is GET /api/v1/game/dans: the official courses for the game's list, which finds
+// the songs in this server's catalog and greys a course whose chart changed (tjaHash). The
+// other courses are reached by code (gameDanByCode).
 func (s *Server) gameDans(w http.ResponseWriter, r *http.Request) {
-	courses, err := s.loadDans(r.Context(), `true`)
+	courses, err := s.loadDans(r.Context(), `d.official`)
 	if err != nil {
 		internal(w, err)
 		return
 	}
 	respond(w, 200, map[string]any{"dans": courses, "danVersion": 1})
+}
+
+// gameDanByCode is GET /api/v1/game/dans/{code}: one published course, official or not, by
+// the code the game's 外伝 entry took.
+func (s *Server) gameDanByCode(w http.ResponseWriter, r *http.Request) {
+	code := strings.ToUpper(strings.TrimSpace(r.PathValue("code")))
+	if !danCodePattern.MatchString(code) {
+		problem(w, 404, "DAN_NOT_FOUND", "段位不存在")
+		return
+	}
+	courses, err := s.loadDans(r.Context(), `d.code=$1`, code)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	if len(courses) == 0 {
+		problem(w, 404, "DAN_NOT_FOUND", "段位不存在")
+		return
+	}
+	respond(w, 200, courses[0])
+}
+
+var danCodePattern = regexp.MustCompile(`^[A-Z0-9]{6}$`)
+
+const danCodeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+// randomDanCode draws six characters evenly from the alphabet.
+func randomDanCode() string {
+	var raw [6]byte
+	rand.Read(raw[:])
+	code := make([]byte, 6)
+	for i, b := range raw {
+		code[i] = danCodeAlphabet[int(b)%len(danCodeAlphabet)]
+	}
+	return string(code)
 }
 
 // DanAttempt is a recorded attempt.

@@ -38,9 +38,14 @@ S3 失败会保留已验证的本地副本，不会清理旧备份。进程锁�
 不需要安装 AWS CLI，也不需要给 API 容器挂载 Docker socket。
 
 ```sh
-cd /opt/ourtaiko-fanmade/src/backend
+cd /opt/ourtaiko-fanmade/src/fanmade
 sudo bash deploy/backup/install.sh
+# 之后（共用同一程序）：
+sudo bash deploy/backup/install-sso.sh
+sudo bash deploy/backup/install-database.sh
 ```
+
+三个库都在共享实例 `ourtaiko-postgres`：Fanmade 东京 04:00、SSO 04:15、OurTaikoDatabase 04:30（2026-10-23 从 sakura 搬来），配置分别是 `backup.env`、`sso-backup.env.example`、`database-backup.env.example` 对应的 `/etc/ourtaiko-*/backup.env`。
 
 安装器构建独立程序，保留旧程序和 unit 文件，然后立即执行一次真实备份。
 首次备份成功后才启用 timer。更新时不会覆盖已有 `/etc/ourtaiko-fanmade/backup.env`。
@@ -48,10 +53,8 @@ sudo bash deploy/backup/install.sh
 安装失败时检查下方日志；修复后重新安装。保存的旧安装文件位于
 `/var/backups/ourtaiko-fanmade/backup-install-*/`，不参加每日保留清理。
 
-配置示例见 [backup.env.example](backup.env.example)。S3 桶与区域、现有 AWS 凭据由
-`storage.env` 提供，不要复制到 Git 或命令行。身份需要备份前缀的 `s3:PutObject`、
-`s3:GetObject`、`s3:DeleteObject`，以及限定此前缀的 `s3:ListBucket`。
-`BACKUP_S3_PREFIX` 只能位于 `fanmade/backups/` 下，数据库名会自动追加。
+配置示例见 [backup.env.example](backup.env.example)。区域由应用 env 或 `backup.env` 提供；AWS 凭据来自 `/etc/ourtaiko-private/aws.env`（私有桶通用用户），不要复制到 Git 或命令行。
+`BACKUP_S3_PREFIX` 只能位于 `fanmade/backups/`、`sso/backups/` 或 `database/backups/` 下，数据库名会自动追加。
 关闭 S3 可设置 `BACKUP_S3_ENABLED=false`，此时成功状态只代表本地备份。
 修改本地目录时应保持在 `/var/backups/ourtaiko-fanmade/` 下，否则需同步修改 service 的 `ReadWritePaths`。
 

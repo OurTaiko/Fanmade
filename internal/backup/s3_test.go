@@ -124,6 +124,8 @@ func TestS3BackupPrefixesExcludePublicResources(t *testing.T) {
 	}{
 		{"fanmade/backups/postgresql", "ourtaiko_fanmade", true},
 		{"sso/backups/postgresql/", "ourtaiko_sso", true},
+		{"database/backups/postgresql", "ourtaiko_database", true},
+		{"database/images", "ourtaiko_database", false},
 		{"sso/avatars", "ourtaiko_sso", false},
 		{"fanmade/objects", "ourtaiko_fanmade", false},
 		{"fanmade/production", "ourtaiko_fanmade", false},

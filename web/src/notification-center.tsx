@@ -303,6 +303,8 @@ const settingLabels = {
   comment_reply: 'notificationCenter.settings.comment_reply',
   chart_comment: 'notificationCenter.settings.chart_comment',
   chart_upvotes: 'notificationCenter.settings.chart_upvotes',
+  dan_comment: 'notificationCenter.settings.dan_comment',
+  dan_upvotes: 'notificationCenter.settings.dan_upvotes',
   comment_upvotes: 'notificationCenter.settings.comment_upvotes',
   comment_removed: 'notificationCenter.settings.comment_removed',
 } as const

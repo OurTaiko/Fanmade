@@ -61,6 +61,8 @@ export type CommentSubject = {
   newComment: string
   commentPath: (commentId: string) => string
   isOwner: (userId: string) => boolean
+  /** The new-comment box's prompt names what the thread is about. */
+  placeholder: 'interactions.commentPlaceholder' | 'interactions.danCommentPlaceholder'
 }
 
 export function chartSubject(chart: Chart): CommentSubject {
@@ -71,6 +73,7 @@ export function chartSubject(chart: Chart): CommentSubject {
     newComment: endpoints.newComment(chart.id),
     commentPath: (id) => commentPath(chart.id, id),
     isOwner: (userId) => isChartOwner(chart, userId),
+    placeholder: 'interactions.commentPlaceholder',
   }
 }
 
@@ -82,6 +85,7 @@ export function danSubject(dan: Dan): CommentSubject {
     newComment: `${endpoints.dan(dan.id)}/comments`,
     commentPath: (id) => danCommentPath(dan.id, id),
     isOwner: (userId) => userId === dan.ownerId,
+    placeholder: 'interactions.danCommentPlaceholder',
   }
 }
 
@@ -737,7 +741,7 @@ export function CommentSection({
         </div>
       ) : user ? (
         <Composer
-          placeholder={t('interactions.commentPlaceholder')}
+          placeholder={t(subject.placeholder)}
           submitLabel={t('interactions.comment')}
           onSubmit={async (body) => {
             const created = await api<Comment>(

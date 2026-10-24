@@ -707,6 +707,7 @@
     "songsExplained": "最大 3 曲を順番に演奏します。各曲は挑戦する譜面（1人用／1P／2P）を指定します。",
     "songNumber": "{{number}} 曲目",
     "hidden": "曲名を隠す",
+    "hiddenTitle": "曲名非公開",
     "addSong": "曲を追加",
     "removeSong": "曲を外す",
     "pickSong": "曲を選ぶ",

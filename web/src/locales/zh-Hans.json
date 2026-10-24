@@ -707,6 +707,7 @@
     "songsExplained": "最多 3 首，按顺序连续演奏。每首要选定挑战的谱面块（单人／1P／2P）。",
     "songNumber": "第 {{number}} 首",
     "hidden": "隐藏曲名",
+    "hiddenTitle": "隐藏曲名",
     "addSong": "添加歌曲",
     "removeSong": "移除歌曲",
     "pickSong": "选择歌曲",

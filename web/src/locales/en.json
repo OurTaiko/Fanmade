@@ -719,6 +719,7 @@
     "songsExplained": "Up to 3 songs, played in order. Each names the block it plays (single, 1P or 2P).",
     "songNumber": "Song {{number}}",
     "hidden": "Hide the title",
+    "hiddenTitle": "Hidden title",
     "addSong": "Add a song",
     "removeSong": "Remove the song",
     "pickSong": "Pick a song",

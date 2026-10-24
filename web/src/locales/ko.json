@@ -707,6 +707,7 @@
     "songsExplained": "최대 3곡을 순서대로 연주합니다. 각 곡은 도전할 보면(싱글／1P／2P)을 지정합니다.",
     "songNumber": "{{number}}번째 곡",
     "hidden": "곡 이름 숨기기",
+    "hiddenTitle": "숨겨진 곡 이름",
     "addSong": "곡 추가",
     "removeSong": "곡 빼기",
     "pickSong": "곡 선택",

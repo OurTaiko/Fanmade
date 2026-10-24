@@ -1,0 +1,28 @@
+[Unit]
+Description=Validated OurTaikoProfile PostgreSQL backup to private S3
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=3h
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+UMask=0077
+EnvironmentFile=/etc/ourtaiko-profile/backup.env
+# Last, so the shared private-bucket IAM user overrides the media credentials.
+EnvironmentFile=/etc/ourtaiko-private/aws.env
+ExecStart=/usr/local/libexec/ourtaiko-fanmade-backup
+TimeoutStartSec=2h
+Restart=on-failure
+RestartSec=15min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/ourtaiko-profile

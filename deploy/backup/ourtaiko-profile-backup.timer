@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily OurTaikoProfile database backup at 05:00 Asia/Tokyo
+
+[Timer]
+OnCalendar=*-*-* 05:00:00 Asia/Tokyo
+Persistent=true
+AccuracySec=1min
+Unit=ourtaiko-profile-backup.service
+
+[Install]
+WantedBy=timers.target

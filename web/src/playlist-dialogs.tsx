@@ -100,7 +100,6 @@ export function PlaylistDialog({
           onChange={setCategoryId}
           disabled={busy}
         />
-        <p className="text-muted-foreground">{t('playlists.categoryHelp')}</p>
       </div>
       <div className="space-y-2">
         <Label className="inline-flex items-center gap-2">
@@ -111,7 +110,6 @@ export function PlaylistDialog({
           />
           <span>{t('playlists.public')}</span>
         </Label>
-        <p className="text-muted-foreground">{t('playlists.publicHelp')}</p>
       </div>
       {error && (
         <p role="alert" className="text-destructive">
@@ -136,7 +134,6 @@ export function PlaylistCoverDialog({
     <CoverUploadDialog
       title={t('playlists.changeCover')}
       endpoint={endpoints.playlistCover(playlist.id)}
-      note={t('playlists.coverHelp')}
       removeLabel={playlist.coverHash ? t('playlists.removeCover') : undefined}
       onSaved={onSaved}
       onDismiss={onDismiss}
@@ -219,7 +216,6 @@ export function AddToPlaylistDialog({ chart, onDismiss }: { chart: Chart; onDism
     })
   return (
     <Modal title={t('playlists.addToPlaylist')} busy={busy} onDismiss={onDismiss}>
-      <p className="text-muted-foreground">{t('playlists.addHelp')}</p>
       {error && (
         <p role="alert" className="text-destructive">
           {error}

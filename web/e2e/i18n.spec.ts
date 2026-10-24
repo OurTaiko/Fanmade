@@ -81,10 +81,10 @@ async function fixture(page: Page, language?: string, loggedIn = true) {
 }
 
 for (const [language, htmlLanguage, heading, title, subtitle] of [
-  ['zh-hans', 'zh-CN', '发现好谱。', '中文曲名', '中文副标题'],
-  ['en', 'en', 'Discover great charts.', 'English title', 'English subtitle'],
-  ['ja', 'ja', 'お気に入りの譜面を見つけよう。', '日本語の曲名', '日本語の副題'],
-  ['ko', 'ko', '멋진 채보를 발견하세요.', '한국어 곡명', '한국어 부제'],
+  ['zh-hans', 'zh-CN', '发现谱面', '中文曲名', '中文副标题'],
+  ['en', 'en', 'Explore charts', 'English title', 'English subtitle'],
+  ['ja', 'ja', '譜面を探す', '日本語の曲名', '日本語の副題'],
+  ['ko', 'ko', '채보 둘러보기', '한국어 곡명', '한국어 부제'],
 ]) {
   test(`SSO ${language} renders library, details and mobile layout`, async ({ page }) => {
     const errors: string[] = []
@@ -185,7 +185,7 @@ for (const language of [undefined, 'invalid-language']) {
   test(`missing or unsupported preference falls back to Chinese: ${language}`, async ({ page }) => {
     await fixture(page, language)
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: '发现好谱。' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '发现谱面' })).toBeVisible()
     await expect(page.getByTestId('chart-card')).toContainText('中文曲名')
   })
 }

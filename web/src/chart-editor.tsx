@@ -229,8 +229,7 @@ export function ChartEditorPage() {
             <CaretLeftIcon size={14} aria-hidden="true" />
             {title}
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t('editor.title')}</h1>
-          <p>{t('editor.intro')}</p>
+          <h1 className="text-2xl font-extrabold sm:text-3xl">{t('editor.title')}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground tabular-nums" role="status">
@@ -268,8 +267,8 @@ export function ChartEditorPage() {
         </Notice>
       )}
       <div className="grid min-w-0 gap-6 xl:grid-cols-2">
-        <Card className="min-w-0 gap-3 overflow-hidden border p-0 shadow-none ring-0">
-          <h2 className="px-5 pt-5 text-base font-semibold sm:px-6">{t('editor.editorLabel')}</h2>
+        <Card className="min-w-0 gap-3 overflow-hidden border-[1.5px] border-border p-0 shadow-none">
+          <h2 className="px-5 pt-5 text-base font-extrabold sm:px-6">{t('editor.editorLabel')}</h2>
           <Suspense
             fallback={
               <p className="px-5 pb-5 text-sm text-muted-foreground sm:px-6">
@@ -290,9 +289,9 @@ export function ChartEditorPage() {
             />
           </Suspense>
         </Card>
-        <Card className="min-w-0 gap-4 border p-5 shadow-none ring-0 sm:p-6">
+        <Card className="min-w-0 gap-4 border-[1.5px] border-border p-5 shadow-none sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">{t('editor.previewHeading')}</h2>
+            <h2 className="text-base font-extrabold">{t('editor.previewHeading')}</h2>
             {blocks.keys.length > 0 && (
               <ChoiceSelect
                 label={t('editor.block')}

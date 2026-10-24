@@ -49,7 +49,7 @@ export function UserSpacePage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/users"
-          className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+          className="inline-flex items-center gap-2 text-sm text-link hover:underline"
         >
           <ArrowLeftIcon aria-hidden="true" className="size-4 shrink-0" />
           {t('messages.backToUserSquare')}
@@ -61,7 +61,7 @@ export function UserSpacePage() {
         )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="min-w-0 break-words text-3xl font-semibold tracking-tight sm:text-4xl">
+        <h1 className="min-w-0 break-words text-3xl font-extrabold sm:text-4xl">
           {current && !loading && !error
             ? t('messages.memberSpaceTitle', {
                 nickname: current.user.nickname ?? t('messages.unknownMember'),
@@ -74,7 +74,7 @@ export function UserSpacePage() {
         </Button>
       </div>
       {error ? (
-        <Card role="alert" className="rounded-2xl border p-6 text-destructive shadow-none ring-0">
+        <Card role="alert" className="border-destructive p-6 text-destructive shadow-none">
           {error}
         </Card>
       ) : loading || !current ? (
@@ -83,8 +83,8 @@ export function UserSpacePage() {
           role="status"
           aria-label={t('messages.loadingMembers')}
         >
-          <Skeleton className="h-96 rounded-2xl" />
-          <Skeleton className="h-96 rounded-2xl" />
+          <Skeleton className="h-96 rounded-[14px]" />
+          <Skeleton className="h-96 rounded-[14px]" />
         </div>
       ) : (
         <>
@@ -105,9 +105,6 @@ export function UserSpacePage() {
               >
                 {t('ourtaikoProfile.view')}
               </a>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                {t('messages.memberActivityNote')}
-              </p>
             </aside>
             <Tabs defaultValue="charts" className="min-w-0 gap-6">
               <TabsList aria-label={t('interactions.userSpaceSections')}>

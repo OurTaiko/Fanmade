@@ -43,7 +43,7 @@ import { PlaylistDialog, PlaylistCoverDialog } from '@/playlist-dialogs'
 const sorts = ['updated', 'newest', 'favorites'] as const
 type Sort = (typeof sorts)[number]
 
-const panelClassName = 'rounded-2xl bg-white p-6 shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:bg-card'
+const panelClassName = 'rounded-[14px] border-2 border-outline bg-card p-6 shadow-drop'
 
 // Public playlists, optionally of one user, with search, order and paging kept
 // in the address unless the list is embedded in another page.
@@ -149,7 +149,7 @@ function PublicPlaylists({ ownerId, refresh = 0 }: { ownerId?: string; refresh?:
           <PlaylistGrid
             items={data.items}
             empty={
-              <h2 className="text-base font-semibold">
+              <h2 className="text-base font-extrabold">
                 {q
                   ? t('playlists.emptySearch')
                   : ownerId
@@ -218,12 +218,9 @@ export function PlaylistsPage() {
     <section className="space-y-8" aria-labelledby="playlists-heading">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
         <div className="space-y-3">
-          <h1 id="playlists-heading" className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 id="playlists-heading" className="text-3xl font-extrabold sm:text-4xl">
             {t('playlists.plaza')}
           </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            {t('playlists.plazaDescription')}
-          </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Link className={buttonVariants({ variant: 'outline' })} to="/me/playlists">
@@ -240,7 +237,7 @@ export function PlaylistsPage() {
       </div>
       {systems.length > 0 && (
         <section className="space-y-4" aria-labelledby="system-playlists-heading">
-          <h2 id="system-playlists-heading" className="text-base font-semibold">
+          <h2 id="system-playlists-heading" className="text-base font-extrabold">
             {t('playlists.systemSection')}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -284,7 +281,7 @@ export function MyPlaylistsPage() {
   if (!session.user)
     return (
       <div className={emptyStateClassName}>
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{t('playlists.mine')}</h1>
+        <h1 className="text-2xl font-extrabold sm:text-3xl">{t('playlists.mine')}</h1>
         <p>{session.loading ? t('messages.loadingAccount') : t('playlists.signInToManage')}</p>
         {!session.loading && (
           <Link className={buttonVariants()} to="/login">
@@ -300,13 +297,10 @@ export function MyPlaylistsPage() {
         <div className="space-y-3">
           <h1
             id="my-playlists-heading"
-            className="text-3xl font-semibold tracking-tight sm:text-4xl"
+            className="text-3xl font-extrabold sm:text-4xl"
           >
             {t('playlists.mine')}
           </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            {t('playlists.mineDescription')}
-          </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <Link className={buttonVariants({ variant: 'outline' })} to="/playlists">
@@ -328,23 +322,23 @@ export function MyPlaylistsPage() {
       ) : (
         <>
           <section className="space-y-4" aria-labelledby="owned-playlists-heading">
-            <h2 id="owned-playlists-heading" className="text-base font-semibold">
+            <h2 id="owned-playlists-heading" className="text-base font-extrabold">
               {t('playlists.owned')}{' '}
               <span className="text-muted-foreground">{data.owned.length}</span>
             </h2>
             <PlaylistGrid
               items={data.owned}
-              empty={<h3 className="text-base font-semibold">{t('playlists.emptyOwned')}</h3>}
+              empty={<h3 className="text-base font-extrabold">{t('playlists.emptyOwned')}</h3>}
             />
           </section>
           <section className="space-y-4" aria-labelledby="favorite-playlists-heading">
-            <h2 id="favorite-playlists-heading" className="text-base font-semibold">
+            <h2 id="favorite-playlists-heading" className="text-base font-extrabold">
               {t('playlists.favorites')}{' '}
               <span className="text-muted-foreground">{data.favorites.length}</span>
             </h2>
             <PlaylistGrid
               items={data.favorites}
-              empty={<h3 className="text-base font-semibold">{t('playlists.emptyFavorites')}</h3>}
+              empty={<h3 className="text-base font-extrabold">{t('playlists.emptyFavorites')}</h3>}
             />
           </section>
         </>
@@ -453,7 +447,7 @@ export function PlaylistPage() {
   const back = (
     <Link
       to="/playlists"
-      className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+      className="inline-flex items-center gap-2 text-sm text-link hover:underline"
     >
       <ArrowLeftIcon aria-hidden="true" className="size-4 shrink-0" />
       {t('playlists.back')}
@@ -463,7 +457,7 @@ export function PlaylistPage() {
     return (
       <section className="space-y-6">
         {back}
-        <Card role="alert" className="rounded-2xl border p-6 text-destructive shadow-none ring-0">
+        <Card role="alert" className="border-destructive p-6 text-destructive shadow-none">
           {error}
         </Card>
       </section>
@@ -472,7 +466,7 @@ export function PlaylistPage() {
     return (
       <section className="space-y-6" role="status" aria-label={t('playlists.loading')}>
         {back}
-        <Skeleton className="h-56 rounded-2xl" />
+        <Skeleton className="h-56 rounded-[14px]" />
         <PlaylistGridSkeleton />
       </section>
     )
@@ -556,7 +550,7 @@ export function PlaylistPage() {
     <section className="space-y-6" aria-labelledby="playlist-heading">
       {back}
       <div className={cn(panelClassName, 'flex flex-col gap-6 sm:flex-row')}>
-        <div className="flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-[#f5f5f7] sm:w-44 dark:bg-muted">
+        <div className="flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-muted sm:w-44">
           {source && failedCover !== source ? (
             <img
               src={source}
@@ -572,7 +566,7 @@ export function PlaylistPage() {
           <div className="space-y-2">
             <h1
               id="playlist-heading"
-              className="text-2xl font-semibold tracking-tight wrap-anywhere sm:text-4xl"
+              className="text-2xl font-extrabold wrap-anywhere sm:text-4xl"
             >
               {text.name}
             </h1>
@@ -587,7 +581,7 @@ export function PlaylistPage() {
               <span className="text-muted-foreground">{t('playlists.creator')}</span>
               <Link
                 to={`/users/${encodeURIComponent(playlist.owner.id)}`}
-                className="flex min-w-0 items-center gap-2 font-medium hover:text-[#0071e3]"
+                className="flex min-w-0 items-center gap-2 font-medium hover:text-link"
               >
                 <UserAvatar
                   nickname={playlist.owner.nickname || t('messages.unknownMember')}
@@ -655,7 +649,7 @@ export function PlaylistPage() {
       </div>
       {charts.length === 0 ? (
         <div className={emptyStateClassName}>
-          <h2 className="text-base font-semibold">{t('playlists.emptySongs')}</h2>
+          <h2 className="text-base font-extrabold">{t('playlists.emptySongs')}</h2>
           {owned && <p>{t('playlists.emptySongsOwner')}</p>}
           {owned && (
             <Button variant="outline" onClick={() => setDialog('songs')}>

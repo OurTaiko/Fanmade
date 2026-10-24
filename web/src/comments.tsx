@@ -144,7 +144,7 @@ export function CommentBody({ text }: { text: string }) {
             href={part}
             target="_blank"
             rel="noopener noreferrer nofollow ugc"
-            className="text-[#0071e3] hover:underline"
+            className="text-link hover:underline"
           >
             {part}
           </a>
@@ -203,7 +203,7 @@ function Composer({
         aria-label={placeholder}
         maxLength={maxCommentLength + 200}
         disabled={busy}
-        className="min-h-24 bg-[#f5f5f7] dark:bg-input/50"
+        className="min-h-24 bg-muted dark:bg-input/50"
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -366,7 +366,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
               aria-label={t('interactions.collapseThread')}
               onClick={() => setCollapsed(true)}
             >
-              <span className="w-px bg-border transition-colors group-hover:bg-[#0071e3] group-focus-visible:bg-[#0071e3]" />
+              <span className="w-px bg-border transition-colors group-hover:bg-link group-focus-visible:bg-link" />
             </button>
           )}
         </div>
@@ -384,7 +384,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
             )}
             {!gone && tree.subject.isOwner(comment.authorId) && (
               <span
-                className="rounded-md bg-[#0071e3]/10 px-1.5 py-0.5 font-medium text-[#0071e3]"
+                className="rounded-md bg-link/10 px-1.5 py-0.5 font-medium text-link"
                 title={t('collaboration.ownerBadgeTitle')}
               >
                 {t('collaboration.owner')}
@@ -401,7 +401,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
             )}
             <button
               type="button"
-              className="inline-flex items-center gap-1 rounded-md px-1 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3]"
+              className="inline-flex items-center gap-1 rounded-md px-1 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-expanded={!collapsed}
               aria-label={
                 collapsed ? t('interactions.expandThread') : t('interactions.collapseThread')
@@ -418,7 +418,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
             <div
               className={cn(
                 'mt-1 space-y-1',
-                focused && '-mx-2 rounded-xl bg-[#0071e3]/5 px-2 py-1 ring-1 ring-[#0071e3]/30',
+                focused && '-mx-2 rounded-xl bg-link/5 px-2 py-1 ring-1 ring-ring/30',
               )}
             >
               {editing ? (
@@ -540,7 +540,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
             (level >= maxVisibleDepth && comment.replyCount > 0 ? (
               <Link
                 to={permalink}
-                className="mt-2 inline-flex items-center gap-1 text-xs text-[#0071e3] hover:underline"
+                className="mt-2 inline-flex items-center gap-1 text-xs text-link hover:underline"
               >
                 {t('interactions.continueThread')}
                 <ArrowRightIcon className="size-3" />
@@ -554,7 +554,7 @@ function CommentNode({ comment, level }: { comment: Comment; level: number }) {
                   {hiddenReplies > 0 && (
                     <Link
                       to={permalink}
-                      className="inline-flex items-center gap-1 text-xs text-[#0071e3] hover:underline"
+                      className="inline-flex items-center gap-1 text-xs text-link hover:underline"
                     >
                       {t('interactions.moreReplies', { count: hiddenReplies })}
                       <ArrowRightIcon className="size-3" />
@@ -705,12 +705,12 @@ export function CommentSection({
       ref={section}
       id="comments"
       aria-labelledby="comments-heading"
-      className="scroll-mt-24 space-y-6 rounded-2xl bg-white p-6 shadow-[0_4px_12px_rgba(0,0,0,0.08)] sm:p-8 dark:bg-card"
+      className="scroll-mt-24 space-y-6 rounded-[14px] border-2 border-outline bg-card p-6 shadow-drop sm:p-8"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2
           id="comments-heading"
-          className="flex shrink-0 items-center gap-2 text-xl font-semibold tracking-tight whitespace-nowrap"
+          className="flex shrink-0 items-center gap-2 text-xl font-extrabold whitespace-nowrap"
         >
           <ChatCircleIcon aria-hidden="true" />
           {t('interactions.commentsHeading', { count: subject.commentCount })}
@@ -725,15 +725,15 @@ export function CommentSection({
         </div>
       </div>
       {focusId ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-[#f5f5f7] px-4 py-3 text-sm dark:bg-muted">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-muted px-4 py-3 text-sm">
           <span className="text-muted-foreground">{t('interactions.singleThread')}</span>
-          <Link to={`${subject.path}#comments`} className="text-[#0071e3] hover:underline">
+          <Link to={`${subject.path}#comments`} className="text-link hover:underline">
             {t('interactions.viewAllComments')}
           </Link>
           {items?.[0]?.parentId && (
             <Link
               to={subject.commentPath(items[0].parentId)}
-              className="text-[#0071e3] hover:underline"
+              className="text-link hover:underline"
             >
               {t('interactions.viewParent')}
             </Link>
@@ -754,7 +754,7 @@ export function CommentSection({
           }}
         />
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f5f5f7] px-4 py-3 text-sm dark:bg-muted">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-muted px-4 py-3 text-sm">
           <span className="text-muted-foreground">{t('interactions.signInToComment')}</span>
           <Link to={loginPath(location)} className={buttonVariants({ size: 'sm' })}>
             {t('messages.signInRegister')}
@@ -804,7 +804,7 @@ function CommentSummary({ comment }: { comment: Comment }) {
     ? danTitle(comment.danTitle ?? {}, i18n.resolvedLanguage)
     : comment.chartTitle
   return (
-    <article className="min-w-0 space-y-2 rounded-2xl border p-4">
+    <article className="min-w-0 space-y-2 rounded-[14px] border p-4">
       <header className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <Link
           to={`/users/${encodeURIComponent(comment.authorId)}`}
@@ -828,7 +828,7 @@ function CommentSummary({ comment }: { comment: Comment }) {
       <CommentBody text={comment.body} />
       <footer className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
         <span className="tabular-nums">{t('interactions.points', { count: comment.score })}</span>
-        <Link to={commentPermalink(comment)} className="text-[#0071e3] hover:underline">
+        <Link to={commentPermalink(comment)} className="text-link hover:underline">
           {t('interactions.viewInContext')}
         </Link>
       </footer>
@@ -869,8 +869,8 @@ export function CommentListView({
   if (!data)
     return (
       <div className="space-y-3" role="status" aria-label={t('interactions.loadingComments')}>
-        <Skeleton className="h-24 rounded-2xl" />
-        <Skeleton className="h-24 rounded-2xl" />
+        <Skeleton className="h-24 rounded-[14px]" />
+        <Skeleton className="h-24 rounded-[14px]" />
       </div>
     )
   if (data.items.length === 0)

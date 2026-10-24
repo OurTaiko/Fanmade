@@ -28,7 +28,7 @@ export function PublicUserCard({
       t('messages.noActivityRecord')
     )
   return (
-    <Card className="h-full min-w-0 gap-6 rounded-2xl border p-6 shadow-none ring-0 sm:p-7">
+    <Card className="h-full min-w-0 gap-6 p-6 sm:p-7">
       <div className="flex min-w-0 items-center gap-4">
         <UserAvatar
           nickname={nickname}
@@ -36,7 +36,7 @@ export function PublicUserCard({
           className="size-12 shrink-0"
           fallbackClassName="text-lg"
         />
-        <h2 className="min-w-0 break-words text-lg font-semibold tracking-tight">{nickname}</h2>
+        <h2 className="min-w-0 break-words text-lg font-extrabold">{nickname}</h2>
       </div>
       <p className="break-all font-mono text-xs leading-relaxed text-muted-foreground">
         <span className="mr-2">ID</span>
@@ -87,7 +87,7 @@ export function PublicUserCard({
           className={buttonVariants({
             variant: 'outline',
             className:
-              'mt-auto w-full rounded-full active:scale-[0.98] motion-reduce:transform-none',
+              'mt-auto w-full',
           })}
         >
           {t('messages.visitUserSpace')}

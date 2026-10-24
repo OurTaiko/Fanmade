@@ -49,7 +49,6 @@ export function PlaylistSongSearchDialog({
   const listed = new Set(charts.map((chart) => chart.id))
   return (
     <Modal title={t('playlists.addSongs')} onDismiss={onDismiss}>
-      <p className="text-muted-foreground">{t('playlists.addSongsHelp')}</p>
       <SearchInput value={query} onSearch={search} onPendingChange={setPending} />
       <p className="text-xs text-muted-foreground" role="status" aria-live="polite">
         {t('playlists.songCount', { count: charts.length })}

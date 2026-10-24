@@ -64,7 +64,7 @@ export function VoteControl({
     }
   }
   const arrow =
-    'inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3] disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:scale-100'
+    'inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none motion-reduce:active:scale-100'
   return (
     <div
       role="group"
@@ -77,7 +77,7 @@ export function VoteControl({
     >
       <button
         type="button"
-        className={cn(arrow, shown.myVote === 1 && 'text-[#ff4500] hover:text-[#ff4500]')}
+        className={cn(arrow, shown.myVote === 1 && 'text-don hover:text-don')}
         aria-pressed={shown.myVote === 1}
         aria-label={t('interactions.upvote')}
         title={t('interactions.upvote')}
@@ -89,8 +89,8 @@ export function VoteControl({
       <span
         className={cn(
           'min-w-6 text-center text-sm font-semibold tabular-nums',
-          shown.myVote === 1 && 'text-[#ff4500]',
-          shown.myVote === -1 && 'text-[#0071e3]',
+          shown.myVote === 1 && 'text-don',
+          shown.myVote === -1 && 'text-link',
         )}
         aria-live="polite"
         title={t('interactions.scoreExact', { score: shown.score })}
@@ -100,7 +100,7 @@ export function VoteControl({
       </span>
       <button
         type="button"
-        className={cn(arrow, shown.myVote === -1 && 'text-[#0071e3] hover:text-[#0071e3]')}
+        className={cn(arrow, shown.myVote === -1 && 'text-link hover:text-link')}
         aria-pressed={shown.myVote === -1}
         aria-label={t('interactions.downvote')}
         title={t('interactions.downvote')}

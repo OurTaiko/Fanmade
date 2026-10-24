@@ -60,8 +60,8 @@ function App() {
                         <Route
                           path="*"
                           element={
-                            <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground">
-                              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                            <div className="flex flex-col items-center justify-center gap-4 rounded-[14px] border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground">
+                              <h1 className="text-2xl font-extrabold sm:text-3xl">
                                 {t('messages.pageNotFound')}
                               </h1>
                               <Link to="/">{t('messages.backToExplore')}</Link>

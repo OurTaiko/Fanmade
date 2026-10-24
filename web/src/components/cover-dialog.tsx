@@ -12,14 +12,12 @@ import { useSession } from '@/session-context'
 export function CoverUploadDialog({
   title,
   endpoint,
-  note,
   removeLabel,
   onSaved,
   onDismiss,
 }: {
   title: string
   endpoint: string
-  note: string
   removeLabel?: string
   onSaved: (coverHash: string) => void
   onDismiss: () => void
@@ -82,7 +80,6 @@ export function CoverUploadDialog({
         }}
         disabled={busy}
       />
-      <p className="text-sm text-muted-foreground">{note}</p>
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

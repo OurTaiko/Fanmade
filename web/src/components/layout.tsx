@@ -29,7 +29,9 @@ import { cn } from '@/lib/utils'
 import { PROFILE_URL } from '@/components/profile-plate'
 import { ThemeToggle } from '@/theme'
 import { NotificationBell } from '@/notification-center'
-import pageBackground from '@/assets/page-background.webp'
+
+const navLinkClassName =
+  'inline-flex items-center h-9 px-3 rounded-lg border-[1.5px] border-transparent text-sm whitespace-nowrap transition-colors hover:text-primary outline-none focus-visible:ring-3 focus-visible:ring-ring/40'
 
 export function Layout() {
   const { t } = useTranslation()
@@ -60,39 +62,28 @@ export function Layout() {
     { to: '/upload', label: t('messages.publishChart'), icon: Upload },
   ]
   return (
-    <div className="isolate relative bg-background min-h-svh text-foreground">
-      <div className="-z-10 fixed inset-0 pointer-events-none" aria-hidden="true">
-        <img
-          src={pageBackground}
-          alt=""
-          className="absolute inset-0 size-full object-center object-cover"
-        />
-        <div className="absolute inset-0 bg-linear-to-b from-background/55 dark:from-background/80 via-background/75 dark:via-background/90 to-background/95 dark:to-background/95" />
-      </div>
-      <header className="top-0 z-30 sticky bg-background/70 backdrop-blur-xl border-b">
-        <div className="flex items-center gap-4 mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl h-16">
-          <Link className="flex items-baseline gap-2 tracking-tight shrink-0" to="/">
-            <span className="bg-clip-text bg-linear-to-r from-red-500 via-red-400 to-orange-400 font-bold text-transparent text-lg">
-              OurTaiko
-            </span>
-            <span className="hidden sm:inline font-normal text-muted-foreground text-base">
-              Fanmade
+    <div className="bg-background min-h-svh text-foreground">
+      <header className="top-0 z-30 sticky bg-background/95 backdrop-blur-xl border-t-[5px] border-t-(--hero) border-b">
+        <div className="flex items-center gap-4 mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl h-[4.25rem]">
+          <Link className="flex items-center gap-2 font-extrabold text-xl shrink-0" to="/">
+            <img src="/icons/icon-192.png" alt="" className="rounded-lg size-8" />
+            <span>
+              OurTaiko <span className="hidden sm:inline text-primary">Fanmade</span>
             </span>
           </Link>
           <nav
             className="hidden xl:flex items-center gap-1 ml-4"
             aria-label={t('messages.mainNavigation')}
           >
-            {links.map(({ to, label, icon: Icon }) =>
+            {links.map(({ to, label }) =>
               to.startsWith('https://') ? (
                 <a
                   key={to}
                   href={to}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+                  className={navLinkClassName}
                 >
-                  <Icon className="opacity-60 size-4" aria-hidden="true" />
                   {label}
                 </a>
               ) : (
@@ -101,10 +92,13 @@ export function Layout() {
                   to={to}
                   end={to === '/'}
                   className={({ isActive }) =>
-                    cn(buttonVariants({ variant: isActive ? 'secondary' : 'ghost', size: 'sm' }))
+                    cn(
+                      navLinkClassName,
+                      isActive &&
+                        'border-outline bg-secondary font-bold text-foreground hover:text-foreground shadow-[0_2px_0_var(--outline)]',
+                    )
                   }
                 >
-                  <Icon className="opacity-60 size-4" aria-hidden="true" />
                   {label}
                 </NavLink>
               ),
@@ -143,9 +137,13 @@ export function Layout() {
                 </Button>
               </>
             ) : (
-              <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/login">
-                <SignInIcon className="opacity-60 size-4" aria-hidden="true" />
-                {t('messages.signInRegister')}
+              <Link
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                to="/login"
+                aria-label={t('messages.signInRegister')}
+              >
+                <SignInIcon className="size-4" aria-hidden="true" />
+                <span className="hidden sm:inline">{t('messages.signInRegister')}</span>
               </Link>
             )}
             <div className="xl:hidden">

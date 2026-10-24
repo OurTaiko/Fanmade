@@ -113,10 +113,10 @@ function target(n: AppNotification) {
 const kindIcons: Record<string, ReactNode> = {
   comment_reply: <ArrowBendUpLeftIcon />,
   chart_comment: <ChatCircleIcon />,
-  chart_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
+  chart_upvotes: <ArrowFatUpIcon weight="fill" className="text-don" />,
   dan_comment: <ChatCircleIcon />,
-  dan_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
-  comment_upvotes: <ArrowFatUpIcon weight="fill" className="text-[#ff4500]" />,
+  dan_upvotes: <ArrowFatUpIcon weight="fill" className="text-don" />,
+  comment_upvotes: <ArrowFatUpIcon weight="fill" className="text-don" />,
   comment_removed: <ShieldWarningIcon className="text-destructive" />,
   upload_result: <UploadSimpleIcon />,
   playlist_removed: <ShieldWarningIcon className="text-destructive" />,
@@ -131,13 +131,13 @@ function NotificationIcon({ n }: { n: AppNotification }) {
           avatarUrl={n.actor.avatarUrl}
           className="size-9"
         />
-        <span className="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-background shadow-[0_2px_8px_rgba(0,0,0,0.08)] [&_svg]:size-3">
+        <span className="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-background border border-border [&_svg]:size-3">
           {kindIcons[n.kind] ?? <BellSimpleIcon />}
         </span>
       </span>
     )
   return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#f5f5f7] dark:bg-muted [&_svg]:size-4">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted [&_svg]:size-4">
       {kindIcons[n.kind] ?? <BellSimpleIcon />}
     </span>
   )
@@ -165,7 +165,7 @@ function UnreadDot({ read }: { read: boolean }) {
   return read ? (
     <span className="size-2 shrink-0" aria-hidden="true" />
   ) : (
-    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-[#0071e3]">
+    <span className="mt-1.5 size-2 shrink-0 rounded-full bg-link">
       <span className="sr-only">{t('notificationCenter.unread')}</span>
     </span>
   )
@@ -240,7 +240,7 @@ export function NotificationBell() {
       >
         <BellIcon className="size-4" aria-hidden="true" />
         {count > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-[#ff3b30] px-1 text-center text-[10px] leading-4 font-semibold text-white tabular-nums">
+          <span className="absolute -top-0.5 -right-0.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-white tabular-nums">
             {count > 99 ? '99+' : count}
           </span>
         )}
@@ -343,15 +343,12 @@ function NotificationSettings() {
   return (
     <section
       aria-labelledby="notification-settings-heading"
-      className="space-y-4 rounded-2xl bg-white p-6 shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:bg-card"
+      className="space-y-4 rounded-[14px] border-2 border-outline bg-card p-6 shadow-drop"
     >
       <div className="space-y-1">
-        <h2 id="notification-settings-heading" className="text-lg font-semibold tracking-tight">
+        <h2 id="notification-settings-heading" className="text-lg font-extrabold">
           {t('notificationCenter.settingsTitle')}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          {t('notificationCenter.settingsDescription')}
-        </p>
       </div>
       {error ? (
         <Notice>{error}</Notice>
@@ -415,7 +412,7 @@ export function NotificationsPage() {
   if (!user)
     return (
       <Notice kind="info" title={t('notificationCenter.title')}>
-        <Link to={loginPath(location)} className="text-[#0071e3] hover:underline">
+        <Link to={loginPath(location)} className="text-link hover:underline">
           {t('notificationCenter.signIn')}
         </Link>
       </Notice>
@@ -444,7 +441,7 @@ export function NotificationsPage() {
       <div className="min-w-0 space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-3xl font-semibold tracking-tight">
+            <h1 className="text-3xl font-extrabold">
               {t('notificationCenter.title')}
             </h1>
             {data && (
@@ -467,7 +464,7 @@ export function NotificationsPage() {
         <div
           role="tablist"
           aria-label={t('notificationCenter.filter')}
-          className="inline-flex rounded-full bg-[#f5f5f7] p-1 dark:bg-muted"
+          className="inline-flex rounded-full bg-muted p-1"
         >
           {(['all', 'unread'] as const).map((value) => (
             <button
@@ -478,7 +475,7 @@ export function NotificationsPage() {
               className={cn(
                 'rounded-full px-4 py-1.5 text-sm transition-all duration-200 active:scale-[0.96] motion-reduce:transition-none',
                 filter === value
-                  ? 'bg-white font-medium shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:bg-background'
+                  ? 'border-[1.5px] border-outline bg-card font-bold shadow-[0_2px_0_var(--outline)]'
                   : 'text-muted-foreground hover:text-foreground',
               )}
               onClick={() => {
@@ -500,15 +497,15 @@ export function NotificationsPage() {
           </div>
         ) : !data ? (
           <div className="space-y-3" role="status" aria-label={t('notificationCenter.loading')}>
-            <Skeleton className="h-20 rounded-2xl" />
-            <Skeleton className="h-20 rounded-2xl" />
+            <Skeleton className="h-20 rounded-[14px]" />
+            <Skeleton className="h-20 rounded-[14px]" />
           </div>
         ) : data.items.length === 0 ? (
-          <p className="rounded-2xl bg-[#f5f5f7] py-12 text-center text-sm text-muted-foreground dark:bg-muted">
+          <p className="rounded-[14px] bg-muted py-12 text-center text-sm text-muted-foreground">
             {filter === 'unread' ? t('notificationCenter.noUnread') : t('notificationCenter.empty')}
           </p>
         ) : (
-          <ul className="divide-y overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:bg-card">
+          <ul className="divide-y overflow-hidden rounded-[14px] border-2 border-outline bg-card shadow-drop">
             {data.items.map((n) => {
               const to = target(n)
               return (
@@ -516,14 +513,14 @@ export function NotificationsPage() {
                   key={n.id}
                   className={cn(
                     'flex flex-wrap items-start gap-3 p-4',
-                    !n.read && 'bg-[#0071e3]/5',
+                    !n.read && 'bg-link/5',
                   )}
                 >
                   <UnreadDot read={n.read} />
                   <button
                     type="button"
                     disabled={!to}
-                    className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3] disabled:cursor-default"
+                    className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
                     onClick={() => {
                       if (!to) return
                       void markRead(n, csrfToken).catch(() => {})

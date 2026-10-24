@@ -174,11 +174,11 @@ function DanCard({ dan }: { dan: Dan }) {
   return (
     <Link
       to={`/dans/${dan.id}`}
-      className="block rounded-3xl border bg-card/80 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+      className="block rounded-[14px] border-2 border-outline bg-card p-5 shadow-drop transition hover:-translate-y-0.5 hover:shadow-drop-hover motion-reduce:transform-none"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-xl font-semibold tracking-tight">
+          <h2 className="truncate text-xl font-extrabold">
             {danTitle(dan.title, i18n.resolvedLanguage)}
           </h2>
           <p className="text-xs text-muted-foreground">
@@ -236,8 +236,7 @@ export function DansPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{t('dans.heading')}</h1>
-          <p className="max-w-2xl text-muted-foreground">{t('dans.lead')}</p>
+          <h1 className="text-3xl font-extrabold">{t('dans.heading')}</h1>
         </div>
         {session.user && (
           <Link className={buttonVariants()} to="/dans/new">
@@ -292,7 +291,7 @@ export function DanPage() {
   }
   return (
     <div className="space-y-6">
-      <Card className="rounded-3xl">
+      <Card className="rounded-[14px]">
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle className="text-3xl tracking-tight">
@@ -312,13 +311,10 @@ export function DanPage() {
             <code className="rounded-md bg-muted px-2 py-0.5 font-mono text-base tracking-[0.2em]">
               {dan.code}
             </code>
-            {!dan.official && (
-              <span className="text-xs text-muted-foreground">{t('dans.codeExplained')}</span>
-            )}
           </p>
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <VoteControl
-              className="rounded-full bg-[#f5f5f7] px-1 py-0.5 dark:bg-muted"
+              className="rounded-full bg-muted px-1 py-0.5"
               score={dan.score}
               myVote={dan.myVote}
               label={t('interactions.voteOnDan')}
@@ -344,13 +340,13 @@ export function DanPage() {
         <CardContent className="space-y-6">
           {dan.songs.some((s) => !s.available) && <Notice>{t('dans.unavailableExplained')}</Notice>}
           <section className="space-y-2">
-            <h2 className="font-semibold">{t('dans.songs')}</h2>
+            <h2 className="font-extrabold">{t('dans.songs')}</h2>
             <ol className="space-y-2">
               {dan.songs.map((song, i) => (
                 <li
                   key={i}
                   className={cn(
-                    'flex flex-wrap items-center gap-3 rounded-2xl border p-3',
+                    'flex flex-wrap items-center gap-3 rounded-[14px] border p-3',
                     !song.available && 'opacity-60',
                   )}
                 >
@@ -379,12 +375,12 @@ export function DanPage() {
             </ol>
           </section>
           <section className="space-y-2">
-            <h2 className="font-semibold">{t('dans.exams')}</h2>
+            <h2 className="font-extrabold">{t('dans.exams')}</h2>
             <ExamTable dan={dan} />
             <p className="text-xs text-muted-foreground">{t('dans.examsExplained')}</p>
           </section>
           <section className="space-y-2">
-            <h2 className="font-semibold">{t('dans.rewards')}</h2>
+            <h2 className="font-extrabold">{t('dans.rewards')}</h2>
             <ul className="space-y-1 text-sm">
               {dan.rewards.dan !== undefined && (
                 <li className="flex items-center gap-2">
@@ -529,7 +525,7 @@ function SongPicker({
             <li key={chart.id}>
               <button
                 type="button"
-                className="w-full rounded-2xl border p-3 text-left hover:bg-accent"
+                className="w-full rounded-[14px] border p-3 text-left hover:bg-accent"
                 onClick={() => onPick(chart)}
               >
                 <span className="block font-medium">{text.title}</span>
@@ -724,7 +720,7 @@ export function DanEditorPage() {
   }
   return (
     <form className="space-y-6" onSubmit={(e) => void save(e)}>
-      <h1 className="text-3xl font-bold tracking-tight">
+      <h1 className="text-3xl font-extrabold">
         {id ? t('dans.editHeading') : t('dans.createHeading')}
       </h1>
       {!id && (
@@ -733,7 +729,7 @@ export function DanEditorPage() {
         </p>
       )}
       {error && <Notice>{error}</Notice>}
-      <Card className="rounded-3xl">
+      <Card className="rounded-[14px]">
         <CardHeader>
           <CardTitle>{t('dans.basics')}</CardTitle>
         </CardHeader>
@@ -783,14 +779,14 @@ export function DanEditorPage() {
           </div>
         </CardContent>
       </Card>
-      <Card className="rounded-3xl">
+      <Card className="rounded-[14px]">
         <CardHeader>
           <CardTitle>{t('dans.songs')}</CardTitle>
           <CardDescription>{t('dans.songsExplained')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {songs.map((song, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-3 rounded-2xl border p-3">
+            <div key={i} className="flex flex-wrap items-center gap-3 rounded-[14px] border p-3">
               <span className="text-lg font-bold tabular-nums text-muted-foreground">{i + 1}</span>
               <span className="min-w-0 flex-1 truncate font-medium">{song.title}</span>
               <ChoiceSelect
@@ -833,14 +829,14 @@ export function DanEditorPage() {
           )}
         </CardContent>
       </Card>
-      <Card className="rounded-3xl">
+      <Card className="rounded-[14px]">
         <CardHeader>
           <CardTitle>{t('dans.exams')}</CardTitle>
           <CardDescription>{t('dans.examsEditExplained')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {exams.map((row, i) => (
-            <div key={i} className="space-y-3 rounded-2xl border p-3">
+            <div key={i} className="space-y-3 rounded-[14px] border p-3">
               <div className="flex flex-wrap items-center gap-3">
                 <ChoiceSelect
                   label={t('dans.exam')}
@@ -983,7 +979,7 @@ export function DanEditorPage() {
           )}
         </CardContent>
       </Card>
-      <Card className="rounded-3xl">
+      <Card className="rounded-[14px]">
         <CardHeader>
           <CardTitle>{t('dans.rewards')}</CardTitle>
           <CardDescription>{t('dans.rewardsExplained')}</CardDescription>

@@ -45,20 +45,19 @@ const ChartPreview = lazy(() => import('./chart-preview'))
 const EmbeddedPlayer = lazy(() => import('./embedded-player'))
 
 const difficultyTabColors = {
-  Easy: '[--difficulty-bg:var(--color-orange-100)] [--difficulty-fg:var(--color-orange-800)] dark:[--difficulty-bg:#493128] dark:[--difficulty-fg:#f7bb78]',
-  Normal:
-    '[--difficulty-bg:var(--color-green-100)] [--difficulty-fg:var(--color-green-800)] dark:[--difficulty-bg:#263e32] dark:[--difficulty-fg:#93d5a6]',
-  Hard: '[--difficulty-bg:var(--color-yellow-100)] [--difficulty-fg:var(--color-yellow-800)] dark:[--difficulty-bg:#393a21] dark:[--difficulty-fg:#d7d887]',
-  Oni: '[--difficulty-bg:var(--color-purple-100)] [--difficulty-fg:var(--color-purple-800)] dark:[--difficulty-bg:#3f2948] dark:[--difficulty-fg:#deb0ed]',
-  Edit: '[--difficulty-bg:var(--color-rose-100)] [--difficulty-fg:var(--color-rose-800)] dark:[--difficulty-bg:#462733] dark:[--difficulty-fg:#f19aae]',
+  Easy: '[--difficulty-bg:#f9a15a]',
+  Normal: '[--difficulty-bg:#8fd16a]',
+  Hard: '[--difficulty-bg:#6cc7d8]',
+  Oni: '[--difficulty-bg:#f77fab]',
+  Edit: '[--difficulty-bg:#b99ae8]',
 }
 
 const tabButtonGroupClassName =
-  'shrink-0 gap-0 overflow-hidden rounded-full border border-border bg-transparent p-0'
+  'shrink-0 gap-0 overflow-hidden rounded-[10px] border-2 border-outline bg-card p-0'
 const tabButtonClassName =
   'h-full rounded-none px-3 text-muted-foreground shadow-none not-first:border-l! not-first:border-l-border! hover:bg-muted/50 focus-visible:z-10 focus-visible:-ring-offset-2 data-active:bg-muted data-active:text-foreground dark:hover:bg-muted/50 dark:data-active:bg-muted after:hidden'
 const difficultyTabClassName =
-  'bg-transparent text-[color-mix(in_oklab,var(--difficulty-fg)_65%,transparent)] hover:bg-transparent hover:text-[var(--difficulty-fg)] focus-visible:ring-[var(--difficulty-fg)] data-active:hover:bg-[var(--difficulty-bg)] data-active:bg-[var(--difficulty-bg)] data-active:text-[var(--difficulty-fg)] dark:bg-transparent dark:text-[color-mix(in_oklab,var(--difficulty-fg)_65%,transparent)] dark:hover:bg-transparent dark:hover:text-[var(--difficulty-fg)] dark:data-active:hover:bg-[var(--difficulty-bg)] dark:data-active:bg-[var(--difficulty-bg)] dark:data-active:text-[var(--difficulty-fg)]'
+  'bg-transparent font-bold text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring data-active:bg-[var(--difficulty-bg)] data-active:text-[#382d2a] data-active:hover:bg-[var(--difficulty-bg)] data-active:hover:text-[#382d2a]'
 
 export type ActivityTab = 'image' | 'preview' | 'leaderboard'
 
@@ -121,7 +120,7 @@ export function ChartActivity({
     <Tabs
       value={tab}
       onValueChange={(value) => onTabChange(value as ActivityTab)}
-      className="min-w-0 gap-5 rounded-2xl bg-white p-5 shadow-[0_4px_12px_rgba(0,0,0,0.08)] sm:p-6 dark:bg-card"
+      className="min-w-0 gap-5 rounded-[14px] border-2 border-outline bg-card p-5 shadow-drop sm:p-6"
       aria-label={t('messages.chartPreviewAndLeaderboard')}
       data-testid="chart-activity"
     >
@@ -333,7 +332,7 @@ function ChartLeaderboard({ chart, course }: { chart: Chart; course: string }) {
       </div>
       {data.items.length === 0 ? (
         <div className="flex min-h-40 flex-col items-center justify-center gap-3 py-6 text-center">
-          <h3 className="text-base font-medium">
+          <h3 className="text-base font-extrabold">
             {data.total ? t('messages.noScoresOnThisPage') : t('messages.noScoresYet')}
           </h3>
           <p className="text-sm text-muted-foreground">
@@ -382,7 +381,7 @@ function ChartLeaderboard({ chart, course }: { chart: Chart; course: string }) {
                   </TableCell>
                   <TableHead scope="row">
                     <Link
-                      className="inline-flex max-w-full items-center gap-2 align-middle text-primary hover:underline"
+                      className="inline-flex max-w-full items-center gap-2 align-middle text-link hover:underline"
                       to={`/users/${encodeURIComponent(entry.userId)}`}
                     >
                       <UserAvatar

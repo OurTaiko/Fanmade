@@ -64,18 +64,15 @@ export function UsersPage() {
     <section className="space-y-8" aria-labelledby="users-heading">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
         <div className="space-y-3">
-          <h1 id="users-heading" className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 id="users-heading" className="text-3xl font-extrabold sm:text-4xl">
             {t('messages.userSquare')}
           </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            {t('messages.userSquareDescription')}
-          </p>
         </div>
         <Button
           variant="outline"
           onClick={() => setRefresh((n) => n + 1)}
           disabled={loading}
-          className="self-start rounded-full active:scale-[0.98] sm:self-auto"
+          className="self-start sm:self-auto"
         >
           <ArrowClockwiseIcon aria-hidden="true" />
           {t('messages.refreshUsers')}
@@ -116,7 +113,7 @@ export function UsersPage() {
             : t('messages.membersTotal', { total: result?.total ?? 0 })}
       </div>
       {error ? (
-        <Card role="alert" className="rounded-2xl border p-6 text-destructive shadow-none ring-0">
+        <Card role="alert" className="border-destructive p-6 text-destructive shadow-none">
           {error}
         </Card>
       ) : busy ? (
@@ -126,7 +123,7 @@ export function UsersPage() {
           aria-label={t('messages.loadingMembers')}
         >
           {[0, 1, 2].map((n) => (
-            <Skeleton key={n} className="h-96 rounded-2xl" />
+            <Skeleton key={n} className="h-96 rounded-[14px]" />
           ))}
         </div>
       ) : (
@@ -145,14 +142,11 @@ export function UsersPage() {
               ))}
             </div>
           ) : (
-            <Card className="items-center gap-3 rounded-2xl border border-dashed px-6 py-16 text-center shadow-none ring-0">
+            <Card className="items-center gap-3 border-[1.5px] border-dashed border-input bg-cream px-6 py-12 text-center shadow-none">
               <UsersIcon className="mb-2 size-8 text-muted-foreground" aria-hidden="true" />
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg font-extrabold">
                 {q ? t('messages.noMatchingMembers') : t('messages.noMembersOnThisPage')}
               </h2>
-              <p className="max-w-lg text-sm text-muted-foreground">
-                {q ? t('messages.tryAnotherNickname') : t('messages.memberDirectoryEmpty')}
-              </p>
               {(q || page > 1) && (
                 <Button variant="outline" onClick={() => setParams({ sort })}>
                   {t('messages.showAllMembers')}
@@ -189,9 +183,6 @@ export function UsersPage() {
           )}
         </>
       )}
-      <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground">
-        {t('messages.memberActivityNote')}
-      </p>
     </section>
   )
 }

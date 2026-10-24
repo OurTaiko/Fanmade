@@ -42,6 +42,8 @@ import { VoteControl } from '@/components/vote-control'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { coverSource } from './cover'
+import { PageHero } from '@/components/page-hero'
+import { EmptyState } from '@/components/empty-state'
 import type { Vote, VoteResult } from './api/types'
 
 export function Library({
@@ -104,22 +106,16 @@ export function Library({
   }, [mine, user, q, order, page, owner])
   if (mine && !user)
     return (
-      <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          {t('messages.yourCreationsStartHere')}
-        </h1>
-        <p>
-          {authLoading
-            ? t('messages.loadingAccount')
-            : t('messages.signInToViewAndManageYourCharts')}
-        </p>
-        {!authLoading && (
+      <EmptyState title={t('messages.myCharts')}>
+        {authLoading ? (
+          <p className="text-muted-foreground">{t('messages.loadingAccount')}</p>
+        ) : (
           <Link className={buttonVariants({ variant: 'default', size: 'default' })} to="/login">
             {t('messages.signIn')}
             <ArrowRight size={16} />
           </Link>
         )}
-      </div>
+      </EmptyState>
     )
   const update = (value: Record<string, string>) =>
     setParams((current) => {
@@ -131,45 +127,44 @@ export function Library({
       }
       return next
     })
+  const explore = !mine && !owner && !embedded
+  const searchBar = (
+    <ChartSearch
+      key={mine ? 'mine' : owner || 'all'}
+      query={q}
+      order={order}
+      onSearch={search}
+      onPendingChange={setSearchPending}
+      onChange={update}
+    />
+  )
   return (
     <>
-      {!embedded && (
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center [&_p]:mt-2 [&_p]:text-sm [&_p]:text-muted-foreground">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              {mine
-                ? t('messages.myCharts')
-                : owner
-                  ? t('messages.userPublishedCharts')
-                  : t('messages.discoverGreatCharts')}
+      {explore ? (
+        <PageHero title={t('messages.exploreCharts')}>
+          <div className="max-w-2xl">{searchBar}</div>
+        </PageHero>
+      ) : (
+        !embedded && (
+          <div className="flex flex-wrap justify-between items-center gap-4">
+            <h1 className="font-extrabold text-2xl sm:text-3xl">
+              {mine ? t('messages.myCharts') : t('messages.userPublishedCharts')}
             </h1>
-            <p>
-              {mine
-                ? t('messages.manageYourChartsAndTurnInspirationIntoRhythm')
-                : t('messages.findYourRhythmAndDiscoverChartCreatorsIdeas')}
-            </p>
+            <Link className={buttonVariants({ variant: 'default', size: 'default' })} to="/upload">
+              <Upload size={17} />
+              {t('messages.publishChart')}
+            </Link>
           </div>
-          <Link className={buttonVariants({ variant: 'default', size: 'default' })} to="/upload">
-            <Upload size={17} />
-            {t('messages.publishChart')}
-          </Link>
-        </div>
+        )
       )}
       {owner && !embedded && (
-        <Link to="/users" className="text-sm text-primary hover:underline">
+        <Link to="/users" className="text-sm text-link hover:underline">
           {t('messages.backToUserSquare')}
         </Link>
       )}
-      <ChartSearch
-        key={mine ? 'mine' : owner || 'all'}
-        query={q}
-        order={order}
-        onSearch={search}
-        onPendingChange={setSearchPending}
-        onChange={update}
-      />
+      {!explore && searchBar}
       <div className="flex flex-wrap items-center justify-between gap-3 [&_h2]:flex [&_h2]:items-center [&_h2]:gap-2 [&_h2_span]:text-muted-foreground">
-        <h2 className="text-base font-semibold">
+        <h2 className="text-base font-extrabold">
           {q ? t('messages.searchResults', { query: q }) : orderLabels[order]}
           {!searchPending && !loading && !error && data && <span>{data.total}</span>}
         </h2>
@@ -183,7 +178,7 @@ export function Library({
           aria-label={t('messages.loadingCharts')}
         >
           {[0, 1, 2].map((n) => (
-            <Skeleton className="h-48 rounded-4xl" key={n} />
+            <Skeleton className="h-56" key={n} />
           ))}
         </div>
       ) : data?.items.length ? (
@@ -221,28 +216,16 @@ export function Library({
           )}
         </>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground">
-          <h2 className="text-base font-semibold">
-            {q
-              ? t('messages.noMatchingCharts')
-              : owner
-                ? t('messages.noPublishedChartsYet')
-                : t('messages.beTheFirstToShareARhythm')}
-          </h2>
-          <p>
-            {q
-              ? t('messages.tryOtherSearchFilters')
-              : owner
-                ? t('messages.memberHasNoPublicCharts')
-                : t('messages.chooseATjaAndItsOggOrMp3AudioToGetStarted')}
-          </p>
-          {!owner && (
+        <EmptyState
+          title={q ? t('messages.noMatchingCharts') : t('messages.noPublishedChartsYet')}
+        >
+          {!q && !owner && (
             <Link to="/upload" className={buttonVariants({ variant: 'outline', size: 'default' })}>
               {t('messages.publishChart')}
               <ArrowRight size={16} />
             </Link>
           )}
-        </div>
+        </EmptyState>
       )}
     </>
   )
@@ -256,17 +239,14 @@ export function Auth({ register = false }: { register?: boolean }) {
   const destination = params.get('returnTo') || '/upload'
   return (
     <div className="mx-auto max-w-lg space-y-4 py-8">
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+      <h1 className="text-2xl font-extrabold sm:text-3xl">
         {register ? t('messages.joinTheRhythm') : t('messages.welcomeBack')}
       </h1>
-      <p className="text-sm text-muted-foreground">
-        {t('messages.oneOurtaikoAccountForYourCreationsAndPlayRecords')}
-      </p>
       <Card
-        className="min-w-0 border p-5 shadow-none ring-0 sm:p-6 gap-4 p-6 [&>p]:text-muted-foreground"
+        className="min-w-0 p-5 sm:p-6 gap-4 p-6 [&>p]:text-muted-foreground"
         aria-label={t('messages.accountCenterSignIn')}
       >
-        <h2 className="text-base font-semibold">
+        <h2 className="text-base font-extrabold">
           {register
             ? t('messages.createAnAccountInTheAccountCenter')
             : t('messages.signInWithOurtaiko')}
@@ -293,9 +273,6 @@ export function Auth({ register = false }: { register?: boolean }) {
         >
           {t('messages.createAnOurtaikoAccount')}
         </a>
-        <p className="text-sm text-muted-foreground">
-          {t('messages.registrationOpensInANewTabReturnHereToSignInWhen')}
-        </p>
         {session.user && (
           <Link className={buttonVariants({ variant: 'outline', size: 'default' })} to="/upload">
             {t('messages.signedInContinuePublishing')}
@@ -306,9 +283,9 @@ export function Auth({ register = false }: { register?: boolean }) {
   )
 }
 const detailCardClassName =
-  'rounded-2xl bg-white p-6 shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:bg-card'
+  'rounded-[14px] border-2 border-outline bg-card p-6 shadow-drop'
 const manageItemClassName =
-  'flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm text-foreground transition-colors hover:text-[#0071e3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md'
+  'flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm text-foreground transition-colors hover:text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md'
 
 type DetailSection = 'info' | 'activity' | 'comments'
 type PageTab = 'info' | 'chart' | 'leaderboard' | 'comments'
@@ -433,7 +410,7 @@ export function Detail() {
     <div className="flex flex-col gap-6">
       <section
         aria-labelledby="chart-title"
-        className="overflow-hidden rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] dark:bg-card"
+        className="overflow-hidden rounded-[14px] border-2 border-outline bg-card shadow-drop"
       >
         <div className="grid grid-cols-[7rem_minmax(0,1fr)] items-start gap-4 p-4 sm:grid-cols-[16rem_minmax(0,1fr)] sm:gap-x-8 sm:gap-y-5 sm:p-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-x-10">
           <ChartCover chart={chart} className="sm:row-span-3" />
@@ -441,7 +418,7 @@ export function Detail() {
             <CategoryLabels ids={chart.categoryIds} />
             <h1
               id="chart-title"
-              className="text-xl font-semibold tracking-tight wrap-anywhere sm:text-4xl"
+              className="text-xl font-extrabold wrap-anywhere sm:text-4xl"
             >
               {text.title}
             </h1>
@@ -455,7 +432,7 @@ export function Detail() {
               <span className="font-medium text-foreground">{chart.maker || chart.uploader}</span>
             </p>
           </div>
-          <dl className="col-span-2 grid max-w-md grid-cols-3 gap-2 rounded-xl bg-[#f5f5f7] p-3 text-center sm:col-span-1 sm:col-start-2 sm:gap-4 sm:bg-transparent sm:p-0 sm:text-left dark:bg-muted sm:dark:bg-transparent">
+          <dl className="col-span-2 grid max-w-md grid-cols-3 gap-2 rounded-xl bg-muted p-3 text-center sm:col-span-1 sm:col-start-2 sm:gap-4 sm:bg-transparent sm:p-0 sm:text-left sm:dark:bg-transparent">
             <div>
               <dt className="text-xs text-muted-foreground">BPM</dt>
               <dd className="text-base font-semibold tabular-nums sm:text-xl">{chart.bpm}</dd>
@@ -510,7 +487,7 @@ export function Detail() {
             )}
             <div className="hidden flex-1 sm:block" />
             <VoteControl
-              className="rounded-full bg-[#f5f5f7] px-1 py-0.5 dark:bg-muted"
+              className="rounded-full bg-muted px-1 py-0.5"
               score={chart.score}
               myVote={chart.myVote}
               label={t('interactions.voteOnChart')}
@@ -538,7 +515,7 @@ export function Detail() {
         </div>
         <AudioPlayer
           compact
-          className="rounded-none border-0 border-t bg-[#fbfbfd] px-4 py-3 sm:px-8 dark:bg-muted/40"
+          className="rounded-none border-0 border-t bg-muted/60 px-4 py-3 sm:px-8"
           label={t('messages.audioPreview')}
           src={endpoints.resource(chart, 'audio')}
           startAt={chart.demoStart}
@@ -590,7 +567,7 @@ export function Detail() {
       >
         <TabsList
           aria-label={t('messages.chartSections')}
-          className="grid h-auto w-full grid-cols-4 gap-0.5 rounded-full bg-[#e8e8ed] p-1 dark:bg-muted"
+          className="grid h-auto w-full grid-cols-4 gap-0.5 rounded-[12px] bg-muted p-1"
         >
           {(
             [
@@ -603,7 +580,7 @@ export function Detail() {
             <TabsTrigger
               key={value}
               value={value}
-              className="h-9 min-w-0 truncate rounded-full px-2 text-sm font-medium text-muted-foreground after:hidden data-active:bg-white data-active:text-foreground data-active:shadow-sm dark:data-active:bg-card"
+              className="h-9 min-w-0 truncate px-2 text-sm text-muted-foreground after:hidden"
             >
               {label}
             </TabsTrigger>
@@ -649,7 +626,7 @@ export function Detail() {
             aria-labelledby="chart-description-heading"
             className={cn(detailCardClassName, 'space-y-3')}
           >
-            <h2 id="chart-description-heading" className="text-lg font-semibold tracking-tight">
+            <h2 id="chart-description-heading" className="text-lg font-extrabold">
               {t('messages.aboutThisChart')}
             </h2>
             <p className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground wrap-anywhere">
@@ -660,7 +637,7 @@ export function Detail() {
             aria-labelledby="chart-submission-heading"
             className={cn(detailCardClassName, 'space-y-4')}
           >
-            <h2 id="chart-submission-heading" className="text-lg font-semibold tracking-tight">
+            <h2 id="chart-submission-heading" className="text-lg font-extrabold">
               {t('messages.submissionDetails')}
             </h2>
             <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm [&>dt]:text-muted-foreground [&>dd]:wrap-anywhere">
@@ -669,7 +646,7 @@ export function Detail() {
                 {chartOwners(chart).map((owner) => (
                   <Link
                     key={owner.id}
-                    className="inline-flex max-w-full items-center gap-2 align-middle text-primary hover:underline"
+                    className="inline-flex max-w-full items-center gap-2 align-middle text-link hover:underline"
                     to={`/users/${encodeURIComponent(owner.id)}`}
                   >
                     <UserAvatar
@@ -689,7 +666,7 @@ export function Detail() {
               {/* The header shows this link from sm up. */}
               <dt className="sm:hidden">{t('messages.sourceFiles')}</dt>
               <dd className="sm:hidden">
-                <a className="text-primary hover:underline" href={endpoints.resource(chart, 'tja')}>
+                <a className="text-link hover:underline" href={endpoints.resource(chart, 'tja')}>
                   TJA
                 </a>
               </dd>
@@ -700,7 +677,7 @@ export function Detail() {
               aria-labelledby="chart-manage-heading"
               className={cn(detailCardClassName, 'space-y-1')}
             >
-              <h2 id="chart-manage-heading" className="pb-2 text-lg font-semibold tracking-tight">
+              <h2 id="chart-manage-heading" className="pb-2 text-lg font-extrabold">
                 {t('messages.manageChart')}
               </h2>
               <ul className="divide-y">

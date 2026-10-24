@@ -3,7 +3,6 @@ import { i18n } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { useState } from 'react'
-import { ImageIcon } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { CoverUploadDialog } from './cover-dialog'
 import type { Chart } from '../api/types'
@@ -18,7 +17,7 @@ export function ChartCover({ chart, className }: { chart: Chart; className?: str
   return (
     <div
       className={cn(
-        'flex aspect-[4/3] items-center justify-center overflow-hidden rounded-2xl bg-[#f5f5f7] dark:bg-muted',
+        'flex aspect-[4/3] items-center justify-center overflow-hidden rounded-[14px] bg-muted',
         className,
       )}
     >
@@ -32,9 +31,14 @@ export function ChartCover({ chart, className }: { chart: Chart; className?: str
           onError={() => setFailedSource(source)}
         />
       ) : (
-        <div className="flex flex-col items-center gap-2 p-2 text-center text-xs text-muted-foreground sm:text-sm">
-          <ImageIcon className="size-6 sm:size-8" aria-hidden="true" />
-          <span>{source ? t('messages.coverTemporarilyUnavailable') : t('messages.noCover')}</span>
+        <div className="flex justify-center items-center bg-cream size-full">
+          <span
+            aria-hidden="true"
+            className="bg-(--hero) border-[2.5px] border-outline rounded-full w-2/5 max-w-28 aspect-square shadow-[inset_0_0_0_10px_rgb(255_255_255/0.5)]"
+          />
+          <span className="sr-only">
+            {source ? t('messages.coverTemporarilyUnavailable') : t('messages.noCover')}
+          </span>
         </div>
       )}
     </div>
@@ -56,7 +60,6 @@ export function CoverDialog({
     <CoverUploadDialog
       title={t('messages.changeSongCover')}
       endpoint={endpoints.cover(chart.id)}
-      note={t('messages.savingReplacesTheCoverChartsAudioAndScoresStayIntact')}
       onSaved={onSaved}
       onDismiss={onDismiss}
     />

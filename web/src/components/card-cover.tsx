@@ -26,7 +26,7 @@ export function CardCoverBackdrop({ source, onError }: { source: string; onError
         className="size-full object-cover motion-reduce:transform-none group-hover:scale-105 transition-transform motion-reduce:transition-none duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
         onError={onError}
       />
-      <div className="absolute inset-0 bg-white/55 dark:bg-black/55 group-hover:bg-white/45 dark:group-hover:bg-black/45 transition-colors motion-reduce:transition-none duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]" />
+      <div className="absolute inset-0 bg-card/70 group-hover:bg-card/60 transition-colors motion-reduce:transition-none duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]" />
     </div>
   )
 }

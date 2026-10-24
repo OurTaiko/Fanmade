@@ -285,7 +285,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
   const fileTile = (kind: 'tja' | 'audio') => {
     const file = kind === 'tja' ? tja : audio
     return (
-      <Label className="flex min-w-0 flex-col items-start gap-3 rounded-2xl border p-4 [&>span]:w-full [&_small]:mt-1 [&_small]:block [&_small]:truncate [&_small]:text-muted-foreground">
+      <Label className="flex min-w-0 flex-col items-start gap-3 rounded-[14px] border p-4 [&>span]:w-full [&_small]:mt-1 [&_small]:block [&_small]:truncate [&_small]:text-muted-foreground">
         {kind === 'tja' ? <FileMusic size={24} /> : <AudioLines size={24} />}
         <span>
           <b>{kind === 'tja' ? t('messages.tjaChart') : t('messages.oggMp3Audio')}</b>
@@ -321,7 +321,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
     <>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center [&_p]:mt-2 [&_p]:text-sm [&_p]:text-muted-foreground">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h1 className="text-2xl font-extrabold sm:text-3xl">
             {existing ? t('messages.updateSongAndCharts') : t('messages.publishYourChart')}
           </h1>
           {existing && (
@@ -333,7 +333,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
           )}
           <div
             role="note"
-            className="mt-3 flex items-start gap-2 rounded-2xl bg-yellow-100 px-4 py-3 text-sm font-medium text-yellow-800 dark:bg-[#393a21] dark:text-[#d7d887]"
+            className="mt-3 flex items-start gap-2 rounded-[14px] border-[1.5px] border-[#f3b13c] bg-cream px-4 py-3 text-sm font-medium"
           >
             <WarningIcon size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
             <span>{t('messages.doNotSubmitOfficialBandaiNamcoChartsOrAudio')}</span>
@@ -347,10 +347,10 @@ export function UploadPage({ existing }: { existing?: Chart }) {
       )}
       {existing && (
         <Card
-          className="min-w-0 border p-5 shadow-none ring-0 sm:p-6 gap-3 border-destructive/30 [&>h2]:text-destructive [&>p]:text-sm [&>p]:leading-relaxed"
+          className="min-w-0 border p-5 shadow-none sm:p-6 gap-3 border-destructive/30 [&>h2]:text-destructive [&>p]:text-sm [&>p]:leading-relaxed"
           aria-label={t('messages.beforeUpdating')}
         >
-          <h2 className="text-base font-semibold">
+          <h2 className="text-base font-extrabold">
             {t('messages.updatingDeletesAllPreviousScores')}
           </h2>
           <p>{t('messages.theNewTjaReplacesEveryChartInThisSongAllPlayersScores')}</p>
@@ -366,7 +366,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
           <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
             <TabsList
               aria-label={t('messages.publishYourChart')}
-              className="grid h-auto! w-full grid-cols-3 rounded-2xl sm:grid-cols-5"
+              className="grid h-auto! w-full grid-cols-3 rounded-[14px] sm:grid-cols-5"
             >
               {(['files', 'categories', 'preview', 'description', 'makers'] as const).map(
                 (value) => (
@@ -381,9 +381,9 @@ export function UploadPage({ existing }: { existing?: Chart }) {
               )}
             </TabsList>
             <TabsContent value="files" className="space-y-6 pt-4">
-              <Card className="min-w-0 border p-5 shadow-none ring-0 sm:p-6 gap-5">
+              <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-base font-semibold">{t('messages.chooseFiles')}</h2>
+                  <h2 className="text-base font-extrabold">{t('messages.chooseFiles')}</h2>
                   <span className="text-sm text-muted-foreground">
                     {existing
                       ? t('messages.newTjaRequiredCurrentAudioCanBeKept')
@@ -391,7 +391,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                   </span>
                 </div>
                 <div
-                  className="flex flex-col items-center gap-2 rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground [&>strong]:text-foreground"
+                  className="flex flex-col items-center gap-2 rounded-[14px] border border-dashed p-6 text-center text-sm text-muted-foreground [&>strong]:text-foreground"
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={drop}
                 >
@@ -404,13 +404,8 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                   {fileTile('audio')}
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex min-w-0 flex-col gap-3 rounded-2xl border p-4">
-                    <h3 className="text-sm font-bold">{t('messages.songCover')}</h3>
-                    {existing && (
-                      <p className="text-sm leading-6 text-muted-foreground">
-                        {t('messages.keepCoverUnlessSelected')}
-                      </p>
-                    )}
+                  <div className="flex min-w-0 flex-col gap-3 rounded-[14px] border p-4">
+                    <h3 className="text-sm font-extrabold">{t('messages.songCover')}</h3>
                     <CoverPicker
                       file={cover}
                       disabled={busy}
@@ -420,8 +415,8 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                       }}
                     />
                   </div>
-                  <div className="flex min-w-0 flex-col gap-3 rounded-2xl border p-4">
-                    <h3 className="text-sm font-bold">{t('messages.backgroundMovie')}</h3>
+                  <div className="flex min-w-0 flex-col gap-3 rounded-[14px] border p-4">
+                    <h3 className="text-sm font-extrabold">{t('messages.backgroundMovie')}</h3>
                     <MoviePicker
                       file={movie}
                       disabled={busy}
@@ -461,7 +456,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
               </Card>
             </TabsContent>
             <TabsContent value="categories" className="pt-4">
-              <Card className="min-w-0 border p-5 shadow-none ring-0 sm:p-6 gap-4">
+              <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
                 <CategoryPicker
                   value={categoryIds}
                   disabled={busy}
@@ -473,7 +468,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
               </Card>
             </TabsContent>
             <TabsContent value="preview" className="pt-4">
-              <Card className="min-w-0 gap-4 border p-5 shadow-none ring-0 sm:p-6">
+              <Card className="min-w-0 gap-4 border-[1.5px] border-border p-5 shadow-none sm:p-6">
                 {metadata ? (
                   <>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -512,9 +507,6 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                         />
                       </Label>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('messages.uploadPreviewHint')}
-                    </p>
                     {(audioUrl || existing) && (
                       <AudioPlayer
                         label={t('messages.localAudioPreview')}
@@ -534,8 +526,8 @@ export function UploadPage({ existing }: { existing?: Chart }) {
             </TabsContent>
             <TabsContent value="makers" className="pt-4">
               {metadata ? (
-                <Card className="min-w-0 border p-5 shadow-none ring-0 sm:p-6 gap-4">
-                  <h2 className="text-base font-semibold">
+                <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
+                  <h2 className="text-base font-extrabold">
                     {t('messages.difficultiesAndCreators')}
                   </h2>
                   <p className="text-sm text-muted-foreground">
@@ -591,8 +583,8 @@ export function UploadPage({ existing }: { existing?: Chart }) {
               )}
             </TabsContent>
             <TabsContent value="description" className="pt-4">
-              <Card className="min-w-0 border p-5 shadow-none ring-0 sm:p-6 gap-4">
-                <h2 className="text-base font-semibold">
+              <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
+                <h2 className="text-base font-extrabold">
                   {t('messages.addADescription')}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
                     {t('messages.optional2')}
@@ -623,17 +615,17 @@ export function UploadPage({ existing }: { existing?: Chart }) {
         <aside>
           <Card
             data-testid="preview-panel"
-            className="min-w-0 border p-5 shadow-none ring-0 sm:p-6 gap-4"
+            className="min-w-0 border p-5 shadow-none sm:p-6 gap-4"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">
+              <h2 className="text-base font-extrabold">
                 {existing ? t('messages.updatePreview') : t('messages.submissionPreview')}
               </h2>
             </div>
             {metadata ? (
               <>
                 <p className="text-sm text-muted-foreground">{metadata.bpm} BPM</p>
-                <h3 className="text-base font-medium">
+                <h3 className="text-base font-extrabold">
                   {chartText(metadata, i18n.resolvedLanguage).title}
                 </h3>
                 <p className="text-sm text-muted-foreground">
@@ -704,11 +696,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
                   </div>
                 </Modal>
               )}
-              <p>
-                {existing
-                  ? t('messages.afterUpdatingScoresForEveryDifficultyStartOver')
-                  : t('messages.oncePublishedOthersCanBrowseListenToAndDownloadYourChart')}
-              </p>
+              {existing && <p>{t('messages.afterUpdatingScoresForEveryDifficultyStartOver')}</p>}
             </div>
           </Card>
           <Button

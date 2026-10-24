@@ -124,7 +124,7 @@ function AudioPlayerContent({
       className={cn(
         compact
           ? 'space-y-2 rounded-xl border bg-card py-2.5 pr-3.5 pl-2.5'
-          : 'space-y-3 rounded-2xl border p-4',
+          : 'space-y-3 rounded-[14px] border p-4',
         className,
       )}
       role="group"

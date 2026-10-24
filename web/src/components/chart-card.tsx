@@ -12,6 +12,7 @@ import { DifficultyBadges } from '@/components/difficulty-badges'
 import { compactNumber } from '@/components/vote-control'
 import { ArrowFatUpIcon, ChatCircleIcon } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
+import { categoryColor } from '@/category-colors'
 import { CardCoverBackdrop, coveredTextClassName, useCardCover } from '@/components/card-cover'
 
 export function ChartCard({ chart }: { chart: Chart }) {
@@ -22,21 +23,23 @@ export function ChartCard({ chart }: { chart: Chart }) {
   if (!supportsChart(chart.difficulties)) return null
   return (
     <Link
-      className="group block rounded-2xl outline-none focus-visible:ring-[#0071e3] focus-visible:ring-2 focus-visible:ring-offset-4 min-w-0 motion-reduce:transform-none active:scale-[0.98] transition-transform motion-reduce:transition-none duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] chart-information"
+      className="group block rounded-[14px] outline-none focus-visible:ring-ring focus-visible:ring-3 focus-visible:ring-offset-4 min-w-0 hover:-translate-y-0.5 motion-reduce:transform-none transition-transform motion-reduce:transition-none duration-150"
       data-testid="chart-card"
       to={`/charts/${chart.id}`}
     >
       {/* Fixed height: five difficulty bookmarks, the most a song has, fit exactly. */}
-      <Card
-        size="sm"
-        className="isolate relative bg-white dark:bg-card shadow-[0_4px_12px_rgba(0,0,0,0.08)] py-5 rounded-2xl ring-0 h-56"
-      >
+      <Card size="sm" className="isolate relative group-hover:shadow-drop-hover pt-6 pb-5 h-56 transition-shadow">
+        <div
+          aria-hidden="true"
+          className="top-0 z-10 absolute inset-x-0 border-b-2 border-outline h-1.5"
+          style={{ background: categoryColor(chart.categoryIds) }}
+        />
         {cover.source && <CardCoverBackdrop source={cover.source} onError={cover.onError} />}
-        <CardContent className="relative flex gap-4 pr-0 pl-6 h-full min-h-0">
+        <CardContent className="relative flex gap-4 pr-4 pl-6 h-full min-h-0">
           <div className="flex flex-col flex-1 gap-4 min-w-0 min-h-0">
             <div className={cn('space-y-0.5 min-w-0', hasCover && coveredTextClassName)}>
               <h3
-                className="font-semibold text-lg truncate tracking-tight"
+                className="font-extrabold text-lg truncate"
                 title={chartText(chart, i18n.resolvedLanguage).title}
               >
                 {chartText(chart, i18n.resolvedLanguage).title}

@@ -14,7 +14,7 @@ import { CardCoverBackdrop, coveredTextClassName, useCardCover } from '@/compone
 
 const systemIds = ['liked', 'popular', 'acclaimed', 'daily'] as const
 export const emptyStateClassName =
-  'flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground'
+  'flex flex-col items-center justify-center gap-4 rounded-[14px] border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground'
 // The server names system playlists in English; show them in the page language.
 export function usePlaylistText() {
   const { t } = useTranslation()
@@ -75,17 +75,17 @@ export function PlaylistCard({ playlist }: { playlist: Playlist }) {
   const hasCover = !!cover.source
   return (
     <Link
-      className="group block min-w-0 rounded-2xl outline-none transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:ring-offset-4 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none"
+      className="group block min-w-0 rounded-[14px] outline-none transition-transform duration-150 focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-4 hover:-translate-y-0.5 motion-reduce:transform-none motion-reduce:transition-none"
       data-testid="playlist-card"
       to={`/playlists/${encodeURIComponent(playlist.id)}`}
     >
       <Card
         size="sm"
-        className="relative isolate h-44 gap-3 rounded-2xl bg-white px-6 py-5 shadow-[0_4px_12px_rgba(0,0,0,0.08)] ring-0 dark:bg-card"
+        className="relative isolate h-44 gap-3 px-6 py-5 transition-shadow group-hover:shadow-drop-hover"
       >
         {cover.source && <CardCoverBackdrop source={cover.source} onError={cover.onError} />}
         <div className={cn('relative min-w-0 space-y-1', hasCover && coveredTextClassName)}>
-          <h3 className="truncate text-lg font-semibold tracking-tight" title={text.name}>
+          <h3 className="truncate text-lg font-extrabold" title={text.name}>
             {text.name}
           </h3>
           <p
@@ -140,7 +140,7 @@ export function PlaylistGridSkeleton() {
       aria-label={t('playlists.loading')}
     >
       {[0, 1, 2].map((n) => (
-        <Skeleton className="h-44 rounded-2xl" key={n} />
+        <Skeleton className="h-44 rounded-[14px]" key={n} />
       ))}
     </div>
   )

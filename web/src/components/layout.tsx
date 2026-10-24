@@ -4,7 +4,6 @@ import {
   CompassIcon as Compass,
   UsersIcon,
   FolderIcon as FolderHeart,
-  UploadSimpleIcon as Upload,
   SignOutIcon as LogOut,
   SignInIcon,
   UserIcon as UserRound,
@@ -59,7 +58,6 @@ export function Layout() {
     },
     { to: '/me/charts', label: t('messages.myCharts'), icon: FolderHeart },
     ...(session.user ? [{ to: '/me/profile', label: t('messages.profile'), icon: UserRound }] : []),
-    { to: '/upload', label: t('messages.publishChart'), icon: Upload },
   ]
   return (
     <div className="bg-background min-h-svh text-foreground">

@@ -150,10 +150,12 @@ export function Library({
             <h1 className="font-extrabold text-2xl sm:text-3xl">
               {mine ? t('messages.myCharts') : t('messages.userPublishedCharts')}
             </h1>
-            <Link className={buttonVariants({ variant: 'default', size: 'default' })} to="/upload">
-              <Upload size={17} />
-              {t('messages.publishChart')}
-            </Link>
+            {mine && (
+              <Link className={buttonVariants({ variant: 'default', size: 'default' })} to="/upload">
+                <Upload size={17} />
+                {t('messages.publishChart')}
+              </Link>
+            )}
           </div>
         )
       )}

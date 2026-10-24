@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Link } from 'react-router-dom'
 import { ArrowUpRightIcon as ArrowUpRight } from '@phosphor-icons/react'
+import { PROFILE_URL } from '@/components/profile-plate'
 import { useSession } from './session-context'
 import { Notice } from './notifications'
 
@@ -37,9 +38,7 @@ export function ProfilePage() {
     <>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center [&_p]:mt-2 [&_p]:text-sm [&_p]:text-muted-foreground">
         <div>
-          <h1 className="text-2xl font-extrabold sm:text-3xl">
-            {t('messages.profile')}
-          </h1>
+          <h1 className="text-2xl font-extrabold sm:text-3xl">{t('messages.profile')}</h1>
         </div>
       </div>
       {session.error && <Notice>{session.error}</Notice>}
@@ -62,11 +61,17 @@ export function ProfilePage() {
           >
             {t('messages.myUserSpace')}
           </Link>
+          <a
+            className={buttonVariants({ variant: 'outline' })}
+            href={`${PROFILE_URL}/users/${encodeURIComponent(user.id)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t('ourtaikoProfile.nav')}
+            <ArrowUpRight size={17} aria-hidden="true" />
+          </a>
         </Card>
-        <Card
-          className="min-w-0 p-5 sm:p-6 gap-4"
-          aria-label={t('messages.accountDetails')}
-        >
+        <Card className="min-w-0 p-5 sm:p-6 gap-4" aria-label={t('messages.accountDetails')}>
           <Label htmlFor="profile-username">{t('messages.username')}</Label>
           <Input id="profile-username" value={user.username} readOnly />
           <Label htmlFor="profile-nickname">{t('messages.nickname')}</Label>

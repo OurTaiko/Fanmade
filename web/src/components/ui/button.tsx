@@ -3,20 +3,21 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from 'cn'
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-[10px] border-2 border-transparent bg-clip-padding text-sm font-bold whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-[10px] border-2 bg-clip-padding text-sm font-bold whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'border-outline bg-primary text-primary-foreground shadow-press hover:-translate-y-0.5 hover:shadow-press-hover active:not-aria-[haspopup]:translate-y-0.5 active:shadow-none motion-reduce:transform-none',
+        default:
+          'border-outline bg-primary text-primary-foreground shadow-press hover:-translate-y-0.5 hover:shadow-press-hover active:not-aria-[haspopup]:translate-y-0.5 active:shadow-none motion-reduce:transform-none',
         outline:
           'border-outline bg-card hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground shadow-press hover:-translate-y-0.5 hover:shadow-press-hover active:not-aria-[haspopup]:translate-y-0.5 active:shadow-none motion-reduce:transform-none',
         secondary:
           'border-input bg-secondary text-secondary-foreground hover:border-outline aria-expanded:border-outline aria-expanded:bg-secondary aria-expanded:text-secondary-foreground',
         ghost:
-          'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50',
+          'border-transparent hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50',
         destructive:
           'border-destructive bg-card text-destructive shadow-[0_3px_0_var(--destructive)] hover:bg-destructive/10 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
-        link: 'text-link underline-offset-4 hover:underline',
+        link: 'border-transparent text-link underline-offset-4 hover:underline',
       },
       size: {
         default:

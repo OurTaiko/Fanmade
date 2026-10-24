@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -66,6 +66,10 @@ test('register, reject mismatched ESE audio locally, publish, download, delete a
 })
 
 test('ESE library search, detail navigation and mobile layout', async ({ page }) => {
+  test.skip(
+    !existsSync(chartPath),
+    'Requires the ESE library at ESE_ROOT and a backend seeded with it',
+  )
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
   await page.getByRole('searchbox', { name: '搜索谱面' }).fill('Natsumatsuri')

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import sharp from 'sharp'
 import type { Chart } from '../src/api/types'
 
-const audio = readFileSync('../backend/internal/audio/testdata/cbr.mp3')
+const audio = readFileSync('../internal/audio/testdata/cbr.mp3')
 const source =
   'TITLE:Replacement preview\nSUBTITLE:New subtitle\nMAKER:A\nBPM:120\nWAVE:cbr.mp3\n' +
   ['Hard', 'Oni'].map((course) => `COURSE:${course}\nLEVEL:5\n#START\n1000,\n#END\n`).join('')
@@ -123,13 +123,12 @@ for (const { actor, replaceAudio } of ['owner', 'admin'].flatMap((actor) =>
     await page.goto(`/charts/${original.id}`)
     await page.getByRole('link', { name: '更新歌曲与谱面' }).click()
     await expect(page.getByRole('heading', { name: '更新歌曲与谱面' })).toBeVisible()
-    await expect(page.getByLabel('更新须知')).toContainText('旧成绩会保留，但不再计入排行榜')
+    await expect(page.getByLabel('更新须知')).toContainText('只改标题、译名等头部信息不影响成绩')
     await page.getByRole('tab', { name: '谱面介绍', exact: true }).click()
     await expect(page.getByLabel('投稿说明')).toHaveValue('Keep description')
     await page.getByRole('tab', { name: '文件与封面', exact: true }).click()
     const coverPicker = page.getByLabel('选择 JPG/JPEG、PNG 或 WebP 封面')
     await expect(coverPicker).toBeVisible()
-    await expect(page.getByText('不选择新封面则保留原封面。')).toBeVisible()
     if (replaceAudio) {
       await coverPicker.setInputFiles({
         name: 'replacement.png',

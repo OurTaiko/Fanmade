@@ -7,7 +7,7 @@ const source =
   ['Hard', 'Oni', 'Edit']
     .map((course) => `COURSE:${course}\nLEVEL:5\n#START\n1000,\n#END\n`)
     .join('')
-const audio = readFileSync('../backend/internal/audio/testdata/cbr.mp3')
+const audio = readFileSync('../internal/audio/testdata/cbr.mp3')
 const chart: Chart = {
   id: 'a'.repeat(32),
   ownerId: 'owner',
@@ -61,6 +61,12 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
   )
   await page.route(`**/api/v1/charts/${chart.id}`, (route) => route.fulfill({ json: chart }))
   await page.route('**/api/v1/charts/*/tja', (route) => route.fulfill({ body: source }))
+  await page.route('**/api/v1/charts/*/comments?*', (route) =>
+    route.fulfill({ json: { items: [], page: 1, pageSize: 20, total: 0 } }),
+  )
+  await page.route('**/api/v1/me/notifications/unread', (route) =>
+    route.fulfill({ json: { count: 0 } }),
+  )
   await page.route('**/api/v1/charts/*/audio', (route) =>
     route.fulfill({ body: audio, contentType: 'audio/mpeg' }),
   )
@@ -85,7 +91,7 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
     .setInputFiles({ name: 'cbr.mp3', mimeType: 'audio/mpeg', buffer: audio })
   await expect(page.getByRole('dialog', { name: '本地校验通过' })).toBeVisible()
   await page.getByRole('button', { name: '知道了', exact: true }).click()
-  await expect(page.getByRole('tablist').getByRole('tab')).toHaveText([
+  await expect(page.getByRole('tablist', { name: '发布你的谱面' }).getByRole('tab')).toHaveText([
     '文件与封面',
     '谱面分类',
     '试听',
@@ -136,6 +142,8 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
     { course: 'Edit', side: 'single', maker: 'A' },
   ])
   await expect(page.locator('[data-testid="detail-facts"]')).toContainText('A | B')
+  // On a phone the chart sits behind its own section tab.
+  await page.getByRole('tab', { name: '谱面', exact: true }).click()
   for (const [course, name] of [
     ['Hard', '困难'],
     ['Edit', '里谱'],

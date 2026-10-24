@@ -21,7 +21,7 @@ async function files(page: Page) {
   await page.getByLabel('选择 OGG 或 MP3 音频').setInputFiles({
     name: 'cbr.mp3',
     mimeType: 'audio/mpeg',
-    buffer: readFileSync('../backend/internal/audio/testdata/cbr.mp3'),
+    buffer: readFileSync('../internal/audio/testdata/cbr.mp3'),
   })
   await expect(page.getByRole('dialog', { name: '本地校验通过' })).toBeVisible()
   await page.getByRole('button', { name: '知道了', exact: true }).click()

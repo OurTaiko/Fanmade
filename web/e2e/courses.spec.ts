@@ -112,7 +112,7 @@ test('mixed Tower/Dan and numeric aliases cannot upload; replacing with Oni rest
     if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/v1/charts')
       uploads.push(request.url())
   })
-  await page.goto('/upload')
+  await page.goto('/me/charts/publish')
   await page.getByLabel('选择 OGG 或 MP3 音频').setInputFiles({
     name: 'music.ogg',
     mimeType: 'audio/ogg',

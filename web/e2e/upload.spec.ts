@@ -83,7 +83,7 @@ test('ESE library search, detail navigation and mobile layout', async ({ page })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )
-  await page.goto('/upload')
+  await page.goto('/me/charts/publish')
   await page.getByRole('button', { name: '知道了', exact: true }).click()
   await page.getByLabel('选择 TJA 谱面').setInputFiles(chartPath)
   await page.getByLabel('选择 OGG 或 MP3 音频').setInputFiles(audioPath)

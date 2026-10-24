@@ -129,7 +129,7 @@ for (const format of ['PNG/JPG', 'WebP', 'JPEG']) {
       if (path.endsWith('/tja')) return route.fulfill({ body: source })
       return route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } })
     })
-    await page.goto('/upload')
+    await page.goto('/me/charts/publish')
     const picker = page.getByLabel('选择 JPG/JPEG、PNG 或 WebP 封面')
     await picker.setInputFiles({ name: 'bad.svg', mimeType: 'image/svg+xml', buffer: artwork })
     await expect(page.getByText('封面仅支持 .jpg、.jpeg、.png 或 .webp 文件。')).toBeVisible()

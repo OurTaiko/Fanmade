@@ -76,7 +76,7 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
     submitted = JSON.parse(String(form.get('difficultyMakers')))
     await route.fulfill({ status: 201, json: chart })
   })
-  await page.goto('/upload')
+  await page.goto('/me/charts/publish')
   await page
     .getByLabel('选择 TJA 谱面')
     .setInputFiles({ name: 'chart.tja', mimeType: 'text/plain', buffer: Buffer.from(source) })

@@ -5,11 +5,11 @@ import { i18n } from './i18n'
 import { StrictMode } from 'react'
 import { IconContext } from '@phosphor-icons/react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { SessionProvider } from './session'
 import { Layout } from '@/components/layout'
-import { Auth, Detail, Library } from './pages'
-import { UpdatePage, UploadPage } from './upload'
+import { Auth, ChartManagerPage, Detail, Library } from './pages'
+import { UpdatePage } from './upload'
 import { ChartEditorPage } from './chart-editor'
 import { NotificationProvider } from './notifications'
 import { CategoryProvider } from './categories'
@@ -40,7 +40,8 @@ function App() {
                         <Route path="users" element={<UsersPage />} />
                         <Route path="users/:id" element={<UserSpacePage />} />
                         <Route path="me/profile" element={<ProfilePage />} />
-                        <Route path="me/charts" element={<Library mine />} />
+                        <Route path="me/charts" element={<ChartManagerPage />} />
+                        <Route path="me/charts/publish" element={<ChartManagerPage />} />
                         <Route path="playlists" element={<PlaylistsPage />} />
                         <Route path="dans" element={<DansPage />} />
                         <Route path="dans/new" element={<DanEditorPage />} />
@@ -49,7 +50,10 @@ function App() {
                         <Route path="dans/:id/edit" element={<DanEditorPage />} />
                         <Route path="playlists/:id" element={<PlaylistPage />} />
                         <Route path="me/playlists" element={<MyPlaylistsPage />} />
-                        <Route path="upload" element={<UploadPage />} />
+                        <Route
+                          path="upload"
+                          element={<Navigate to="/me/charts/publish" replace />}
+                        />
                         <Route path="charts/:id/update" element={<UpdatePage />} />
                         <Route path="charts/:id/edit" element={<ChartEditorPage />} />
                         <Route path="charts/:id" element={<Detail />} />

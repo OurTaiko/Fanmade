@@ -52,7 +52,7 @@ test('server categories retry, multi-select upload, owner edits and mobile persi
     }
     return route.continue()
   })
-  await page.goto('/upload')
+  await page.goto('/me/charts/publish')
   await page.getByRole('tab', { name: '谱面分类', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('分类加载失败')
   failCategories = false
@@ -136,7 +136,7 @@ test('server categories retry, multi-select upload, owner edits and mobile persi
 
 test('upload with no selected categories defaults to Variety', async ({ page }) => {
   const session = await login(page)
-  await page.goto('/upload')
+  await page.goto('/me/charts/publish')
   await page.getByRole('tab', { name: '谱面分类', exact: true }).click()
   await expect(page.getByRole('checkbox')).toHaveCount(6)
   await files(page)

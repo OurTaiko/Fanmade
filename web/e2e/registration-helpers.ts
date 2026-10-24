@@ -6,14 +6,14 @@ const origin = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5173'
 const sso = process.env.SSO_TEST_URL || 'http://127.0.0.1:8090'
 
 export async function loginAccount(page: Page, username: string, password: string) {
-  await page.goto(origin + '/api/v1/auth/sso/login?returnTo=/upload')
+  await page.goto(origin + '/api/v1/auth/sso/login?returnTo=/me/charts/publish')
   if (new URL(page.url()).pathname === '/login/') {
     await page.getByLabel('登录名', { exact: true }).fill(username)
     await page.getByLabel('密码', { exact: true }).fill(password)
     await page.getByRole('button', { name: '登录账号', exact: true }).click()
   }
   await page.getByRole('button', { name: '同意并继续', exact: true }).click()
-  await expect(page).toHaveURL(origin + '/upload')
+  await expect(page).toHaveURL(origin + '/me/charts/publish')
   const response = await page.request.get(origin + '/api/v1/me')
   expect(response.status()).toBe(200)
   const session = await response.json()

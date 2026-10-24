@@ -43,6 +43,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { coverSource } from './cover'
 import { PageHero } from '@/components/page-hero'
+import { UploadPage } from './upload'
 import { EmptyState } from '@/components/empty-state'
 import type { Vote, VoteResult } from './api/types'
 
@@ -146,17 +147,9 @@ export function Library({
         </PageHero>
       ) : (
         !embedded && (
-          <div className="flex flex-wrap justify-between items-center gap-4">
-            <h1 className="font-extrabold text-2xl sm:text-3xl">
-              {mine ? t('messages.myCharts') : t('messages.userPublishedCharts')}
-            </h1>
-            {mine && (
-              <Link className={buttonVariants({ variant: 'default', size: 'default' })} to="/upload">
-                <Upload size={17} />
-                {t('messages.publishChart')}
-              </Link>
-            )}
-          </div>
+          <h1 className="font-extrabold text-2xl sm:text-3xl">
+            {mine ? t('messages.myCharts') : t('messages.userPublishedCharts')}
+          </h1>
         )
       )}
       {owner && !embedded && (
@@ -218,11 +211,12 @@ export function Library({
           )}
         </>
       ) : (
-        <EmptyState
-          title={q ? t('messages.noMatchingCharts') : t('messages.noPublishedChartsYet')}
-        >
+        <EmptyState title={q ? t('messages.noMatchingCharts') : t('messages.noPublishedChartsYet')}>
           {!q && !owner && (
-            <Link to="/upload" className={buttonVariants({ variant: 'outline', size: 'default' })}>
+            <Link
+              to="/me/charts/publish"
+              className={buttonVariants({ variant: 'outline', size: 'default' })}
+            >
               {t('messages.publishChart')}
               <ArrowRight size={16} />
             </Link>
@@ -238,7 +232,7 @@ export function Auth({ register = false }: { register?: boolean }) {
 
   const [params] = useSearchParams()
   const session = useSession()
-  const destination = params.get('returnTo') || '/upload'
+  const destination = params.get('returnTo') || '/me/charts/publish'
   return (
     <div className="mx-auto max-w-lg space-y-4 py-8">
       <h1 className="text-2xl font-extrabold sm:text-3xl">
@@ -276,7 +270,10 @@ export function Auth({ register = false }: { register?: boolean }) {
           {t('messages.createAnOurtaikoAccount')}
         </a>
         {session.user && (
-          <Link className={buttonVariants({ variant: 'outline', size: 'default' })} to="/upload">
+          <Link
+            className={buttonVariants({ variant: 'outline', size: 'default' })}
+            to="/me/charts/publish"
+          >
             {t('messages.signedInContinuePublishing')}
           </Link>
         )}
@@ -284,8 +281,7 @@ export function Auth({ register = false }: { register?: boolean }) {
     </div>
   )
 }
-const detailCardClassName =
-  'rounded-[14px] border-2 border-outline bg-card p-6 shadow-drop'
+const detailCardClassName = 'rounded-[14px] border-2 border-outline bg-card p-6 shadow-drop'
 const manageItemClassName =
   'flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm text-foreground transition-colors hover:text-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md'
 
@@ -418,10 +414,7 @@ export function Detail() {
           <ChartCover chart={chart} className="sm:row-span-3" />
           <div className="flex min-w-0 flex-col gap-1 self-center sm:gap-2 sm:self-start">
             <CategoryLabels ids={chart.categoryIds} />
-            <h1
-              id="chart-title"
-              className="text-xl font-extrabold wrap-anywhere sm:text-4xl"
-            >
+            <h1 id="chart-title" className="text-xl font-extrabold wrap-anywhere sm:text-4xl">
               {text.title}
             </h1>
             {text.subtitle && (
@@ -832,5 +825,34 @@ export function Detail() {
         </aside>
       </div>
     </div>
+  )
+}
+
+// My charts and the publish form on one page: /me/charts lists the user's
+// charts, /me/charts/publish publishes a new one.
+export function ChartManagerPage() {
+  const { t } = useTranslation()
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const tab = pathname.replace(/\/$/, '').endsWith('/publish') ? 'publish' : 'charts'
+  return (
+    <>
+      <h1 className="font-extrabold text-2xl sm:text-3xl">{t('messages.chartManager')}</h1>
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          navigate(value === 'publish' ? '/me/charts/publish' : '/me/charts')
+        }
+      >
+        <TabsList aria-label={t('messages.chartManager')}>
+          <TabsTrigger value="charts">{t('messages.myCharts')}</TabsTrigger>
+          <TabsTrigger value="publish">
+            <Upload aria-hidden="true" />
+            {t('messages.publishChart')}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {tab === 'publish' ? <UploadPage embedded /> : <Library mine embedded />}
+    </>
   )
 }

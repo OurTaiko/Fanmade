@@ -56,7 +56,7 @@ export function Layout() {
       label: t('messages.ourTaikoPlayer'),
       icon: GameControllerIcon,
     },
-    { to: '/me/charts', label: t('messages.myCharts'), icon: FolderHeart },
+    { to: '/me/charts', label: t('messages.chartManager'), icon: FolderHeart },
     ...(session.user ? [{ to: '/me/profile', label: t('messages.profile'), icon: UserRound }] : []),
   ]
   return (

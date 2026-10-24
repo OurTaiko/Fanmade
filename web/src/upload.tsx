@@ -85,7 +85,13 @@ export function UpdatePage() {
   )
 }
 
-export function UploadPage({ existing }: { existing?: Chart }) {
+export function UploadPage({
+  existing,
+  embedded = false,
+}: {
+  existing?: Chart
+  embedded?: boolean
+}) {
   const { t } = useTranslation()
 
   const { notify } = useNotification()
@@ -321,9 +327,11 @@ export function UploadPage({ existing }: { existing?: Chart }) {
     <>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center [&_p]:mt-2 [&_p]:text-sm [&_p]:text-muted-foreground">
         <div>
-          <h1 className="text-2xl font-extrabold sm:text-3xl">
-            {existing ? t('messages.updateSongAndCharts') : t('messages.publishYourChart')}
-          </h1>
+          {!embedded && (
+            <h1 className="text-2xl font-extrabold sm:text-3xl">
+              {existing ? t('messages.updateSongAndCharts') : t('messages.publishYourChart')}
+            </h1>
+          )}
           {existing && (
             <p>
               {t('messages.replaceSongHint', {
@@ -613,10 +621,7 @@ export function UploadPage({ existing }: { existing?: Chart }) {
           </Tabs>
         </div>
         <aside>
-          <Card
-            data-testid="preview-panel"
-            className="min-w-0 border p-5 shadow-none sm:p-6 gap-4"
-          >
+          <Card data-testid="preview-panel" className="min-w-0 border p-5 shadow-none sm:p-6 gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-base font-extrabold">
                 {existing ? t('messages.updatePreview') : t('messages.submissionPreview')}

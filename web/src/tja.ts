@@ -27,6 +27,20 @@ export type Difficulty = {
    * scores and 段位 courses. Null until the server has computed it; absent in the browser's own parse.
    */
   chartHash?: string | null
+  /** The block's difficulty constants by route, in a chart's detail only (none until rated). */
+  constants?: DifficultyConstants[]
+}
+/** One route's difficulty constants (定数): the main and 75/99 sub-constants and five dimensions, 0–15.5. */
+export type DifficultyConstants = {
+  route: 'unbranched' | 'normal' | 'expert' | 'master'
+  mainConstant: number
+  subConstant75: number
+  subConstant99: number
+  stamina: number
+  handspeed: number
+  burst: number
+  complex: number
+  rhythm: number
 }
 /** Title dictionaries as the TJA has them: `origin` is TITLE/SUBTITLE itself, the rest locales. */
 export type TitleTexts = Partial<Record<'origin' | 'en' | 'ja' | 'zh' | 'ko' | 'zh_tw', string>>

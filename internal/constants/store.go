@@ -296,3 +296,40 @@ func NextCalibration(t time.Time) time.Time {
 func Due(c Calibration, ok bool, now time.Time) bool {
 	return !ok || !c.Current() || now.Sub(c.ComputedAt) > 7*24*time.Hour
 }
+
+// Shown is one route's published values as the chart pages get them (the API's
+// difficulties[].constants): the main constant, the 75 and 99 sub-constants and the five
+// dimensions, each on 0–15.5.
+type Shown struct {
+	Route        string  `json:"route"`
+	MainConstant float64 `json:"mainConstant"`
+	SubConstant1 float64 `json:"subConstant75"`
+	SubConstant2 float64 `json:"subConstant99"`
+	Stamina      float64 `json:"stamina"`
+	Handspeed    float64 `json:"handspeed"`
+	Burst        float64 `json:"burst"`
+	Complex      float64 `json:"complex"`
+	Rhythm       float64 `json:"rhythm"`
+}
+
+// ForBlocks is the rated routes of the given chart_difficulties rows, by row ID, routes in
+// the order normal, expert, master (or the one unbranched); a block not rated yet is absent.
+func ForBlocks(ctx context.Context, db DB, ids []int64) (map[int64][]Shown, error) {
+	rows, err := db.Query(ctx, `SELECT d.id,k.route,`+ratingColumns+` FROM chart_difficulties d
+ JOIN difficulty_constants k ON k.content_hash=d.content_hash AND k.constants_version=$2 AND k.calibration_version IS NOT NULL
+ WHERE d.id=ANY($1) ORDER BY d.id,array_position(ARRAY['unbranched','normal','expert','master'],k.route)`, ids, Version)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[int64][]Shown{}
+	for rows.Next() {
+		var id int64
+		var s Shown
+		if err = rows.Scan(&id, &s.Route, &s.SubConstant1, &s.MainConstant, &s.SubConstant2, &s.Stamina, &s.Handspeed, &s.Burst, &s.Complex, &s.Rhythm); err != nil {
+			return nil, err
+		}
+		result[id] = append(result[id], s)
+	}
+	return result, rows.Err()
+}

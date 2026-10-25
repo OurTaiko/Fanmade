@@ -30,7 +30,9 @@ import {
 import { api, jsonRequest } from './api/client'
 import type { Chart, ChartList } from './api/types'
 import { ChartCard } from '@/components/chart-card'
-import { supportsChart } from './courses'
+import { slotKey, supportsChart } from './courses'
+import { defaultDifficulty, hasConstants } from './chart-difficulty'
+import { DifficultyConstants } from './difficulty-constants'
 import { useSession } from './session-context'
 import { EditMetadata } from './edit-metadata'
 import { ChartActivity, type ActivityTab } from './chart-activity'
@@ -311,6 +313,8 @@ export function Detail() {
   // Below lg the page shows one section at a time; wider screens show them all.
   const [section, setSection] = useState<DetailSection>('info')
   const [activityTab, setActivityTab] = useState<ActivityTab>('image')
+  // The block the chart area shows (slot key); empty for the default one.
+  const [chosenCourse, setChosenCourse] = useState('')
   useEffect(() => {
     const controller = new AbortController()
     setChart(null)
@@ -323,6 +327,7 @@ export function Detail() {
     setConfirm(false)
     setLeaving(false)
     setActivityTab('image')
+    setChosenCourse('')
     if (!id) return
     api<Chart>(endpoints.chart(id), { signal: controller.signal })
       .then(setChart)
@@ -393,6 +398,11 @@ export function Detail() {
   if (!supportsChart(chart.difficulties))
     return <Notice>{t('messages.thisChartTypeIsNotSupported')}</Notice>
   const text = chartText(chart, i18n.resolvedLanguage)
+  const course = chart.difficulties.some((d) => slotKey(d) === chosenCourse)
+    ? chosenCourse
+    : defaultDifficulty(chart.difficulties)
+  const chosenDifficulty = chart.difficulties.find((d) => slotKey(d) === course)
+  const showConstants = hasConstants(chart.difficulties)
   const isOwner = isChartOwner(chart, session.user?.id)
   const canManage = isOwner || !!session.user?.isAdmin
   const votes = chart.upvotes + chart.downvotes
@@ -589,12 +599,24 @@ export function Detail() {
             section === 'info' && 'max-lg:hidden',
           )}
         >
-          <div className={cn('min-w-0', section !== 'activity' && 'max-lg:hidden')}>
+          <div
+            className={cn('flex min-w-0 flex-col gap-6', section !== 'activity' && 'max-lg:hidden')}
+          >
+            {/* Below lg the constants head the chart section; from lg, the sidebar. */}
+            {showConstants && (
+              <DifficultyConstants
+                key={course}
+                difficulty={chosenDifficulty}
+                className="lg:hidden"
+              />
+            )}
             <ChartActivity
               key={`${chart.id}:${chart.difficulties.map((d) => d.chartHash ?? '').join(',')}:${chart.audioHash}`}
               chart={chart}
               tab={activityTab}
               onTabChange={setActivityTab}
+              course={course}
+              onCourseChange={setChosenCourse}
             />
           </div>
           <div className={cn('min-w-0', section !== 'comments' && 'max-lg:hidden')}>
@@ -617,6 +639,13 @@ export function Detail() {
             section !== 'info' && 'max-lg:hidden',
           )}
         >
+          {showConstants && (
+            <DifficultyConstants
+              key={course}
+              difficulty={chosenDifficulty}
+              className="max-lg:hidden"
+            />
+          )}
           <section
             aria-labelledby="chart-description-heading"
             className={cn(detailCardClassName, 'space-y-3')}

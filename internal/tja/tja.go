@@ -55,13 +55,15 @@ type Difficulty struct {
 	Hash string `json:"chartHash,omitempty"`
 	// Routes are the raw values of the difficulty constants (定数) TJAParser's notes give, by
 	// route (difficulty_constants); nil when the tool reported no notes.
-	Routes             constants.Routes `json:"-"`
-	Line               int              `json:"-"`
-	Warnings           []string         `json:"-"`
-	BlockIndex         int              `json:"-"`
-	Player             string           `json:"-"`
-	Style              string           `json:"-"`
-	CloudScoreEligible bool             `json:"-"`
+	Routes constants.Routes `json:"-"`
+	// Constants are the block's published constants by route, in a chart's detail only.
+	Constants          []constants.Shown `json:"constants,omitempty"`
+	Line               int               `json:"-"`
+	Warnings           []string          `json:"-"`
+	BlockIndex         int               `json:"-"`
+	Player             string            `json:"-"`
+	Style              string            `json:"-"`
+	CloudScoreEligible bool              `json:"-"`
 }
 type Metadata struct {
 	Title                string            `json:"title"`

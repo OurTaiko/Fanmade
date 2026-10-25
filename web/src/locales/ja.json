@@ -817,5 +817,19 @@
   "ourtaikoProfile": {
     "view": "OurTaiko Profile ですべてのスコア・称号・段位を見る",
     "nav": "マイ Profile"
+  },
+  "constants": {
+    "title": "譜面定数",
+    "main": "主定数",
+    "sub": "副定数",
+    "stamina": "体力",
+    "handspeed": "手速",
+    "burst": "瞬発",
+    "complex": "複合",
+    "rhythm": "リズム",
+    "unavailable": "この難易度の定数はまだありません",
+    "normal": "普通",
+    "expert": "玄人",
+    "master": "達人"
   }
 }

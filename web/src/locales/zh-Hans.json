@@ -817,5 +817,19 @@
   "ourtaikoProfile": {
     "view": "在 OurTaiko Profile 查看全部成绩、称号与段位",
     "nav": "我的 Profile"
+  },
+  "constants": {
+    "title": "难度定数",
+    "main": "主定数",
+    "sub": "副定数",
+    "stamina": "体力",
+    "handspeed": "手速",
+    "burst": "爆发",
+    "complex": "复合",
+    "rhythm": "节奏",
+    "unavailable": "这个难度还没有定数",
+    "normal": "普通",
+    "expert": "玄人",
+    "master": "达人"
   }
 }

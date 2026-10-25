@@ -112,6 +112,30 @@ func TestDifficultyConstants(t *testing.T) {
 			t.Fatalf("%s rated %v, want %+v", key, v, want)
 		}
 	}
+	// The chart page gets them: every rated route of each block, in route order.
+	w = httptest.NewRecorder()
+	app.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/charts/"+chart.ID, nil))
+	var detail Chart
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &detail) != nil {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	for _, d := range detail.Difficulties {
+		var routes []string
+		for _, c := range d.Constants {
+			routes = append(routes, c.Route)
+		}
+		want := map[string]string{"Hard": "unbranched", "Oni": "normal expert master"}[d.Course]
+		if strings.Join(routes, " ") != want || d.Constants[len(d.Constants)-1].MainConstant != rated[d.Course+"/"+routes[len(routes)-1]][11] {
+			t.Fatalf("%s: constants %+v", d.Course, d.Constants)
+		}
+	}
+	// Lists go without them.
+	w = httptest.NewRecorder()
+	app.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/charts", nil))
+	if w.Code != 200 || strings.Contains(w.Body.String(), `"constants"`) {
+		t.Fatalf("the list carries constants: %d", w.Code)
+	}
+
 	// The same data calibrate the same: nothing recorded, nothing rated.
 	if again, err := constants.Recalibrate(ctx, pool); err != nil || again.New || again.Rated != 0 || again.Calibration.Version != 1 {
 		t.Fatalf("second calibration: %+v %v", again, err)

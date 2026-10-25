@@ -817,5 +817,19 @@
   "ourtaikoProfile": {
     "view": "OurTaiko Profile에서 모든 점수·칭호·단위 보기",
     "nav": "내 Profile"
+  },
+  "constants": {
+    "title": "난이도 상수",
+    "main": "주 상수",
+    "sub": "부 상수",
+    "stamina": "체력",
+    "handspeed": "손속도",
+    "burst": "순발",
+    "complex": "복합",
+    "rhythm": "리듬",
+    "unavailable": "이 난이도의 상수가 아직 없습니다",
+    "normal": "보통",
+    "expert": "현인",
+    "master": "달인"
   }
 }

@@ -37,7 +37,6 @@ import {
 } from './courses'
 import { Notice } from './notifications'
 import { withChartTitles } from './tja-titles'
-import { defaultDifficulty } from './chart-difficulty'
 import { useSession } from './session-context'
 import { maxTja } from './tja'
 
@@ -61,18 +60,22 @@ const difficultyTabClassName =
 
 export type ActivityTab = 'image' | 'preview' | 'leaderboard'
 
+// The chosen block is the page's (Detail), so the difficulty constants beside follow it.
 export function ChartActivity({
   chart,
   tab,
   onTabChange,
+  course,
+  onCourseChange: setCourse,
 }: {
   chart: Chart
   tab: ActivityTab
   onTabChange: (tab: ActivityTab) => void
+  course: string
+  onCourseChange: (course: string) => void
 }) {
   const { t } = useTranslation()
 
-  const [course, setCourse] = useState(() => defaultDifficulty(chart.difficulties))
   const [source, setSource] = useState('')
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)

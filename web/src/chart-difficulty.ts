@@ -9,3 +9,8 @@ export function defaultDifficulty(difficulties: Difficulty[]): string {
       .find((key) => difficulties.some((d) => slotKey(d) === key)) ?? ''
   )
 }
+
+/** Whether any block of the chart has difficulty constants, so the page can leave the panel out. */
+export function hasConstants(difficulties: Difficulty[]): boolean {
+  return difficulties.some((d) => (d.constants?.length ?? 0) > 0)
+}

@@ -53,15 +53,15 @@ type Difficulty struct {
 	// Hash is the block's content hash from TJAParser ("v1:" + 64 hex): what the block plays
 	// as, whatever its headers say. Scores and 段位 songs follow it (chart_difficulties.content_hash).
 	Hash string `json:"chartHash,omitempty"`
-	// Constants are the raw values of the difficulty constants (定数) TJAParser's notes give
-	// (chart_difficulties.raw_*, note_count); nil when the tool reported no notes.
-	Constants          *constants.Raw `json:"-"`
-	Line               int            `json:"-"`
-	Warnings           []string       `json:"-"`
-	BlockIndex         int            `json:"-"`
-	Player             string         `json:"-"`
-	Style              string         `json:"-"`
-	CloudScoreEligible bool           `json:"-"`
+	// Routes are the raw values of the difficulty constants (定数) TJAParser's notes give, by
+	// route (difficulty_constants); nil when the tool reported no notes.
+	Routes             constants.Routes `json:"-"`
+	Line               int              `json:"-"`
+	Warnings           []string         `json:"-"`
+	BlockIndex         int              `json:"-"`
+	Player             string           `json:"-"`
+	Style              string           `json:"-"`
+	CloudScoreEligible bool             `json:"-"`
 }
 type Metadata struct {
 	Title                string            `json:"title"`
@@ -168,9 +168,7 @@ func inspect(m Metadata, data []byte, encoding string) (Metadata, *Issue) {
 			return m, fail("TJA_PARSER_UNAVAILABLE", "谱面解析服务没有给出内容哈希", b.Line)
 		}
 		d.Hash, d.Line, d.Warnings = b.Hash, b.Line, b.Warnings
-		if raw, ok := constants.OfBlock(b.Notes); ok {
-			d.Constants = &raw
-		}
+		d.Routes = constants.OfRoutes(b.Notes)
 		if b.Maker != "" {
 			d.Maker = b.Maker
 		}

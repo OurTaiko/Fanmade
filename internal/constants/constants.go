@@ -25,9 +25,9 @@ import (
 	"sort"
 )
 
-// Version is the algorithm's version, stored with the values (chart_difficulties.constants_version):
-// raise it when a change here or in what TJAParser reports would change them, and the startup
-// backfill recomputes every block.
+// Version is the first stage's version, stored with the values (difficulty_constants.
+// constants_version): raise it when a change here or in what TJAParser reports would change
+// them, and the startup backfill recomputes every block.
 const Version = 1
 
 // Notes is one route's don and ka notes in play order, as `tjaparser inspect` reports them: each
@@ -38,18 +38,20 @@ type Notes struct {
 	Kinds []int     `json:"kinds"`
 }
 
-// OfBlock computes the values stored for a block from its routes ("unbranched", or "normal",
-// "expert" and "master"): the master route of a branching block, as the constants repository
-// publishes (extract_song_constants.py), else its one route. ok is false when there is neither.
-func OfBlock(routes map[string]Notes) (raw Raw, ok bool) {
-	notes, ok := routes["master"]
-	if !ok {
-		notes, ok = routes["unbranched"]
+// Routes are a block's raw values by route: "unbranched", or "normal", "expert" and "master".
+type Routes map[string]Raw
+
+// OfRoutes computes every route of a block from inspect's notes; nil when there are none (a
+// block the tool could not play, or a tool from before v0.4.0).
+func OfRoutes(notes map[string]Notes) Routes {
+	if len(notes) == 0 {
+		return nil
 	}
-	if !ok {
-		return Raw{}, false
+	routes := Routes{}
+	for route, n := range notes {
+		routes[route] = FromNotes(n.Ms, n.Kinds)
 	}
-	return FromNotes(notes.Ms, notes.Kinds), true
+	return routes
 }
 
 // Raw is one route's raw values. A dimension the original code could not compute (it raised and

@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"testing"
+	"time"
 )
 
 // testdata/golden.json pins the constants repository's Python (tja_analysis.py with
@@ -47,18 +48,15 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-func TestOfBlock(t *testing.T) {
+func TestOfRoutes(t *testing.T) {
 	stream := Notes{Ms: []float64{0, 125, 250, 375, 500, 625}, Kinds: []int{1, 2, 1, 2, 1, 2}}
 	slow := Notes{Ms: []float64{0, 500, 1000}, Kinds: []int{1, 1, 1}}
-	if raw, ok := OfBlock(map[string]Notes{"unbranched": stream}); !ok || raw != FromNotes(stream.Ms, stream.Kinds) {
-		t.Errorf("unbranched: %+v %v", raw, ok)
+	routes := OfRoutes(map[string]Notes{"normal": slow, "expert": slow, "master": stream})
+	if len(routes) != 3 || routes["master"] != FromNotes(stream.Ms, stream.Kinds) || routes["normal"].NoteCount != 3 {
+		t.Errorf("routes %+v", routes)
 	}
-	branched := map[string]Notes{"normal": slow, "expert": slow, "master": stream}
-	if raw, ok := OfBlock(branched); !ok || raw.NoteCount != 6 {
-		t.Errorf("a branching block stores its master route: %+v %v", raw, ok)
-	}
-	if _, ok := OfBlock(nil); ok {
-		t.Error("no routes, no constants")
+	if OfRoutes(nil) != nil {
+		t.Error("no notes, no routes")
 	}
 }
 
@@ -66,5 +64,52 @@ func TestOfBlock(t *testing.T) {
 func TestSumCompensates(t *testing.T) {
 	if got := sum([]float64{1e16, 1, -1e16, 1}); got != 2 {
 		t.Errorf("sum = %v, want 2 (plain addition gives 1)", got)
+	}
+}
+
+// testdata/rating_golden.json pins rating.py: routes across every main-constant band and every
+// piece of the speed and burst conversions, with their eight values under the published
+// calibration, and calibrations of small subsets, where the data-dependent extremes move.
+func TestRatingGolden(t *testing.T) {
+	t.Setenv("CONSTANTS_STAGE2", "testdata/rating_golden.json")
+	TestRatingCorpus(t)
+}
+
+func TestParseParams(t *testing.T) {
+	published := `{"min_体力换算":0.0,"max_体力换算":15.5,"max_手速换算":15.5,"max_爆发换算":15.5,"min_复合占比换算":0.027989008758595446,
+"max_复合占比换算":15.6,"min_复合换算":0.0,"max_复合换算":15.5,"min_节奏换算":0.01160173377865803,"max_节奏换算":15.54733200247501,
+"max_粗糙75定数":15.4,"max_粗糙主定数":15.15,"max_粗糙99定数":15.0}`
+	p, err := ParseParams([]byte(published))
+	if err != nil || p.MaxRhythm != 15.54733200247501 || p.MaxRough99 != 15 {
+		t.Fatalf("%+v %v", p, err)
+	}
+	if _, err = ParseParams([]byte(`{"min_体力换算":0}`)); err == nil {
+		t.Error("an incomplete calibration was accepted")
+	}
+}
+
+func TestNextCalibration(t *testing.T) {
+	tokyo := time.FixedZone("JST", 9*60*60)
+	for _, c := range []struct{ now, want string }{
+		{"2026-10-25T05:00:00", "2026-10-25T05:30:00"}, // a Sunday, before the slot
+		{"2026-10-25T05:30:00", "2026-11-01T05:30:00"}, // at it: the next week's
+		{"2026-10-26T12:00:00", "2026-11-01T05:30:00"}, // a Monday
+		{"2026-10-31T23:59:00", "2026-11-01T05:30:00"}, // a Saturday
+	} {
+		now, _ := time.ParseInLocation("2006-01-02T15:04:05", c.now, tokyo)
+		if got := NextCalibration(now.UTC()).In(tokyo).Format("2006-01-02T15:04:05"); got != c.want {
+			t.Errorf("after %s: %s, want %s", c.now, got, c.want)
+		}
+	}
+	now := time.Now()
+	fresh := Calibration{RatingVersion: RatingVersion, ConstantsVersion: Version, ComputedAt: now.Add(-time.Hour)}
+	if Due(fresh, true, now) || !Due(fresh, false, now) {
+		t.Error("a fresh calibration is not due; none is")
+	}
+	old, other := fresh, fresh
+	old.ComputedAt = now.Add(-8 * 24 * time.Hour)
+	other.RatingVersion = RatingVersion + 1
+	if !Due(old, true, now) || !Due(other, true, now) {
+		t.Error("a calibration over a week old, or from other formulas, is due")
 	}
 }

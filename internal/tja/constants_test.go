@@ -2,9 +2,8 @@ package tja
 
 import "testing"
 
-// Parse carries each block's raw difficulty constants from TJAParser's notes: the master route
-// of a branching block.
-func TestConstantsFromTheMasterRoute(t *testing.T) {
+// Parse carries each block's raw difficulty constants from TJAParser's notes, for every route.
+func TestConstantsForEveryRoute(t *testing.T) {
 	if !Available() {
 		t.Skip("tjaparser not found: set TJAPARSER_BIN or put it on PATH")
 	}
@@ -15,16 +14,16 @@ func TestConstantsFromTheMasterRoute(t *testing.T) {
 	if issue != nil {
 		t.Fatal(issue)
 	}
-	want := map[string]int{"Hard": 6, "Oni": 6} // Oni: 1 common, 4 on the master route, 1 after
+	// Oni: 1 common note and 1 after the branch, with 1, 2 or 4 on the routes.
+	want := map[string]map[string]int{"Hard": {"unbranched": 6}, "Oni": {"normal": 3, "expert": 4, "master": 6}}
 	for _, d := range m.Difficulties {
-		if d.Constants == nil {
-			t.Fatalf("%s has no constants (is TJAPARSER_BIN a build with route notes?)", d.Course)
+		if len(d.Routes) != len(want[d.Course]) {
+			t.Fatalf("%s routes %v (is TJAPARSER_BIN a build with route notes?)", d.Course, d.Routes)
 		}
-		if d.Constants.NoteCount != want[d.Course] {
-			t.Errorf("%s note count %d, want %d", d.Course, d.Constants.NoteCount, want[d.Course])
-		}
-		if d.Constants.Stamina <= 0 {
-			t.Errorf("%s stamina %v", d.Course, d.Constants.Stamina)
+		for route, count := range want[d.Course] {
+			if d.Routes[route].NoteCount != count || d.Routes[route].Stamina <= 0 {
+				t.Errorf("%s %s: %+v, want %d notes", d.Course, route, d.Routes[route], count)
+			}
 		}
 	}
 }

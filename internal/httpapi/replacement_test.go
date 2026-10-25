@@ -201,7 +201,8 @@ func testChartReplacement(t *testing.T, remote bool) {
 	}
 	// Each block, the kept one and the added one, has its raw difficulty constants (Hard 1000,
 	// is one note and no gap; Oni 1100, two notes 500 ms apart).
-	if count(`SELECT count(*) FROM chart_difficulties WHERE chart_id=$1 AND constants_version=1 AND CASE course WHEN 'Hard' THEN note_count=1 AND raw_stamina=0 ELSE note_count=2 AND raw_stamina>0 END`, original.ID) != 2 {
+	if count(`SELECT count(*) FROM chart_difficulties d JOIN difficulty_constants k ON k.content_hash=d.content_hash AND k.route='unbranched'
+ WHERE d.chart_id=$1 AND k.constants_version=1 AND CASE d.course WHEN 'Hard' THEN k.note_count=1 AND k.raw_stamina=0 ELSE k.note_count=2 AND k.raw_stamina>0 END`, original.ID) != 2 {
 		t.Fatal("difficulty constants not stored")
 	}
 	if count(songScores+` AND sc.is_latest`, unrelated.ID) != 1 || count(`SELECT count(*) FROM chart_resources WHERE extension='tja'`) != 2 || count(`SELECT count(*) FROM chart_resources WHERE extension='mp3'`) != 1 {

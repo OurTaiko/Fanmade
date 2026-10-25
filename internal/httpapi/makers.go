@@ -110,9 +110,11 @@ func setDifficulties(ctx context.Context, tx pgx.Tx, chartID string, blocks []tj
 		if d.Hash != "" {
 			hash = &d.Hash
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO chart_difficulties(chart_id,course,side,level,maker,branching,content_hash) VALUES($1,$2,$3,$4,$5,$6,$7)
- ON CONFLICT(chart_id,course,side) DO UPDATE SET level=EXCLUDED.level,maker=EXCLUDED.maker,branching=EXCLUDED.branching,content_hash=COALESCE(EXCLUDED.content_hash,chart_difficulties.content_hash)`,
-			chartID, d.Course, d.Side, d.Level, d.Maker, d.Branching, hash); err != nil {
+		args := append([]any{chartID, d.Course, d.Side, d.Level, d.Maker, d.Branching, hash}, constantsColumns(d.Constants)...)
+		if _, err = tx.Exec(ctx, `INSERT INTO chart_difficulties(chart_id,course,side,level,maker,branching,content_hash,`+constantsColumnNames+`)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+ ON CONFLICT(chart_id,course,side) DO UPDATE SET level=EXCLUDED.level,maker=EXCLUDED.maker,branching=EXCLUDED.branching,content_hash=COALESCE(EXCLUDED.content_hash,chart_difficulties.content_hash),
+ `+keepConstantsUnlessNew, args...); err != nil {
 			return err
 		}
 	}

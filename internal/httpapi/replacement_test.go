@@ -199,6 +199,11 @@ func testChartReplacement(t *testing.T, remote bool) {
 	if hard(updated) != hard(original) || count(songScores, original.ID) != 2 || count(songScores+` AND sc.is_latest`, original.ID) != 2 || count(`SELECT count(*) FROM charts WHERE id=$1`, original.ID) != 1 || count(`SELECT count(*) FROM chart_difficulties WHERE chart_id=$1`, original.ID) != 2 {
 		t.Fatal("blocks or scores not carried over")
 	}
+	// Each block, the kept one and the added one, has its raw difficulty constants (Hard 1000,
+	// is one note and no gap; Oni 1100, two notes 500 ms apart).
+	if count(`SELECT count(*) FROM chart_difficulties WHERE chart_id=$1 AND constants_version=1 AND CASE course WHEN 'Hard' THEN note_count=1 AND raw_stamina=0 ELSE note_count=2 AND raw_stamina>0 END`, original.ID) != 2 {
+		t.Fatal("difficulty constants not stored")
+	}
 	if count(songScores+` AND sc.is_latest`, unrelated.ID) != 1 || count(`SELECT count(*) FROM chart_resources WHERE extension='tja'`) != 2 || count(`SELECT count(*) FROM chart_resources WHERE extension='mp3'`) != 1 {
 		t.Fatal("unrelated data changed or old file rows remain")
 	}

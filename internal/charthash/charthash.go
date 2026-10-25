@@ -1,6 +1,7 @@
 // Package charthash runs the TJAParser command-line tool (github.com/OurTaiko/TJAParser,
 // the parser OurTaikoPlay plays by) over a TJA file and reads back what the servers register
-// a chart from: the header, every #START block and each block's content hash.
+// a chart from: the header, every #START block, each block's content hash and the notes each
+// of its routes plays (for the difficulty constants).
 //
 // The tool is built into the container image at the tag the game references; the servers never
 // parse chart bodies themselves. `tjaparser inspect <file>` prints one JSON document; its
@@ -18,6 +19,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"ourtaiko.dev/fanmade/api/internal/constants"
 )
 
 // Inspection is `tjaparser inspect`'s output.
@@ -55,6 +58,9 @@ type Block struct {
 	Hash     string   `json:"hash"`
 	Error    string   `json:"error"`
 	Warnings []string `json:"warnings"`
+	// The don and ka notes each route plays ("unbranched", or "normal", "expert", "master"),
+	// for the difficulty constants; absent when the block cannot be played.
+	Notes map[string]constants.Notes `json:"notes"`
 }
 
 // Unreadable is the tool refusing the file as a whole (exit code 4): its message names the

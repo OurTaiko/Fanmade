@@ -7,10 +7,12 @@ COPY web/ ./
 RUN pnpm build
 
 # TJAParser's command-line tool: the game's own parser, which reads every uploaded chart's
-# blocks and hashes them. Pin the tag the game references (OurTaikoPlay Packages/manifest.json).
+# blocks, hashes them and lists the notes the difficulty constants are computed from. Pin a tag
+# whose hashes match the game's (OurTaikoPlay Packages/manifest.json): v0.4.0 adds the notes to
+# v0.3.x and hashes the same.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS tjaparser
 ARG TARGETARCH
-ARG TJAPARSER_REF=v0.3.1
+ARG TJAPARSER_REF=v0.4.0
 RUN apk add --no-cache git \
     && git clone --depth 1 --branch "$TJAPARSER_REF" https://github.com/OurTaiko/TJAParser.git /src
 WORKDIR "/src/dotnet~"

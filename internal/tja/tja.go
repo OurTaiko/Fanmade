@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 	"ourtaiko.dev/fanmade/api/internal/audio"
 	"ourtaiko.dev/fanmade/api/internal/charthash"
+	"ourtaiko.dev/fanmade/api/internal/constants"
 	"ourtaiko.dev/fanmade/api/internal/video"
 )
 
@@ -51,13 +52,16 @@ type Difficulty struct {
 	Branching bool   `json:"branching"`
 	// Hash is the block's content hash from TJAParser ("v1:" + 64 hex): what the block plays
 	// as, whatever its headers say. Scores and 段位 songs follow it (chart_difficulties.content_hash).
-	Hash               string   `json:"chartHash,omitempty"`
-	Line               int      `json:"-"`
-	Warnings           []string `json:"-"`
-	BlockIndex         int      `json:"-"`
-	Player             string   `json:"-"`
-	Style              string   `json:"-"`
-	CloudScoreEligible bool     `json:"-"`
+	Hash string `json:"chartHash,omitempty"`
+	// Constants are the raw values of the difficulty constants (定数) TJAParser's notes give
+	// (chart_difficulties.raw_*, note_count); nil when the tool reported no notes.
+	Constants          *constants.Raw `json:"-"`
+	Line               int            `json:"-"`
+	Warnings           []string       `json:"-"`
+	BlockIndex         int            `json:"-"`
+	Player             string         `json:"-"`
+	Style              string         `json:"-"`
+	CloudScoreEligible bool           `json:"-"`
 }
 type Metadata struct {
 	Title                string            `json:"title"`
@@ -96,8 +100,9 @@ func numeric(s string) (float64, bool) {
 
 // Inspector is the TJAParser tool that reads chart bodies: the game's own parser, built into
 // the image at the tag the game references. The header checks below are the upload gate; the
-// blocks, their hashes and the titles as the game reads them come from here. InspectDir holds
-// the file it reads (the staging directory in production).
+// blocks, their hashes, the titles as the game reads them and the notes of the difficulty
+// constants come from here. InspectDir holds the file it reads (the staging directory in
+// production).
 var Inspector charthash.Inspector = charthash.CLI{Bin: os.Getenv("TJAPARSER_BIN")}
 var InspectDir = os.TempDir()
 
@@ -133,7 +138,8 @@ func ParseLegacy(data []byte, encoding, audioName string) (Metadata, *Issue) {
 
 // inspect completes a scanned chart with TJAParser's reading of it: titles by locale as the
 // game maps them (origin + en/ja/ko/zh/zh_tw), each block's maker (NOTESDESIGNERn, else
-// MAKER), content hash and parse warnings. A block the game cannot play is refused.
+// MAKER), content hash, parse warnings and the raw difficulty constants. A block the game
+// cannot play is refused.
 func inspect(m Metadata, data []byte, encoding string) (Metadata, *Issue) {
 	normalized, issue := NormalizeUTF8(data, encoding)
 	if issue != nil {
@@ -162,6 +168,9 @@ func inspect(m Metadata, data []byte, encoding string) (Metadata, *Issue) {
 			return m, fail("TJA_PARSER_UNAVAILABLE", "谱面解析服务没有给出内容哈希", b.Line)
 		}
 		d.Hash, d.Line, d.Warnings = b.Hash, b.Line, b.Warnings
+		if raw, ok := constants.OfBlock(b.Notes); ok {
+			d.Constants = &raw
+		}
 		if b.Maker != "" {
 			d.Maker = b.Maker
 		}

@@ -11,14 +11,41 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"ourtaiko.dev/fanmade/api/internal/charthash"
+	"ourtaiko.dev/fanmade/api/internal/constants"
 	"ourtaiko.dev/fanmade/api/internal/tja"
 )
 
+// constantsColumnNames are chart_difficulties' difficulty-constant columns (migration 047), in
+// the order constantsColumns gives their values.
+const constantsColumnNames = `constants_version,raw_stamina,raw_handspeed,raw_burst,raw_complex,raw_complex_ratio,raw_rhythm,raw_rhythm_ratio,note_count`
+
+// keepConstantsUnlessNew is the ON CONFLICT assignment that takes a block's new constants and
+// keeps the stored ones when the new reading has none (all nine are NULL together).
+const keepConstantsUnlessNew = `constants_version=COALESCE(EXCLUDED.constants_version,chart_difficulties.constants_version),
+ raw_stamina=COALESCE(EXCLUDED.raw_stamina,chart_difficulties.raw_stamina),
+ raw_handspeed=COALESCE(EXCLUDED.raw_handspeed,chart_difficulties.raw_handspeed),
+ raw_burst=COALESCE(EXCLUDED.raw_burst,chart_difficulties.raw_burst),
+ raw_complex=COALESCE(EXCLUDED.raw_complex,chart_difficulties.raw_complex),
+ raw_complex_ratio=COALESCE(EXCLUDED.raw_complex_ratio,chart_difficulties.raw_complex_ratio),
+ raw_rhythm=COALESCE(EXCLUDED.raw_rhythm,chart_difficulties.raw_rhythm),
+ raw_rhythm_ratio=COALESCE(EXCLUDED.raw_rhythm_ratio,chart_difficulties.raw_rhythm_ratio),
+ note_count=COALESCE(EXCLUDED.note_count,chart_difficulties.note_count)`
+
+// constantsColumns are the values for constantsColumnNames: all NULL without constants.
+func constantsColumns(raw *constants.Raw) []any {
+	if raw == nil {
+		return make([]any, 9)
+	}
+	return []any{constants.Version, raw.Stamina, raw.Handspeed, raw.Burst, raw.Complex, raw.ComplexRatio, raw.Rhythm, raw.RhythmRatio, raw.NoteCount}
+}
+
 // RunContentHashBackfill fills chart_difficulties.content_hash for charts stored before
-// migration 046, or hashed by an older algorithm than the tool now reports, and adds the
-// titles TJAParser reads (origin and every locale) to the title dictionaries, never removing a
-// key. It runs after start-up, resumes on the next start, and leaves a block the tool cannot
-// hash NULL with a log line; the retire trigger ignores a hash set for the first time.
+// migration 046, or hashed by an older algorithm than the tool now reports, and the raw
+// difficulty constants for blocks stored before migration 047 or computed by an older
+// constants.Version; it adds the titles TJAParser reads (origin and every locale) to the title
+// dictionaries, never removing a key. It runs after start-up, resumes on the next start, and
+// leaves a block the tool cannot play NULL with a log line; the retire trigger ignores a hash
+// set for the first time, and the constants touch no score.
 func (s *Server) RunContentHashBackfill(ctx context.Context) {
 	cli, ok := tja.Inspector.(charthash.CLI)
 	if !ok {
@@ -29,14 +56,14 @@ func (s *Server) RunContentHashBackfill(ctx context.Context) {
 		log.Printf("content hash backfill skipped: %v", err)
 		return
 	}
-	if err := s.backfillContentHashes(ctx, version+":"); err != nil && ctx.Err() == nil {
+	if err := s.backfillContentHashes(ctx, version+":", constants.Version); err != nil && ctx.Err() == nil {
 		log.Printf("content hash backfill: %v", err)
 	}
 }
 
-func (s *Server) backfillContentHashes(ctx context.Context, prefix string) error {
+func (s *Server) backfillContentHashes(ctx context.Context, prefix string, constantsVersion int) error {
 	rows, err := s.DB.Query(ctx, `SELECT DISTINCT c.id FROM charts c JOIN chart_difficulties d ON d.chart_id=c.id
- WHERE c.status<>'deleted' AND (d.content_hash IS NULL OR left(d.content_hash,length($1))<>$1) ORDER BY c.id`, prefix)
+ WHERE c.status<>'deleted' AND (d.content_hash IS NULL OR left(d.content_hash,length($1))<>$1 OR d.constants_version IS DISTINCT FROM $2) ORDER BY c.id`, prefix, constantsVersion)
 	if err != nil {
 		return err
 	}
@@ -104,6 +131,15 @@ func (s *Server) backfillChartHashes(parent context.Context, id string) error {
 			continue
 		}
 		if _, err = tx.Exec(ctx, `UPDATE chart_difficulties SET content_hash=$4 WHERE chart_id=$1 AND course=$2 AND side=$3 AND content_hash IS DISTINCT FROM $4`, id, b.Name, b.Side, b.Hash); err != nil {
+			return err
+		}
+		raw, ok := constants.OfBlock(b.Notes)
+		if !ok {
+			continue
+		}
+		args := append([]any{id, b.Name, b.Side}, constantsColumns(&raw)...)
+		if _, err = tx.Exec(ctx, `UPDATE chart_difficulties SET (`+constantsColumnNames+`)=($4,$5,$6,$7,$8,$9,$10,$11,$12)
+ WHERE chart_id=$1 AND course=$2 AND side=$3`, args...); err != nil {
 			return err
 		}
 	}

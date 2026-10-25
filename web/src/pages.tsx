@@ -570,24 +570,28 @@ export function Detail() {
         onValueChange={(value) => selectPageTab(value as PageTab)}
         className="lg:hidden"
       >
+        {/* Short labels, each tab as wide as its label needs; one that still does not fit is cut short. */}
         <TabsList
           aria-label={t('messages.chartSections')}
-          className="grid h-auto w-full grid-cols-4 gap-0.5 rounded-[12px] bg-muted p-1"
+          className="flex h-auto w-full gap-0.5 rounded-[12px] bg-muted p-1"
         >
           {(
             [
-              ['info', t('messages.aboutThisChart')],
+              ['info', t('messages.aboutTab')],
               ['chart', t('messages.chartTab')],
-              ['leaderboard', t('messages.leaderboard')],
-              ['comments', t('interactions.commentsHeading', { count: chart.commentCount })],
+              ['leaderboard', t('messages.leaderboardTab')],
+              ['comments', t('interactions.publicCommentCount')],
             ] as const
           ).map(([value, label]) => (
             <TabsTrigger
               key={value}
               value={value}
-              className="h-9 min-w-0 truncate px-2 text-sm text-muted-foreground after:hidden"
+              className="h-9 min-w-0 flex-auto px-1.5 text-sm text-muted-foreground after:hidden"
             >
-              {label}
+              <span className="truncate">{label}</span>
+              {value === 'comments' && chart.commentCount > 0 && (
+                <span className="text-xs tabular-nums">{chart.commentCount}</span>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>

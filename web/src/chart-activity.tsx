@@ -19,7 +19,8 @@ import {
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   FileAudioIcon as FileMusic,
-  TrophyIcon as Trophy,
+  PlayIcon,
+  TrophyIcon,
   StarIcon,
   ArrowCounterClockwiseIcon as RotateCcw,
 } from '@phosphor-icons/react'
@@ -136,16 +137,16 @@ export function ChartActivity({
           className={cn(tabButtonGroupClassName, tab === 'leaderboard' && 'max-lg:hidden')}
         >
           <TabsTrigger value="image" className={tabButtonClassName}>
-            <FileMusic size={18} />
+            <FileMusic size={18} aria-hidden="true" />
             {t('messages.chartImage')}
           </TabsTrigger>
           <TabsTrigger value="preview" className={tabButtonClassName}>
-            <FileMusic size={18} />
+            <PlayIcon size={18} aria-hidden="true" />
             {t('messages.chartPreview')}
           </TabsTrigger>
           {/* Below lg the page tabs open the leaderboard. */}
           <TabsTrigger value="leaderboard" className={cn(tabButtonClassName, 'max-lg:hidden')}>
-            <Trophy size={18} />
+            <TrophyIcon size={18} aria-hidden="true" />
             {t('messages.leaderboard')}
           </TabsTrigger>
         </TabsList>

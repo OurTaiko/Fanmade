@@ -697,7 +697,7 @@
     "discard": "Discard changes",
     "save": "Save and replace",
     "confirmTitle": "Replace the current chart?",
-    "confirmText": "The TJA of “{{title}}” will be replaced with the edited text. Blocks the new text no longer has are deleted together with their scores; other previous scores stay but no longer count on the leaderboard.",
+    "confirmText": "The TJA of “{{title}}” will be replaced with the edited text. On blocks whose content changed, all players' old scores stay but no longer count on the leaderboard; unchanged blocks are not affected; blocks the new text no longer has are deleted together with their scores.",
     "confirm": "Replace",
     "saved": "Chart saved",
     "onlyManagers": "Only an owner or an administrator can edit this chart"

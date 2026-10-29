@@ -89,7 +89,7 @@ func TestSuccessfulBackupAndScopedRetention(t *testing.T) {
 		}
 	}
 	dir := filepath.Join(r.Config.Directory, m.ID)
-	digest, size, err := HashFile(filepath.Join(dir, DumpName))
+	digest, size, err := FileDigest(filepath.Join(dir, DumpName))
 	if err != nil {
 		t.Fatal(err)
 	}

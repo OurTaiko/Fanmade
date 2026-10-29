@@ -111,7 +111,8 @@ export type Review = {
   blocks: BlockChange[]
 }
 
-export const slotOf = (d: { course: string; side: Side }) =>
+// The site's slotKey (courses.ts), repeated here since this file imports neither site.
+const slotKey = (d: { course: string; side: Side }) =>
   d.course + (d.side === 'p1' ? '_1p' : d.side === 'p2' ? '_2p' : '')
 const translationKeys = ['en', 'ja', 'zh', 'zh_tw', 'ko'] as const
 const text = (value: string | null | undefined) => value?.trim() ?? ''
@@ -195,14 +196,14 @@ export function reviewReplacement(
   typed('nijiiroId', chart.nijiiroId != null ? String(chart.nijiiroId) : '', proposal.nijiiroId)
   typed('officialId', chart.officialId ?? '', proposal.officialId)
   for (const d of next.difficulties) {
-    const slot = slotOf(d)
-    const current = chart.difficulties.find((c) => slotOf(c) === slot)
+    const slot = slotKey(d)
+    const current = chart.difficulties.find((c) => slotKey(c) === slot)
     if (!current) continue
     const typedMaker = editable.makers && Object.hasOwn(proposal.typedMakers, slot)
     const maker = typedMaker ? proposal.typedMakers[slot] : d.maker
     if (text(maker) === text(current.maker)) continue
     const line: Line = { label: { field: 'maker', slot }, from: current.maker, to: maker }
-    const before = previous?.difficulties.find((p) => slotOf(p) === slot)
+    const before = previous?.difficulties.find((p) => slotKey(p) === slot)
     if (editable.makers)
       keepable.push({
         key: `maker:${slot}`,
@@ -219,7 +220,7 @@ export function reviewReplacement(
   }
 
   const blocks = preview.blocks.map((b): BlockChange => {
-    const slot = slotOf(b)
+    const slot = slotKey(b)
     const effect =
       b.change === 'added'
         ? 'new'
@@ -233,8 +234,8 @@ export function reviewReplacement(
       course: b.course,
       side: b.side,
       change: b.change,
-      from: chart.difficulties.find((c) => slotOf(c) === slot)?.level,
-      to: next.difficulties.find((d) => slotOf(d) === slot)?.level,
+      from: chart.difficulties.find((c) => slotKey(c) === slot)?.level,
+      to: next.difficulties.find((d) => slotKey(d) === slot)?.level,
       scores: b.scores,
       effect,
     }
@@ -271,8 +272,8 @@ export function replacementFields(
     demoStart: demo.start,
     demoEnd: demo.end,
     difficultyMakers: next.difficulties.map((d) => {
-      const slot = slotOf(d)
-      const current = chart.difficulties.find((c) => slotOf(c) === slot)
+      const slot = slotKey(d)
+      const current = chart.difficulties.find((c) => slotKey(c) === slot)
       const maker =
         current && kept.has(`maker:${slot}`)
           ? current.maker

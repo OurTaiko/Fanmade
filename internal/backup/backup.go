@@ -115,7 +115,7 @@ func (r Runner) Run(ctx context.Context) (m Manifest, result error) {
 	if err = r.Dumper.Validate(ctx, stage, image); err != nil {
 		return m, err
 	}
-	digest, size, err := HashFile(dump)
+	digest, size, err := FileDigest(dump)
 	if err != nil {
 		return m, err
 	}
@@ -152,7 +152,7 @@ func (r Runner) Run(ctx context.Context) (m Manifest, result error) {
 	}
 	return m, nil
 }
-func HashFile(path string) (string, int64, error) {
+func FileDigest(path string) (string, int64, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", 0, err

@@ -51,7 +51,7 @@ func (s *S3) Publish(ctx context.Context, dir string, m Manifest) error {
 		return errors.New("S3 backup readback checksum mismatch")
 	}
 	manifest := filepath.Join(dir, ManifestName)
-	digest, size, err := HashFile(manifest)
+	digest, size, err := FileDigest(manifest)
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-function setup() {
+function setup(movieUrl?: string) {
   const fetchMock = vi.fn().mockResolvedValue(new Response(new Uint8Array([79, 103, 103, 83, 1])))
   vi.stubGlobal('fetch', fetchMock)
   const sent: ReturnType<typeof playerLoad>[] = []
@@ -18,6 +18,7 @@ function setup() {
   const onError = vi.fn()
   const load = new PlayerAudioLoad({
     audioUrl: 'https://assets.example/song.ogg',
+    movieUrl,
     chartText: 'TITLE:test\n#START\n1000,\n#END',
     course: 'Oni',
     mode: 'auto',
@@ -25,6 +26,7 @@ function setup() {
     post: (message, transfer) => {
       sent.push(structuredClone(message, { transfer }))
       expect(message.payload.audioBytes.byteLength).toBe(0)
+      if (message.payload.movieBytes) expect(message.payload.movieBytes.byteLength).toBe(0)
     },
     onRequest,
     onError,
@@ -135,5 +137,37 @@ describe('embedded audio loading', () => {
     expect(onError).toHaveBeenCalledWith('INVALID_AUDIO_SIZE')
     expect(sent).toHaveLength(0)
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+  it('downloads the movie alongside and transfers it with every attempt', async () => {
+    const { load, sent, fetchMock } = setup('https://assets.example/movie')
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        new Response(new Uint8Array(url.endsWith('/movie') ? [0, 0, 0, 24, 102] : [79, 103, 103])),
+      ),
+    )
+    await load.start()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(new Uint8Array(sent[0].payload.movieBytes!)).toEqual(new Uint8Array([0, 0, 0, 24, 102]))
+    expect(load.receive(failure(sent[0].requestId))).toBe(true)
+    await vi.waitFor(() => expect(sent).toHaveLength(2))
+    expect(new Uint8Array(sent[1].payload.movieBytes!)).toEqual(new Uint8Array([0, 0, 0, 24, 102]))
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('plays without a movie that is missing or fails to download', async () => {
+    for (const movie of [
+      () => Promise.resolve(new Response('', { status: 404 })),
+      () => Promise.reject(new TypeError('network')),
+      () => Promise.resolve(new Response(new Blob())),
+    ]) {
+      const { load, sent, fetchMock, onError } = setup('https://assets.example/movie')
+      fetchMock.mockImplementation((url: string) =>
+        url.endsWith('/movie') ? movie() : Promise.resolve(new Response(new Uint8Array([79]))),
+      )
+      await load.start()
+      expect(sent).toHaveLength(1)
+      expect(sent[0].payload).not.toHaveProperty('movieBytes')
+      expect(onError).not.toHaveBeenCalled()
+    }
   })
 })

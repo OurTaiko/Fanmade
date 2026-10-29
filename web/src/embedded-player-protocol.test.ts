@@ -21,6 +21,22 @@ describe('embedded player boundary', () => {
       ),
     ).toBe(false)
   })
+  it('adds the background movie only when there is one', () => {
+    const plain = playerLoad('a', 'TITLE:x', new ArrayBuffer(4), 'Oni', 'practice')
+    expect(plain.payload).not.toHaveProperty('movieBytes')
+    const movie = new ArrayBuffer(8)
+    const withMovie = playerLoad(
+      'b',
+      'TITLE:x',
+      new ArrayBuffer(4),
+      'Oni',
+      'auto',
+      'ogg',
+      'native',
+      movie,
+    )
+    expect(withMovie.payload.movieBytes).toBe(movie)
+  })
   it('keeps practice controls in both modes and reserves replay as disabled', () => {
     const practice = playerLoad('a', 'TITLE:测试', new ArrayBuffer(4), 'Oni', 'practice')
     const auto = playerLoad('b', 'TITLE:测试', new ArrayBuffer(4), 'Edit', 'auto')

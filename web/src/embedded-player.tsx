@@ -28,6 +28,7 @@ export default function EmbeddedPlayer({
   const { t } = useTranslation()
   const chartId = chart.id
   const audioType = chart.audioName.split('.').pop()?.toLowerCase() || 'ogg'
+  const hasMovie = Boolean(chart.movieHash)
   const iframe = useRef<HTMLIFrameElement>(null)
   const request = useRef('')
   const audioLoad = useRef<PlayerAudioLoad | null>(null)
@@ -124,8 +125,12 @@ export default function EmbeddedPlayer({
   useEffect(() => {
     if (!ready || !mode || !source) return
     const audio = new URL(endpoints.resource({ id: chartId }, 'audio'), window.location.href).href
+    const movie = hasMovie
+      ? new URL(endpoints.resource({ id: chartId }, 'movie'), window.location.href).href
+      : undefined
     const load = new PlayerAudioLoad({
       audioUrl: audio,
+      movieUrl: movie,
       chartText: source,
       course,
       mode,
@@ -152,7 +157,7 @@ export default function EmbeddedPlayer({
       if (audioLoad.current === load) audioLoad.current = null
       request.current = ''
     }
-  }, [ready, mode, source, chartId, course, playerOrigin, audioType])
+  }, [ready, mode, source, chartId, course, playerOrigin, audioType, hasMovie])
 
   useEffect(() => {
     if (!mode || ready || error) return

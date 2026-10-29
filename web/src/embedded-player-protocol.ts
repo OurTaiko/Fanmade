@@ -9,6 +9,8 @@ export function playerLoad(
   mode: PlayerMode,
   audioType = 'ogg',
   audioDecode: PlayerAudioDecode = 'native',
+  // The chart's background movie (BGMOVIE, H.264 MP4); the key is left out when there is none.
+  movieBytes?: ArrayBuffer,
 ) {
   return {
     channel: playerChannel,
@@ -23,6 +25,7 @@ export function playerLoad(
       practice: true,
       autoPlay: mode === 'auto',
       replay: false,
+      ...(movieBytes ? { movieBytes } : {}),
     },
   }
 }

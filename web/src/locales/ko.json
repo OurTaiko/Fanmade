@@ -394,7 +394,8 @@
     "chartTab": "채보",
     "originalNames": "원래 곡명",
     "originalNamesHint": "곡명과 부제는 언제든지 바꿀 수 있으며 사이트와 게임에 이 이름이 표시됩니다. 채보 파일은 바뀌지 않고 BPM은 TJA를 따릅니다.",
-    "titleIsRequired": "곡명은 비워 둘 수 없습니다. 곡명과 부제는 500바이트 이하이며 제어 문자를 쓸 수 없습니다."
+    "titleIsRequired": "곡명은 비워 둘 수 없습니다. 곡명과 부제는 500바이트 이하이며 제어 문자를 쓸 수 없습니다.",
+    "tooManyChartBlocks": "채보 블록이 너무 많습니다(최대 15개)"
   },
   "common": {
     "siteTitle": "OurTaiko Fanmade · 창작 채보",

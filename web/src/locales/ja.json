@@ -394,7 +394,8 @@
     "chartTab": "譜面",
     "originalNames": "元の曲名",
     "originalNamesHint": "曲名とサブタイトルはいつでも変更でき、サイトとゲームにはここの名前が表示されます。譜面ファイルは変更されず、BPM は TJA に従います。",
-    "titleIsRequired": "曲名は空にできません。曲名とサブタイトルは 500 バイト以内で、制御文字は使えません。"
+    "titleIsRequired": "曲名は空にできません。曲名とサブタイトルは 500 バイト以内で、制御文字は使えません。",
+    "tooManyChartBlocks": "譜面ブロックが多すぎます（最大 15 個）"
   },
   "common": {
     "siteTitle": "OurTaiko Fanmade · 創作譜面",

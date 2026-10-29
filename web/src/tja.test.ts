@@ -93,3 +93,17 @@ it('reads BGMOVIE and MOVIEOFFSET and matches the selected video to them', () =>
     'FILE_SIZE_INVALID',
   )
 })
+
+describe('chart makers', () => {
+  it('credits NOTESDESIGNER0–4 per course over MAKER, and reads Ura as Edit', () => {
+    const source =
+      'TITLE:Song\nBPM:120\nWAVE:a.ogg\nMAKER:All\nNOTESDESIGNER3:Oni maker\nNOTESDESIGNER4:Edit maker\n' +
+      'COURSE:Oni\nLEVEL:8\n#START\n1,\n#END\nCOURSE:Ura\nLEVEL:9\n#START\n1,\n#END\nCOURSE:Easy\nLEVEL:2\n#START\n1,\n#END\n'
+    const m = parseTja(new TextEncoder().encode(source), 'utf-8', 'a.ogg')
+    expect(m.difficulties.map((d) => `${d.course}=${d.maker}`)).toEqual([
+      'Oni=Oni maker',
+      'Edit=Edit maker',
+      'Easy=All',
+    ])
+  })
+})

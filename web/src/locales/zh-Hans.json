@@ -394,7 +394,8 @@
     "chartTab": "谱面",
     "originalNames": "原歌名",
     "originalNamesHint": "歌名、副标题随时可改，网站和游戏都显示这里的名字；谱面文件不会被改动，BPM 以 TJA 为准。",
-    "titleIsRequired": "歌名不能为空；歌名和副标题最多 500 字节，不能包含控制字符。"
+    "titleIsRequired": "歌名不能为空；歌名和副标题最多 500 字节，不能包含控制字符。",
+    "tooManyChartBlocks": "谱面块数量超过上限（最多 15 个）"
   },
   "common": {
     "siteTitle": "OurTaiko Fanmade · 自制谱面",

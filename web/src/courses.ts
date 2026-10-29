@@ -57,6 +57,7 @@ const tjaCourses: Record<string, BaseCourse> = {
   hard: 'Hard',
   oni: 'Oni',
   edit: 'Edit',
+  ura: 'Edit',
 }
 export function parseTjaCourse(value: string): BaseCourse | undefined {
   const key = value.trim().toLowerCase()

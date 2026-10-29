@@ -19,7 +19,7 @@ import (
 	"ourtaiko.dev/fanmade/api/internal/video"
 )
 
-const Version = "tja-upload-v11"
+const Version = "tja-upload-v12"
 const MaxTJA = 2 * 1024 * 1024
 const MaxAudio = 100 * 1024 * 1024
 
@@ -210,7 +210,9 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 	singleCourses := map[string]int{}
 	seenSlots := map[string]int{}
 	seen := map[string]bool{}
-	courses := map[string]string{"0": "Easy", "1": "Normal", "2": "Hard", "3": "Oni", "4": "Edit", "easy": "Easy", "normal": "Normal", "hard": "Hard", "oni": "Oni", "edit": "Edit"}
+	courses := map[string]string{"0": "Easy", "1": "Normal", "2": "Hard", "3": "Oni", "4": "Edit", "easy": "Easy", "normal": "Normal", "hard": "Hard", "oni": "Oni", "edit": "Edit", "ura": "Edit"}
+	// NOTESDESIGNER0–4 credit one course each (0 Easy … 4 Edit); MAKER credits every block.
+	designers := map[string]string{}
 	for i, raw := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
 		line := i + 1
 		if len(raw) > 65536 {
@@ -300,13 +302,14 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 			if inBlock {
 				return m, fail("TJA_STRUCTURE_INVALID", "STYLE 必须位于谱面块之外", line)
 			}
+			// As OpenTaiko reads it: 1 or Single is one player, 2 or Double (Couple) two.
 			switch strings.ToLower(value) {
-			case "single", "0":
+			case "single", "0", "1":
 				style = "Single"
-			case "double", "duet", "1":
+			case "double", "duet", "couple", "2":
 				style = "Double"
 			default:
-				return m, fail("TJA_STRUCTURE_INVALID", "STYLE 需要 Single / Double（或 0 / 1）", line)
+				return m, fail("TJA_STRUCTURE_INVALID", "STYLE 需要 Single / Double（或 1 / 2）", line)
 			}
 			continue
 		}
@@ -365,6 +368,13 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 			style = "Single"
 			continue
 		}
+		if len(key) == len("NOTESDESIGNER0") && strings.HasPrefix(key, "NOTESDESIGNER") && key[13] >= '0' && key[13] <= '4' {
+			if len(value) > 500 {
+				return m, fail("TJA_STRUCTURE_INVALID", "元数据字段过长", line)
+			}
+			designers[[...]string{"Easy", "Normal", "Hard", "Oni", "Edit"}[key[13]-'0']] = value
+			continue
+		}
 		if key == "LEVEL" {
 			n, e := strconv.Atoi(value)
 			if e != nil || n < 1 || n > 10 || inBlock {
@@ -419,6 +429,15 @@ func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Is
 	}
 	if m.Title == "" || m.BPM <= 0 || inBlock || len(m.Difficulties) == 0 {
 		return m, fail("TJA_STRUCTURE_INVALID", "需要 TITLE、正数 BPM 和完整谱面块", 0)
+	}
+	// Five courses on three sides (single, 1P, 2P).
+	if len(m.Difficulties) > 15 {
+		return m, fail("TJA_STRUCTURE_INVALID", "谱面块数量超过上限", 0)
+	}
+	for i := range m.Difficulties {
+		if name := designers[m.Difficulties[i].Course]; name != "" {
+			m.Difficulties[i].Maker = name
+		}
 	}
 	if _, ok := m.TitleTranslations["en"]; !ok {
 		m.TitleTranslations["en"] = m.Title

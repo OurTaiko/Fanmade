@@ -4,7 +4,7 @@ import { normalizeTja } from './tja-encoding'
 import { ValidationError } from './validation-error'
 export { ValidationError } from './validation-error'
 
-export const validationVersion = 'tja-upload-v10'
+export const validationVersion = 'tja-upload-v12'
 export const maxTja = 2 * 1024 * 1024
 export const maxAudio = 100 * 1024 * 1024
 export const maxMovie = 64 * 1024 * 1024
@@ -151,6 +151,8 @@ export function parseTja(data: Uint8Array, encoding: string, audioName: string):
     style = 'Single'
   const coursesSeen = new Set<string>()
   const seen = new Set<string>()
+  // NOTESDESIGNER0–4 credit one course each (0 Easy … 4 Edit); MAKER credits every block.
+  const designers: Record<string, string> = {}
   for (const [index, raw] of text.replace(/\r\n/g, '\n').split('\n').entries()) {
     const line = index + 1
     if (bytes(raw) > 65536) fail('TJA_STRUCTURE_INVALID', t('messages.aLineExceeds64Kib'), line)
@@ -224,12 +226,15 @@ export function parseTja(data: Uint8Array, encoding: string, audioName: string):
       continue
     }
     if (upper === 'STYLE') {
+      // As OpenTaiko reads it: 1 or Single is one player, 2 or Double (Couple) two.
       const parsed = {
         single: 'Single',
         '0': 'Single',
+        '1': 'Single',
         double: 'Double',
         duet: 'Double',
-        '1': 'Double',
+        couple: 'Double',
+        '2': 'Double',
       }[value.toLowerCase()]
       if (!parsed || inBlock) fail('TJA_STRUCTURE_INVALID', t('messages.invalidChartStyle'), line)
       style = parsed!
@@ -252,6 +257,13 @@ export function parseTja(data: Uint8Array, encoding: string, audioName: string):
       course = parsed!
       style = 'Single'
       level = 0
+      continue
+    }
+    const designer = /^NOTESDESIGNER([0-4])$/.exec(key)
+    if (designer) {
+      if (bytes(value) > 500)
+        fail('TJA_STRUCTURE_INVALID', t('messages.metadataFieldIsTooLong'), line)
+      designers[['Easy', 'Normal', 'Hard', 'Oni', 'Edit'][Number(designer[1])]] = value
       continue
     }
     if (key === 'LEVEL') {
@@ -327,6 +339,9 @@ export function parseTja(data: Uint8Array, encoding: string, audioName: string):
     )
   if (!m.title || m.bpm <= 0 || inBlock || !m.difficulties.length)
     fail('TJA_STRUCTURE_INVALID', t('messages.titleAPositiveBpmAndCompleteChartBlocksAreRequired'))
+  // Five courses on three sides (single, 1P, 2P).
+  if (m.difficulties.length > 15) fail('TJA_STRUCTURE_INVALID', t('messages.tooManyChartBlocks'))
+  for (const d of m.difficulties) d.maker = designers[d.course] || d.maker
   m.titleTranslations = { en: m.title, ...m.titleTranslations }
   m.subtitleTranslations = { en: m.subtitle, ...m.subtitleTranslations }
   return m

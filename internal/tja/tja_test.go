@@ -2,6 +2,7 @@ package tja
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -52,4 +53,21 @@ func FuzzParse(f *testing.F) {
 			Parse(b, "utf-8", "music.ogg")
 		}
 	})
+}
+
+// NOTESDESIGNER0–4 credit one course each and win over MAKER; Ura is Edit.
+func TestNotesDesigners(t *testing.T) {
+	source := "TITLE:Song\nBPM:120\nWAVE:a.ogg\nMAKER:All\nNOTESDESIGNER3:Oni maker\nNOTESDESIGNER4:Edit maker\n" +
+		"COURSE:Oni\nLEVEL:8\n#START\n1,\n#END\nCOURSE:Ura\nLEVEL:9\n#START\n1,\n#END\nCOURSE:Easy\nLEVEL:2\n#START\n1,\n#END\n"
+	m, issue := parse([]byte(source), "utf-8", "a.ogg", true)
+	if issue != nil {
+		t.Fatal(issue)
+	}
+	got := []string{}
+	for _, d := range m.Difficulties {
+		got = append(got, d.Course+"="+d.Maker)
+	}
+	if want := "[Oni=Oni maker Edit=Edit maker Easy=All]"; fmt.Sprint(got) != want {
+		t.Fatalf("makers %v, want %s", got, want)
+	}
 }

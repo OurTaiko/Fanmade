@@ -520,5 +520,42 @@
     "audio": "音楽.ogg",
     "code": "TJA_RESOURCE_UNSUPPORTED",
     "encoding": "utf-8"
+  },
+  {
+    "name": "style 1 is single",
+    "text": "TITLE:テスト\nBPM:120\nWAVE:音楽.ogg\nCOURSE:Oni\nSTYLE:1\nLEVEL:5\n#START\n1000,\n#END\n",
+    "audio": "音楽.ogg",
+    "code": "",
+    "encoding": "utf-8"
+  },
+  {
+    "name": "style 2 is double",
+    "text": "TITLE:テスト\nBPM:120\nWAVE:音楽.ogg\nCOURSE:Oni\nSTYLE:2\nLEVEL:5\n#START\n1000,\n#END\n",
+    "audio": "音楽.ogg",
+    "code": "TJA_PLAYER_REQUIRED",
+    "encoding": "utf-8",
+    "line": 7
+  },
+  {
+    "name": "style couple",
+    "text": "TITLE:テスト\nBPM:120\nWAVE:音楽.ogg\nCOURSE:Oni\nSTYLE:Couple\nLEVEL:5\n#START P1\n1000,\n#END\n#START P2\n1000,\n#END\n",
+    "audio": "音楽.ogg",
+    "code": "",
+    "encoding": "utf-8"
+  },
+  {
+    "name": "ura course",
+    "text": "TITLE:テスト\nBPM:120\nWAVE:音楽.ogg\nCOURSE:Ura\nLEVEL:9\n#START\n1000,\n#END\n",
+    "audio": "音楽.ogg",
+    "code": "",
+    "encoding": "utf-8"
+  },
+  {
+    "name": "ura duplicates edit",
+    "text": "TITLE:テスト\nBPM:120\nWAVE:音楽.ogg\nCOURSE:Edit\nLEVEL:9\n#START\n1000,\n#END\nCOURSE:Ura\nLEVEL:9\n#START\n1000,\n#END\n",
+    "audio": "音楽.ogg",
+    "code": "TJA_DIFFICULTY_DUPLICATE",
+    "encoding": "utf-8",
+    "line": 11
   }
 ]

@@ -12,7 +12,7 @@ import { DifficultyBadges } from '@/components/difficulty-badges'
 import { compactNumber } from '@/components/vote-control'
 import { ArrowFatUpIcon, ChatCircleIcon } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
-import { categoryColor } from '@/category-colors'
+import { categoryStripeColor } from '@/category-colors'
 import { CardCoverBackdrop, coveredTextClassName, useCardCover } from '@/components/card-cover'
 
 export function ChartCard({ chart }: { chart: Chart }) {
@@ -32,7 +32,7 @@ export function ChartCard({ chart }: { chart: Chart }) {
         <div
           aria-hidden="true"
           className="top-0 z-10 absolute inset-x-0 border-b-2 border-outline h-1.5"
-          style={{ background: categoryColor(chart.categoryIds) }}
+          style={{ background: categoryStripeColor(chart.categoryIds) }}
         />
         {cover.source && <CardCoverBackdrop source={cover.source} onError={cover.onError} />}
         <CardContent className="relative flex gap-4 pr-4 pl-6 h-full min-h-0">

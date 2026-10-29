@@ -7,7 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { ChoiceSelect } from '@/components/choice-select'
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 import { api } from './api/client'
+import { categoryColor } from './category-colors'
 import type { Category } from './api/types'
 
 const CategoryContext = createContext<{
@@ -54,7 +56,13 @@ export function CategoryLabels({ ids = [], children }: { ids?: string[]; childre
       {children}
       {uniqueIds.map((id) => (
         <li key={id}>
-          <Badge variant="outline">
+          <Badge
+            variant="outline"
+            className={cn(
+              categoryColor(id) && 'border-[1.5px] border-[#382d2a] font-bold text-[#382d2a]',
+            )}
+            style={{ background: categoryColor(id) }}
+          >
             {items?.find((category) => category.id === id)?.title ?? id}
           </Badge>
         </li>

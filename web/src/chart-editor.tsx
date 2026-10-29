@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { DialogClose } from '@/components/ui/dialog'
 import { Progress } from '@/components/ui/progress'
 import { ChoiceSelect } from '@/components/choice-select'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
@@ -15,17 +14,20 @@ import {
   FloppyDiskIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
-import { api, uploadChart } from './api/client'
+import { api, previewReplacement, uploadChart } from './api/client'
 import type { Chart } from './api/types'
 import { baseCourse, courseNames, isSupportedCourse, slotKey } from './courses'
 import { isChartOwner } from './chart-owners'
 import { useSession } from './session-context'
-import { Modal, Notice } from './notifications'
+import { Notice } from './notifications'
 import { useNotification } from './notification-context'
 import { parsePreviewTja } from './preview-tja'
 import { maxTja, parseTja, ValidationError } from './tja'
 import type { Side } from './tja'
 import { withChartTitles } from './tja-titles'
+import { replacementFields, reviewReplacement } from './replacement-diff'
+import type { Proposal, ReplacementPreview, Review } from './replacement-diff'
+import { ReplacementReview } from './replacement-review'
 
 const ChartPreview = lazy(() => import('./chart-preview'))
 const TjaEditor = lazy(() => import('@/components/tja-editor'))
@@ -46,9 +48,9 @@ function errorLine(e: unknown): number | undefined {
 /**
  * Edits a chart's TJA in the browser with a live rendering. Saving sends the
  * text as the new TJA through the same replacement as the update page, with
- * the audio and movie kept and the chart's description, categories, preview
- * range and makers sent back unchanged: blocks the new text no longer has go
- * with their scores, and older scores leave the leaderboard.
+ * the audio and movie kept, after the same review of what it changes: blocks
+ * the new text no longer has go with their scores, and older scores leave the
+ * leaderboard.
  */
 export function ChartEditorPage() {
   const { t } = useTranslation()
@@ -61,7 +63,15 @@ export function ChartEditorPage() {
   const [text, setText] = useState('')
   const [preview, setPreview] = useState('')
   const [course, setCourse] = useState('')
-  const [confirming, setConfirming] = useState(false)
+  // Open while the server reads the text (review null) and until the update is confirmed.
+  const [reviewing, setReviewing] = useState<{
+    file: File
+    /** The text drops the movie the chart has. */
+    dropsMovie: boolean
+    preview: ReplacementPreview | null
+    review: Review | null
+  } | null>(null)
+  const attempted = useRef('')
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
   const [saveError, setSaveError] = useState('')
@@ -153,39 +163,77 @@ export function ChartEditorPage() {
     [chart, blocks.keys],
   )
 
-  const save = async () => {
+  // The site fields go back as the chart has them unless the review lets the new text change them.
+  const proposal = (current: Chart): Proposal => ({
+    description: current.description,
+    categoryIds: current.categoryIds,
+    demoStart: current.demoStart,
+    demoEnd: current.demoEnd ?? current.demoStart + 15,
+    typedMakers: {},
+    typedDemo: false,
+  })
+  const fail = (e: unknown) => {
+    setSaveError(e instanceof Error ? e.message : t('messages.requestFailed'))
+    const line = errorLine(e)
+    if (line) setJump({ line, at: Date.now() })
+  }
+  const startReview = async () => {
     if (!chart || !dirty || busy) return
-    setConfirming(false)
     setSaveError('')
+    const abort = new AbortController()
+    controller.current = abort
+    try {
+      const bytes = new TextEncoder().encode(text)
+      // The same validation the upload runs, against the stored audio's name.
+      const parsed = parseTja(bytes, 'utf-8', chart.wave)
+      const file = new File([bytes], chart.tjaName, { type: 'text/plain;charset=utf-8' })
+      const dropsMovie = !parsed.movie && !!chart.movieHash
+      setReviewing({ file, dropsMovie, preview: null, review: null })
+      const preview = await previewReplacement(
+        chart.id,
+        file,
+        undefined,
+        session.csrfToken,
+        abort.signal,
+      )
+      if (abort.signal.aborted) return
+      setReviewing({
+        file,
+        dropsMovie,
+        preview,
+        review: reviewReplacement(chart, preview, proposal(chart), false, {
+          demo: true,
+          makers: true,
+        }),
+      })
+    } catch (e) {
+      setReviewing(null)
+      if (!abort.signal.aborted) fail(e)
+    }
+  }
+  const save = async (kept: Set<string>) => {
+    if (!chart || !reviewing?.preview || busy) return
+    const { file, preview } = reviewing
+    setReviewing(null)
     setBusy(true)
     setProgress(0)
     controller.current = new AbortController()
     try {
-      const bytes = new TextEncoder().encode(text)
-      // The same validation the upload runs, against the stored audio's name.
-      const metadata = parseTja(bytes, 'utf-8', chart.wave)
+      const fields = replacementFields(chart, preview, proposal(chart), kept)
+      // Other text or choices are a different request; the same ones retry the last.
+      const attempt = [...kept].sort().join(',') + '\n' + text
+      if (attempt !== attempted.current) requestKey.current = createRequestKey()
+      attempted.current = attempt
       const form = new FormData()
-      form.append('tja', new File([bytes], chart.tjaName, { type: 'text/plain;charset=utf-8' }))
+      form.append('tja', file)
       form.append('confirmReset', 'true')
+      if (fields.keepTitles) form.append('keepTitles', 'true')
       form.append('encoding', 'utf-8')
-      // The replacement resets these to what is sent, so the current values go back.
-      form.append('description', chart.description)
-      form.append('demoStart', String(chart.demoStart))
-      form.append('demoEnd', String(chart.demoEnd ?? chart.demoStart + 15))
-      form.append('categoryIds', JSON.stringify(chart.categoryIds))
-      form.append(
-        'difficultyMakers',
-        JSON.stringify(
-          metadata.difficulties.map(({ course, side, maker }) => ({
-            course,
-            side,
-            // A maker edited on the site outlives the file's own credit.
-            maker:
-              chart.difficulties.find((d) => d.course === course && d.side === side)?.maker ??
-              maker,
-          })),
-        ),
-      )
+      form.append('description', fields.description)
+      form.append('demoStart', String(fields.demoStart))
+      form.append('demoEnd', String(fields.demoEnd))
+      form.append('categoryIds', JSON.stringify(fields.categoryIds))
+      form.append('difficultyMakers', JSON.stringify(fields.difficultyMakers))
       const updated = await uploadChart(
         form,
         session.csrfToken,
@@ -197,13 +245,12 @@ export function ChartEditorPage() {
       )
       if ('status' in updated) throw new Error(t('messages.requestFailed'))
       requestKey.current = createRequestKey()
+      attempted.current = ''
       setChart(updated)
       setOriginal(text)
       notify(t('editor.saved'), 'success')
     } catch (e) {
-      setSaveError(e instanceof Error ? e.message : t('messages.requestFailed'))
-      const line = errorLine(e)
-      if (line) setJump({ line, at: Date.now() })
+      fail(e)
     } finally {
       setBusy(false)
     }
@@ -250,7 +297,7 @@ export function ChartEditorPage() {
             variant="default"
             size="default"
             disabled={!dirty || busy || !!blocks.error}
-            onClick={() => setConfirming(true)}
+            onClick={() => void startReview()}
           >
             <FloppyDiskIcon size={16} />
             {busy ? t('messages.saving') : t('editor.save')}
@@ -282,7 +329,7 @@ export function ChartEditorPage() {
               disabled={busy}
               jumpToLine={jump}
               onSave={() => {
-                if (dirty && !busy && !blocks.error) setConfirming(true)
+                if (dirty && !busy && !blocks.error && !reviewing) void startReview()
               }}
               ariaLabel={t('editor.editorLabel')}
               className="h-[70svh] min-h-80 border-t text-sm"
@@ -326,27 +373,22 @@ export function ChartEditorPage() {
           )}
         </Card>
       </div>
-      {confirming && (
-        <Modal
-          title={t('editor.confirmTitle')}
-          busy={busy}
-          onDismiss={() => setConfirming(false)}
-          actions={
-            <>
-              <DialogClose
-                render={<Button type="button" variant="outline" size="default" />}
-                disabled={busy}
-              >
-                {t('messages.cancel')}
-              </DialogClose>
-              <Button type="button" variant="default" size="default" onClick={save}>
-                {t('editor.confirm')}
-              </Button>
-            </>
-          }
-        >
-          <p>{t('editor.confirmText', { title })}</p>
-        </Modal>
+      {reviewing && (
+        <ReplacementReview
+          review={reviewing.review}
+          files={{
+            tja: chart.tjaName,
+            audio: null,
+            keptAudio: chart.audioName,
+            cover: null,
+            movie: reviewing.dropsMovie ? 'remove' : null,
+          }}
+          onCancel={() => {
+            controller.current?.abort()
+            setReviewing(null)
+          }}
+          onConfirm={(kept) => void save(kept)}
+        />
       )}
     </div>
   )

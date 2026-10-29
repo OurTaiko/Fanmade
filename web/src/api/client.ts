@@ -2,6 +2,7 @@ import { apiErrorMessage } from './error-message'
 import { t } from '../i18n'
 import { endpoints } from './endpoints'
 import type { Chart } from './types'
+import type { ReplacementPreview } from '../replacement-diff'
 
 export class ApiError extends Error {
   constructor(
@@ -31,6 +32,25 @@ export function jsonRequest(method: string, body: unknown, csrf = ''): RequestIn
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
     body: JSON.stringify(body),
   }
+}
+/** Reads a new TJA for a chart as its replacement would, storing nothing. audioName is new audio's. */
+export function previewReplacement(
+  chartId: string,
+  tja: File,
+  audioName: string | undefined,
+  csrf: string,
+  signal: AbortSignal,
+) {
+  const form = new FormData()
+  form.append('tja', tja)
+  form.append('encoding', 'utf-8')
+  if (audioName) form.append('audioName', audioName)
+  return api<ReplacementPreview>(endpoints.chartFilesPreview(chartId), {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': csrf },
+    body: form,
+    signal,
+  })
 }
 export function uploadChart(
   form: FormData,

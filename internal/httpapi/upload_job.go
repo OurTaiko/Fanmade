@@ -30,6 +30,7 @@ type uploadJob struct {
 	categoryIDs              []string
 	demoStart, demoEnd       float64
 	keepMovie, async         bool
+	keepTitles               bool // a replacement keeps the chart's title, subtitle and translations
 	done                     chan uploadResult
 }
 
@@ -240,8 +241,10 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO charts(id,owner_ids,description,title,subtitle,bpm,offset_seconds,demo_start,duration,title_translations,subtitle_translations,demo_end,tja_file,audio_file,movie_file,movie_offset)
  VALUES($1,ARRAY[$2::text],$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
- ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,subtitle=EXCLUDED.subtitle,bpm=EXCLUDED.bpm,offset_seconds=EXCLUDED.offset_seconds,demo_start=EXCLUDED.demo_start,demo_end=EXCLUDED.demo_end,duration=EXCLUDED.duration,tja_file=EXCLUDED.tja_file,audio_file=EXCLUDED.audio_file,movie_file=EXCLUDED.movie_file,movie_offset=EXCLUDED.movie_offset,title_translations=EXCLUDED.title_translations,subtitle_translations=EXCLUDED.subtitle_translations`,
-		chartID, j.user, j.description, j.meta.Title, j.meta.Subtitle, j.meta.BPM, j.meta.Offset, j.demoStart, duration, j.meta.TitleTranslations, j.meta.SubtitleTranslations, j.demoEnd, tjaFile, audioFile, movieFile, j.meta.MovieOffset); err != nil {
+ ON CONFLICT(id) DO UPDATE SET bpm=EXCLUDED.bpm,offset_seconds=EXCLUDED.offset_seconds,demo_start=EXCLUDED.demo_start,demo_end=EXCLUDED.demo_end,duration=EXCLUDED.duration,tja_file=EXCLUDED.tja_file,audio_file=EXCLUDED.audio_file,movie_file=EXCLUDED.movie_file,movie_offset=EXCLUDED.movie_offset,
+ title=CASE WHEN $17 THEN charts.title ELSE EXCLUDED.title END,subtitle=CASE WHEN $17 THEN charts.subtitle ELSE EXCLUDED.subtitle END,
+ title_translations=CASE WHEN $17 THEN charts.title_translations ELSE EXCLUDED.title_translations END,subtitle_translations=CASE WHEN $17 THEN charts.subtitle_translations ELSE EXCLUDED.subtitle_translations END`,
+		chartID, j.user, j.description, j.meta.Title, j.meta.Subtitle, j.meta.BPM, j.meta.Offset, j.demoStart, duration, j.meta.TitleTranslations, j.meta.SubtitleTranslations, j.demoEnd, tjaFile, audioFile, movieFile, j.meta.MovieOffset, j.keepTitles); err != nil {
 		return failed(err)
 	}
 	if err = setDifficulties(ctx, tx, chartID, j.meta.Difficulties); err != nil {

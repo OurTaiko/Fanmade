@@ -3,7 +3,6 @@ import { chartText } from '@/chart-language'
 import { i18n } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
-import { DialogClose } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { AudioPlayer } from '@/components/audio-player'
 import { Card } from '@/components/ui/card'
@@ -35,7 +34,7 @@ import {
 import { CoverPicker } from '@/components/cover-picker'
 import { MoviePicker } from '@/components/movie-picker'
 import { CategoryPicker } from './categories'
-import { api, uploadChart } from './api/client'
+import { api, previewReplacement, uploadChart } from './api/client'
 import type { Chart } from './api/types'
 import { Modal, Notice } from './notifications'
 import { useNotification } from './notification-context'
@@ -44,6 +43,9 @@ import { DifficultyBadges } from '@/components/difficulty-badges'
 import { useSession } from './session-context'
 import { isAudioFilename, isMovieFilename, prepareTja, validateFiles, validateMovie } from './tja'
 import type { PreparedTja } from './tja'
+import { audioDiffers, replacementFields, reviewReplacement } from './replacement-diff'
+import type { Proposal, ReplacementPreview, Review } from './replacement-diff'
+import { ReplacementReview } from './replacement-review'
 
 function createRequestKey() {
   // getRandomValues remains available over LAN HTTP, unlike randomUUID.
@@ -109,7 +111,16 @@ export function UploadPage({
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(0),
     [audioUrl, setAudioUrl] = useState('')
-  const [confirming, setConfirming] = useState(false)
+  // Makers typed in the makers tab, by slot; the others are the file's.
+  const [typedMakers, setTypedMakers] = useState<Record<string, string>>({})
+  // A replacement's review: open while the new file is read (review null) and until confirmed.
+  const [reviewing, setReviewing] = useState<{
+    prepared: PreparedTja
+    preview: ReplacementPreview | null
+    review: Review | null
+    audioChanged: boolean
+  } | null>(null)
+  const attemptedKeep = useRef('')
   const [tab, setTab] = useState('files')
   const [demoStart, setDemoStart] = useState('0')
   const [demoEnd, setDemoEnd] = useState('15')
@@ -138,6 +149,7 @@ export function UploadPage({
         validateMovie(m, movie, hasStoredMovie)
         if (active) {
           setMetadata(m)
+          setTypedMakers({})
           setDemoStart(String(m.demoStart))
           setDemoEnd(String(m.demoStart + 15))
         }
@@ -223,25 +235,92 @@ export function UploadPage({
     if (tracks[0]) setAudio(tracks[0])
     if (movies[0]) setMovie(movies[0])
   }
+  const prepare = async () => {
+    const prepared = audio
+      ? await validateFiles(tja!, audio)
+      : await prepareTja(tja!, existing!.audioName)
+    validateMovie(prepared, movie, hasStoredMovie)
+    return prepared
+  }
+  const proposal = (): Proposal => ({
+    description,
+    categoryIds,
+    demoStart: Number(demoStart),
+    demoEnd: Number(demoEnd),
+    typedMakers,
+    typedDemo:
+      !metadata ||
+      demoStart !== String(metadata.demoStart) ||
+      demoEnd !== String(metadata.demoStart + 15),
+  })
+  // A replacement first reads the new file on the server and shows what it changes.
+  const startReview = async () => {
+    const abort = new AbortController()
+    controller.current = abort
+    try {
+      const prepared = await prepare()
+      setReviewing({ prepared, preview: null, review: null, audioChanged: false })
+      const [preview, audioChanged] = await Promise.all([
+        previewReplacement(
+          existing!.id,
+          prepared.file,
+          audio?.name,
+          session.csrfToken,
+          abort.signal,
+        ),
+        audioDiffers(existing!, audio),
+      ])
+      if (abort.signal.aborted) return
+      setReviewing({
+        prepared,
+        preview,
+        audioChanged,
+        review: reviewReplacement(existing!, preview, proposal(), audioChanged, {
+          demo: true,
+          makers: true,
+        }),
+      })
+    } catch (e) {
+      setReviewing(null)
+      if (!abort.signal.aborted) notify((e as Error).message, 'error')
+    }
+  }
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!metadata || busy || !validPreview()) return
-    if (existing) setConfirming(true)
+    if (!tja || !metadata || busy || !validPreview()) return
+    if (existing) void startReview()
     else void save()
   }
-  const save = async () => {
+  const save = async (kept = new Set<string>()) => {
     if (!tja || (!audio && !existing) || !metadata || busy || !validPreview()) return
-    setConfirming(false)
+    const review = reviewing
+    setReviewing(null)
     setBusy(true)
     setProgress(0)
     const abort = new AbortController()
     controller.current = abort
     try {
-      const prepared = audio
-        ? await validateFiles(tja, audio)
-        : await prepareTja(tja, existing!.audioName)
-      validateMovie(prepared, movie, hasStoredMovie)
+      const prepared = review?.prepared ?? (await prepare())
       if (abort.signal.aborted) return
+      const fields =
+        existing && review?.preview
+          ? replacementFields(existing, review.preview, proposal(), kept)
+          : {
+              keepTitles: false,
+              description,
+              categoryIds,
+              demoStart,
+              demoEnd,
+              difficultyMakers: metadata.difficulties.map(({ course, side, maker }) => ({
+                course,
+                side,
+                maker,
+              })),
+            }
+      // Other choices are a different request; the same choices retry the last one.
+      const choices = [...kept].sort().join(',')
+      if (choices !== attemptedKeep.current) requestKey.current = createRequestKey()
+      attemptedKeep.current = choices
       const form = new FormData()
       form.append('tja', prepared.file)
       if (audio) form.append('audio', audio)
@@ -249,18 +328,14 @@ export function UploadPage({
       if (cover) form.append('cover', cover)
       if (existing) {
         form.append('confirmReset', 'true')
+        if (fields.keepTitles) form.append('keepTitles', 'true')
       }
       form.append('encoding', 'utf-8')
-      form.append('description', description)
-      form.append('demoStart', demoStart)
-      form.append('demoEnd', demoEnd)
-      form.append('categoryIds', JSON.stringify(categoryIds))
-      form.append(
-        'difficultyMakers',
-        JSON.stringify(
-          metadata.difficulties.map(({ course, side, maker }) => ({ course, side, maker })),
-        ),
-      )
+      form.append('description', fields.description)
+      form.append('demoStart', String(fields.demoStart))
+      form.append('demoEnd', String(fields.demoEnd))
+      form.append('categoryIds', JSON.stringify(fields.categoryIds))
+      form.append('difficultyMakers', JSON.stringify(fields.difficultyMakers))
       const chart = await uploadChart(
         form,
         session.csrfToken,
@@ -566,6 +641,7 @@ export function UploadPage({
                               disabled={busy}
                               onChange={(e) => {
                                 const maker = e.target.value
+                                setTypedMakers((typed) => ({ ...typed, [slotKey(d)]: maker }))
                                 setMetadata(
                                   (current) =>
                                     current && {
@@ -721,31 +797,26 @@ export function UploadPage({
           </Button>
         </aside>
       </form>
-      {confirming && existing && (
-        <Modal
-          title={t('messages.replaceSongAndDeleteAllPreviousScores')}
-          alert
-          onDismiss={() => setConfirming(false)}
-          actions={
-            <>
-              <DialogClose render={<Button type="button" variant="outline" size="default" />}>
-                {t('messages.cancel')}
-              </DialogClose>
-              <Button type="button" variant="default" size="default" onClick={() => void save()}>
-                {t('messages.replaceAndDelete')}
-              </Button>
-            </>
-          }
-        >
-          <p>
-            {t('upload.replacement', {
-              previous: chartText(existing, i18n.resolvedLanguage).title,
-              title: metadata ? chartText(metadata, i18n.resolvedLanguage).title : '',
-              count: metadata?.difficulties.length ?? 0,
-            })}
-          </p>
-          <p>{t('messages.allPlayersPreviousScoresChartsAndFilesForThisSongWillBe')}</p>
-        </Modal>
+      {reviewing && existing && (
+        <ReplacementReview
+          review={reviewing.review}
+          files={{
+            tja: tja?.name ?? '',
+            audio: audio && { name: audio.name, changed: reviewing.audioChanged },
+            keptAudio: existing.audioName,
+            cover: cover?.name ?? null,
+            movie: movie
+              ? { name: movie.name }
+              : !reviewing.prepared.movie && hasStoredMovie
+                ? 'remove'
+                : null,
+          }}
+          onCancel={() => {
+            controller.current?.abort()
+            setReviewing(null)
+          }}
+          onConfirm={(kept) => void save(kept)}
+        />
       )}
     </>
   )

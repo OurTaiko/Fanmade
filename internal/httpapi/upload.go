@@ -143,7 +143,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			f.sha = hex.EncodeToString(h.Sum(nil))
 			files[field] = f
 		} else {
-			if (field != "encoding" && field != "description" && field != "categoryIds" && field != "difficultyMakers" && field != "demoStart" && field != "demoEnd" && !(existing != nil && field == "confirmReset")) || name != "" {
+			if (field != "encoding" && field != "description" && field != "categoryIds" && field != "difficultyMakers" && field != "demoStart" && field != "demoEnd" && !(existing != nil && (field == "confirmReset" || field == "keepTitles"))) || name != "" {
 				problem(w, 400, "UPLOAD_FILES_INVALID", "包含不支持的上传字段")
 				return
 			}
@@ -336,6 +336,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing != nil {
 		job.existingID, job.audioHash, job.movieHash = existing.ID, existing.AudioHash, existing.MovieHash
+		job.keepTitles = fields["keepTitles"] == "true"
 	}
 	if tx == nil {
 		var proceed bool

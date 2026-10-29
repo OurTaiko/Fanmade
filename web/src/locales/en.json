@@ -257,9 +257,6 @@
     "waveInTheTjaMustExactlyMatchTheAudioFilenameIncludingCase": "WAVE in the TJA must exactly match the audio filename, including case. OGG / MP3: up to 100 MiB; TJA: up to 2 MiB. The server validates files again.",
     "uploadRules": "Upload rules",
     "viewUploadRules": "View upload rules",
-    "replaceSongAndDeleteAllPreviousScores": "Replace the song? Old scores on changed courses leave the leaderboard",
-    "replaceAndDelete": "Replace",
-    "allPlayersPreviousScoresChartsAndFilesForThisSongWillBe": "The old charts and files of this song are deleted for good; this cannot be undone. On courses whose chart content changed, all players' old scores stay but no longer count on the leaderboard; unchanged courses are not affected; scores on courses the new chart no longer has are deleted.",
     "fileExceedsTheUploadSizeLimit": "File exceeds the upload size limit",
     "unexpectedServerResponsePleaseTryAgainLater": "Unexpected server response. Please try again later.",
     "requestFailed": "Request failed",
@@ -406,10 +403,6 @@
     "close": "Close",
     "stars_other": "{{count}} stars",
     "stars_one": "{{count}} star"
-  },
-  "upload": {
-    "replacement_other": "“{{previous}}” will be replaced by “{{title}}”, containing {{count}} chart blocks.",
-    "replacement_one": "“{{previous}}” will be replaced by “{{title}}”, containing {{count}} chart block."
   },
   "errors": {
     "UNAUTHORIZED": "Please sign in.",
@@ -696,9 +689,6 @@
     "lines_other": "{{count}} lines",
     "discard": "Discard changes",
     "save": "Save and replace",
-    "confirmTitle": "Replace the current chart?",
-    "confirmText": "The TJA of “{{title}}” will be replaced with the edited text. On blocks whose content changed, all players' old scores stay but no longer count on the leaderboard; unchanged blocks are not affected; blocks the new text no longer has are deleted together with their scores.",
-    "confirm": "Replace",
     "saved": "Chart saved",
     "onlyManagers": "Only an owner or an administrator can edit this chart"
   },
@@ -845,5 +835,34 @@
     "normal": "Normal",
     "expert": "Expert",
     "master": "Master"
+  },
+  "review": {
+    "title": "Review the update",
+    "loading": "Reading the new chart…",
+    "confirm": "Update",
+    "files": "Files",
+    "audio": "Audio",
+    "cover": "Cover",
+    "movie": "Background movie",
+    "keepFile": "Keep “{{name}}”",
+    "newFile": "Replace with “{{name}}”",
+    "sameAudio": "“{{name}}”, same content as the current audio",
+    "removeMovie": "Removed (the new chart declares no BGMOVIE)",
+    "info": "Song information",
+    "keepHint": "Items marked “Keep current” stay as they are.",
+    "keep": "Keep current",
+    "empty": "(empty)",
+    "chart": "Chart values",
+    "blocks": "Difficulties",
+    "change_same": "Unchanged",
+    "change_changed": "Changed",
+    "change_added": "New",
+    "change_removed": "Removed",
+    "retire_one": "{{count}} score leaves the leaderboard",
+    "retire_other": "{{count}} scores leave the leaderboard",
+    "delete_one": "{{count}} score is deleted with it",
+    "delete_other": "{{count}} scores are deleted with it",
+    "audioChanged": "The audio changed, so scores on every difficulty leave the leaderboard.",
+    "traditionalChinese": "Traditional Chinese"
   }
 }

@@ -257,9 +257,6 @@
     "waveInTheTjaMustExactlyMatchTheAudioFilenameIncludingCase": "TJA 中的 WAVE 文件名必须与所选音频一致，包括大小写。音频支持 OGG / MP3，最大 100 MiB；TJA 最大 2 MiB。服务器会再次校验文件。",
     "uploadRules": "上传规则",
     "viewUploadRules": "查看上传规则",
-    "replaceSongAndDeleteAllPreviousScores": "替换歌曲？内容有变化的难度的旧成绩将移出排行榜",
-    "replaceAndDelete": "确认替换",
-    "allPlayersPreviousScoresChartsAndFilesForThisSongWillBe": "这首歌的旧谱面及旧文件会永久删除，无法撤销。谱面内容有变化的难度，所有玩家的旧成绩保留但不再计入排行榜；未变化的难度不受影响；新谱面里不再存在的难度，其成绩会被删除。",
     "fileExceedsTheUploadSizeLimit": "文件超过上传大小限制",
     "unexpectedServerResponsePleaseTryAgainLater": "服务响应异常，请稍后重试",
     "requestFailed": "请求失败",
@@ -404,9 +401,6 @@
     "playerCount_other": "{{count}} 位玩家",
     "close": "关闭",
     "stars_other": "{{count}} 星"
-  },
-  "upload": {
-    "replacement_other": "「{{previous}}」将替换为「{{title}}」，包含 {{count}} 个谱面块。"
   },
   "errors": {
     "UNAUTHORIZED": "请先登录。",
@@ -684,9 +678,6 @@
     "lines_other": "{{count}} 行",
     "discard": "放弃修改",
     "save": "保存并替换",
-    "confirmTitle": "替换当前谱面？",
-    "confirmText": "将用编辑后的文本替换「{{title}}」的 TJA。内容有变化的谱面块，所有玩家的旧成绩保留但不再计入排行榜；未变化的块不受影响；新文本里不再存在的谱面块会连同成绩一起删除。",
-    "confirm": "确认替换",
     "saved": "谱面已保存",
     "onlyManagers": "只有作者或管理员可以编辑这首谱面"
   },
@@ -833,5 +824,34 @@
     "normal": "普通",
     "expert": "玄人",
     "master": "达人"
+  },
+  "review": {
+    "title": "确认更新内容",
+    "loading": "正在读取新谱面…",
+    "confirm": "确认更新",
+    "files": "文件",
+    "audio": "音频",
+    "cover": "封面",
+    "movie": "背景视频",
+    "keepFile": "沿用「{{name}}」",
+    "newFile": "换为「{{name}}」",
+    "sameAudio": "「{{name}}」，与当前音频内容相同",
+    "removeMovie": "移除（新谱面没有声明 BGMOVIE）",
+    "info": "歌曲信息",
+    "keepHint": "勾选「保留当前」的项目不随新文件改变。",
+    "keep": "保留当前",
+    "empty": "（空）",
+    "chart": "谱面参数",
+    "blocks": "难度",
+    "change_same": "内容未变",
+    "change_changed": "内容有变化",
+    "change_added": "新增",
+    "change_removed": "删除",
+    "retire_one": "{{count}} 条成绩移出排行榜",
+    "retire_other": "{{count}} 条成绩移出排行榜",
+    "delete_one": "{{count}} 条成绩一并删除",
+    "delete_other": "{{count}} 条成绩一并删除",
+    "audioChanged": "音频内容有变化，所有难度的成绩都会移出排行榜。",
+    "traditionalChinese": "繁体中文"
   }
 }

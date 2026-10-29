@@ -94,6 +94,41 @@ for (const { actor, replaceAudio } of ['owner', 'admin'].flatMap((actor) =>
         },
       }),
     )
+    const parsed = {
+      title: 'Replacement preview',
+      subtitle: 'New subtitle',
+      titleTranslations: { origin: 'Replacement preview' },
+      subtitleTranslations: { origin: 'New subtitle' },
+      maker: 'A',
+      bpm: 120,
+      offset: 0,
+      demoStart: 0,
+      wave: 'cbr.mp3',
+      movieOffset: 0,
+      difficulties: ['Hard', 'Oni'].map((course) => ({
+        course,
+        side: 'single',
+        level: 5,
+        maker: 'A',
+        chartHash: 'v1:' + 'a'.repeat(64),
+      })),
+    }
+    let previews = 0
+    await page.route(`**/api/v1/charts/${original.id}/files/preview`, async (route) => {
+      expect(route.request().method()).toBe('POST')
+      expect(route.request().headers()['x-csrf-token']).toBe('csrf')
+      previews++
+      await route.fulfill({
+        json: {
+          metadata: parsed,
+          previous: { ...parsed, title: 'Original song', titleTranslations: {} },
+          blocks: [
+            { course: 'Hard', side: 'single', change: 'same', scores: 2 },
+            { course: 'Oni', side: 'single', change: 'added', scores: 0 },
+          ],
+        },
+      })
+    })
     await page.route(`**/api/v1/charts/${original.id}/files`, async (route) => {
       expect(route.request().method()).toBe('PUT')
       expect(route.request().headers()['x-csrf-token']).toBe('csrf')
@@ -167,19 +202,37 @@ for (const { actor, replaceAudio } of ['owner', 'admin'].flatMap((actor) =>
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
       .toBe(true)
     await page.getByRole('button', { name: '更新歌曲与谱面', exact: true }).click()
-    await expect(page.getByRole('alertdialog')).toContainText('旧成绩保留但不再计入排行榜')
-    await page.screenshot({ path: `test-results/replacement-${replaceAudio}-confirmation.png` })
+    const review = page.getByRole('alertdialog', { name: '确认更新内容' })
+    await expect(review).toContainText('Original song')
+    await expect(review).toContainText('0.1–0.3')
+    await expect(review).toContainText('新增')
+    if (replaceAudio) {
+      await expect(review).toContainText('音频内容有变化')
+      await expect(review).toContainText('2 条成绩移出排行榜')
+    } else await expect(review).toContainText('沿用「cbr.mp3」')
+    // The file renamed the song, so the new title is proposed; the range was typed.
+    await expect(review.getByRole('checkbox')).toHaveCount(2)
+    for (const box of await review.getByRole('checkbox').all()) await expect(box).not.toBeChecked()
+    await page.screenshot({
+      path: `test-results/replacement-${replaceAudio}-confirmation.png`,
+      animations: 'disabled',
+    })
     await page.getByRole('button', { name: '取消', exact: true }).click()
     expect(attempts).toBe(0)
     await page.getByRole('button', { name: '更新歌曲与谱面', exact: true }).click()
-    await page.getByRole('button', { name: '确认替换' }).click()
+    if (!replaceAudio) await review.getByRole('checkbox').first().click()
+    await page.getByRole('button', { name: '确认更新' }).click()
     await expect(page.getByRole('alertdialog')).toContainText('保存失败，旧数据保持不变')
     await page.getByRole('button', { name: '知道了', exact: true }).click()
     await expect(page.getByLabel('Oni 制作者')).toHaveValue('B')
     await page.getByRole('button', { name: '更新歌曲与谱面', exact: true }).click()
-    await page.getByRole('button', { name: '确认替换' }).click()
+    if (!replaceAudio) await review.getByRole('checkbox').first().click()
+    await page.getByRole('button', { name: '确认更新' }).click()
     await expect(page).toHaveURL(`/charts/${original.id}`)
     expect(attempts).toBe(2)
+    expect(previews).toBe(3)
+    expect(submitted?.get('keepTitles')).toBe(replaceAudio ? null : 'true')
+    expect(submitted?.get('demoStart')).toBe('0.1')
     expect(submitted?.has('expectedVersionId')).toBe(false)
     expect(submitted?.get('confirmReset')).toBe('true')
     expect(submitted?.has('audio')).toBe(replaceAudio)

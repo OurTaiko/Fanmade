@@ -257,9 +257,6 @@
     "waveInTheTjaMustExactlyMatchTheAudioFilenameIncludingCase": "TJA의 WAVE는 대소문자를 포함해 오디오 파일명과 일치해야 합니다. OGG / MP3는 최대 100 MiB, TJA는 최대 2 MiB입니다. 서버에서 다시 검증합니다.",
     "uploadRules": "업로드 규칙",
     "viewUploadRules": "업로드 규칙 보기",
-    "replaceSongAndDeleteAllPreviousScores": "곡을 교체할까요? 내용이 바뀐 난이도의 이전 점수는 리더보드에서 제외됩니다",
-    "replaceAndDelete": "교체",
-    "allPlayersPreviousScoresChartsAndFilesForThisSongWillBe": "이 곡의 이전 보면과 파일은 영구 삭제되며 되돌릴 수 없습니다. 보면 내용이 바뀐 난이도에서는 모든 플레이어의 이전 점수가 보존된 채 리더보드에서 제외되고, 바뀌지 않은 난이도는 영향을 받지 않습니다. 새 보면에 없는 난이도의 점수는 삭제됩니다.",
     "fileExceedsTheUploadSizeLimit": "파일이 업로드 크기 제한을 초과했습니다",
     "unexpectedServerResponsePleaseTryAgainLater": "서버 응답에 문제가 있습니다. 잠시 후 다시 시도하세요.",
     "requestFailed": "요청에 실패했습니다",
@@ -404,9 +401,6 @@
     "playerCount_other": "플레이어 {{count}}명",
     "close": "닫기",
     "stars_other": "별 {{count}}개"
-  },
-  "upload": {
-    "replacement_other": "“{{previous}}”을(를) “{{title}}”(채보 블록 {{count}}개)(으)로 교체합니다."
   },
   "errors": {
     "UNAUTHORIZED": "먼저 로그인하세요.",
@@ -684,9 +678,6 @@
     "lines_other": "{{count}}줄",
     "discard": "변경 취소",
     "save": "저장하고 교체",
-    "confirmTitle": "현재 채보를 교체할까요?",
-    "confirmText": "「{{title}}」의 TJA를 편집한 텍스트로 교체합니다. 내용이 바뀐 채보 블록은 모든 플레이어의 이전 점수가 보존된 채 리더보드에서 제외되고, 바뀌지 않은 블록은 영향을 받지 않습니다. 새 텍스트에 더 이상 없는 채보 블록은 점수와 함께 삭제됩니다.",
-    "confirm": "교체",
     "saved": "채보를 저장했습니다",
     "onlyManagers": "작성자 또는 관리자만 이 채보를 편집할 수 있습니다"
   },
@@ -833,5 +824,34 @@
     "normal": "보통",
     "expert": "현인",
     "master": "달인"
+  },
+  "review": {
+    "title": "업데이트 내용 확인",
+    "loading": "새 채보를 읽는 중…",
+    "confirm": "업데이트",
+    "files": "파일",
+    "audio": "음원",
+    "cover": "커버",
+    "movie": "배경 영상",
+    "keepFile": "「{{name}}」 계속 사용",
+    "newFile": "「{{name}}」(으)로 교체",
+    "sameAudio": "「{{name}}」, 현재 음원과 같은 내용",
+    "removeMovie": "삭제(새 채보에 BGMOVIE가 없음)",
+    "info": "곡 정보",
+    "keepHint": "「현재 유지」에 체크한 항목은 새 파일로 바뀌지 않습니다.",
+    "keep": "현재 유지",
+    "empty": "(비어 있음)",
+    "chart": "채보 설정값",
+    "blocks": "난이도",
+    "change_same": "변경 없음",
+    "change_changed": "내용 변경",
+    "change_added": "추가",
+    "change_removed": "삭제",
+    "retire_one": "기록 {{count}}개가 랭킹에서 빠집니다",
+    "retire_other": "기록 {{count}}개가 랭킹에서 빠집니다",
+    "delete_one": "기록 {{count}}개도 삭제됩니다",
+    "delete_other": "기록 {{count}}개도 삭제됩니다",
+    "audioChanged": "음원 내용이 바뀌어 모든 난이도의 기록이 랭킹에서 빠집니다.",
+    "traditionalChinese": "번체 중국어"
   }
 }

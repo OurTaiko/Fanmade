@@ -43,6 +43,7 @@ export const endpoints = {
   respondCollaboration: (id: string) =>
     `${API_ROOT}/me/notifications/${encodeURIComponent(id)}/respond`,
   chartFiles: (id: string) => `${chartPath(id)}/files`,
+  chartFilesPreview: (id: string) => `${chartPath(id)}/files/preview`,
   cover: (id: string, hash?: string) =>
     withQuery(`${chartPath(id)}/cover`, hash ? { v: hash } : {}),
   leaderboard: (id: string, query: { difficultyId?: number; page: number }) =>

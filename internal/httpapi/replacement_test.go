@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -250,10 +251,44 @@ func testChartReplacement(t *testing.T, remote bool) {
 	// A replacement whose Hard block plays differently retires its scores (the one submitted
 	// after the first replacement included); the row stays.
 	changedHard := strings.Replace(replacement, "#START\n1000,", "#START\n1010,", 1)
+	// A preview reads the new file block by block against the stored one and stores nothing.
+	previewSource := strings.Replace(changedHard, "COURSE:Oni\nLEVEL:7\n#START\n1100,\n#END\n", "COURSE:Easy\nLEVEL:2\n#START\n1000,\n#END\n", 1)
+	status(request("9b893bc6d9422c93536ff0df503b81e9", "POST", path+"/preview", ID(), previewSource, "", nil, nil), 403)
+	previewed := request("d46774d30dd13b92d9e536808da468a4", "POST", path+"/preview", ID(), previewSource, "", nil, nil)
+	status(previewed, 200)
+	var preview struct {
+		Metadata struct {
+			Title        string
+			Difficulties []struct{ Course, ChartHash string }
+		}
+		Previous *struct{ Title string }
+		Blocks   []replacementBlock
+	}
+	if err := json.Unmarshal(previewed.Body.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	wantBlocks := []replacementBlock{{"Hard", "single", "changed", 3}, {"Easy", "single", "added", 0}, {"Oni", "single", "removed", 0}}
+	if fmt.Sprint(preview.Blocks) != fmt.Sprint(wantBlocks) || preview.Metadata.Title != "Updated" || len(preview.Metadata.Difficulties) != 2 || preview.Metadata.Difficulties[0].ChartHash == "" || preview.Previous == nil || preview.Previous.Title != "Updated" {
+		t.Fatal("bad preview", previewed.Body.String())
+	}
+	if count(songScores+` AND sc.is_latest`, original.ID) != 3 || count(`SELECT count(*) FROM chart_difficulties WHERE chart_id=$1`, original.ID) != 2 {
+		t.Fatal("preview changed the chart")
+	}
+	status(request("d46774d30dd13b92d9e536808da468a4", "POST", path+"/preview", ID(), "broken", "", nil, nil), 422)
 	changed := decode(request("d46774d30dd13b92d9e536808da468a4", "PUT", path, ID(), changedHard, "", nil, fields), 200)
 	if hard(changed) != hard(original) || count(songScores, original.ID) != 3 || count(songScores+` AND sc.is_latest`, original.ID) != 0 {
 		t.Fatal("a changed block must retire its scores and keep its row")
 	}
+	// keepTitles leaves the chart's names as they are, whatever the new file calls it.
+	keepFields := map[string]string{"keepTitles": "true"}
+	maps.Copy(keepFields, fields)
+	renamed := strings.Replace(changedHard, "TITLE:Updated", "TITLE:Renamed\nTITLEJA:改名", 1)
+	before, _ := app.chart(ctx, original.ID)
+	kept := decode(request("d46774d30dd13b92d9e536808da468a4", "PUT", path, ID(), renamed, "", nil, keepFields), 200)
+	if after, _ := app.chart(ctx, original.ID); kept.Title != "Updated" || kept.TitleTranslations["ja"] != "" || after.TJAHash == before.TJAHash {
+		t.Fatal("keepTitles replaced the names", kept.Title, kept.TitleTranslations)
+	}
+	status(request("d46774d30dd13b92d9e536808da468a4", "POST", "/api/v1/charts", ID(), source, "cbr.mp3", audio, map[string]string{"keepTitles": "true"}), 400)
 	// Independent replacement requests serialize; both may replace current files.
 	nextFields := map[string]string{"confirmReset": "true"}
 	// Renaming the audio alone would store an identical TJA; change its content too. Its Hard

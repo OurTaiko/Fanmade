@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { StarIcon } from '@phosphor-icons/react'
 import { cn } from '@sitekit/lib/utils'
 import { difficultyColors } from '@/components/difficulty-badges'
-import { courseNames, slotKey } from './courses'
+import { blockName } from '@sitekit/courses'
 import type { Difficulty, DifficultyConstants as Constants } from './tja'
 
 // The difficulty constants (定数) of the chosen block: its main constant, the 75 and 99
@@ -53,7 +53,7 @@ export function DifficultyConstants({
               difficultyColors[difficulty.course as keyof typeof difficultyColors] ?? 'bg-muted',
             )}
           >
-            {courseNames[slotKey(difficulty) as keyof typeof courseNames]}
+            {blockName(difficulty)}
             <span className="inline-flex items-center gap-0.5 tabular-nums">
               <StarIcon weight="fill" className="size-3" aria-hidden="true" />
               {difficulty.level}

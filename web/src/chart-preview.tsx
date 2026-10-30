@@ -1,5 +1,5 @@
 import { chartText } from '@sitekit/chart-language'
-import { slotKey } from './courses'
+import { slotKey } from '@sitekit/courses'
 import { i18n } from '@sitekit/i18n'
 import { t } from '@sitekit/i18n'
 import { useTranslation } from 'react-i18next'
@@ -14,15 +14,12 @@ import {
   MagnifyingGlassPlusIcon as ZoomIn,
   MagnifyingGlassMinusIcon as ZoomOut,
 } from '@phosphor-icons/react'
-import { PALETTE } from '../TJARenderer/src/renderer'
-import { createChartView, DEFAULT_RENDER_OPTIONS } from '../TJARenderer/src/internal'
-import type { RenderOptions } from '../TJARenderer/src/internal'
-import type { HitInfo } from '../TJARenderer/src/hit-testing'
-import type { BranchName, NoteLocation } from '../TJARenderer/src/primitives'
+import { PALETTE, createChartView, DEFAULT_RENDER_OPTIONS } from '@sitekit/tja-renderer'
+import type { BranchName, HitInfo, NoteLocation, RenderOptions } from '@sitekit/tja-renderer'
 import type { Chart } from './api/types'
 import { Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
-import { parsePreviewTja } from './preview-tja'
+import { parsePreviewTja } from '@sitekit/preview-tja'
 
 const getBranchLabels = () => ({
   normal: t('messages.normalBranch'),

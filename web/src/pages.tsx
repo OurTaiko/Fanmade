@@ -30,8 +30,8 @@ import {
 import { api, jsonRequest } from '@sitekit/api/client'
 import type { Chart, ChartList } from './api/types'
 import { ChartCard } from '@/components/chart-card'
-import { slotKey, supportsChart } from './courses'
-import { defaultDifficulty, hasConstants } from './chart-difficulty'
+import { slotKey, supportsChart } from '@sitekit/courses'
+import { defaultDifficulty, hasConstants } from '@sitekit/chart-difficulty'
 import { DifficultyConstants } from './difficulty-constants'
 import { useSession } from './session-context'
 import { EditMetadata } from './edit-metadata'
@@ -395,7 +395,7 @@ export function Detail() {
     ) : (
       <p className="text-sm text-muted-foreground">{t('messages.loadingChart')}</p>
     )
-  if (!supportsChart(chart.difficulties))
+  if (!supportsChart(chart))
     return <Notice>{t('messages.thisChartTypeIsNotSupported')}</Notice>
   const text = chartText(chart, i18n.resolvedLanguage)
   const course = chart.difficulties.some((d) => slotKey(d) === chosenCourse)

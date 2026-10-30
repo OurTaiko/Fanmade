@@ -4,13 +4,13 @@ import { Badge } from '@sitekit/components/ui/badge'
 import { cn } from '@sitekit/lib/utils'
 import type { Difficulty } from '@/tja'
 import {
-  courseNames,
+  blockName,
   isSupportedCourse,
   slotKey,
   groupCourses,
   groupLevel,
   groupName,
-} from '@/courses'
+} from '@sitekit/courses'
 
 // Fixed course colours, dark text on both themes (AA on every swatch).
 export const difficultyColors = {
@@ -35,7 +35,7 @@ export function DifficultyBadges({
 }) {
   const { t } = useTranslation()
 
-  const supported = difficulties.filter((d) => isSupportedCourse(slotKey(d)))
+  const supported = difficulties.filter((d) => isSupportedCourse(d.course))
   const items = detailed
     ? supported
     : supported.filter(
@@ -80,7 +80,7 @@ export function DifficultyBadges({
           className={cn(swatch, 'h-6 px-2', difficultyColors[d.course as keyof typeof difficultyColors])}
           key={slotKey(d)}
         >
-          {courseNames[slotKey(d) as keyof typeof courseNames]}
+          {blockName(d)}
           <span
             className="inline-flex items-center gap-1 tabular-nums"
             aria-label={t('common.stars', { count: d.level })}

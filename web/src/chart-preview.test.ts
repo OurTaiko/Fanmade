@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { i18n } from '@sitekit/i18n'
-import { courseNames, groupCourses, slotKey, supportsChart } from './courses'
-import { defaultDifficulty } from './chart-difficulty'
-import { parsePreviewTja } from './preview-tja'
+import { courseNames, groupCourses, slotKey, supportsChart } from '@sitekit/courses'
+import { defaultDifficulty } from '@sitekit/chart-difficulty'
+import { parsePreviewTja } from '@sitekit/preview-tja'
 import type { Difficulty } from './tja'
 
 beforeEach(async () => {
@@ -24,12 +24,11 @@ describe('detail difficulty selection', () => {
     }
     expect(defaultDifficulty([])).toBe('')
     expect(defaultDifficulty([{ course: 'Tower', side: 'single', level: 5, maker: '' }])).toBe('')
-    expect(Object.keys(courseNames)).toHaveLength(15)
+    expect(Object.keys(courseNames)).toHaveLength(5)
     expect(
-      supportsChart([
-        { course: 'Oni', side: 'p1' },
-        { course: 'Oni', side: 'p2' },
-      ]),
+      supportsChart({
+        difficulties: [{ course: 'Oni' }, { course: 'Oni' }],
+      }),
     ).toBe(true)
     expect(
       defaultDifficulty([
@@ -45,11 +44,11 @@ describe('detail difficulty selection', () => {
     ]
     expect(defaultDifficulty(mixed)).toBe('Oni')
     expect(groupCourses(mixed).map((g) => [g.base, g.double, g.sides.map(slotKey)])).toEqual([
-      ['Oni', false, ['Oni', 'Oni_1p']],
       ['Hard', true, ['Hard_2p']],
+      ['Oni', false, ['Oni', 'Oni_1p']],
     ])
-    expect(supportsChart([{ course: 'Oni' }, { course: 'Dan' }])).toBe(false)
-    expect(supportsChart([{ course: 'Oni' }, { course: 'Edit' }])).toBe(true)
+    expect(supportsChart({ difficulties: [{ course: 'Oni' }, { course: 'Dan' }] })).toBe(false)
+    expect(supportsChart({ difficulties: [{ course: 'Oni' }, { course: 'Edit' }] })).toBe(true)
   })
 })
 

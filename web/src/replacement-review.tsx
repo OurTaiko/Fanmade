@@ -5,8 +5,7 @@ import { Button } from '@sitekit/components/ui/button'
 import { Checkbox } from '@sitekit/components/ui/checkbox'
 import { DialogClose } from '@sitekit/components/ui/dialog'
 import { CategoryLabels } from './categories'
-import { courseNames } from './courses'
-import type { Course } from './courses'
+import { blockName } from '@sitekit/courses'
 import { Modal } from '@sitekit/notifications'
 import type { Line, LineLabel, Review } from '@sitekit/replacement-diff'
 
@@ -43,7 +42,7 @@ function useLabel() {
         )
       case 'maker':
         return t('messages.courseCreator', {
-          difficulty: courseNames[label.slot as Course] ?? label.slot,
+          difficulty: blockName(label.slot),
         })
       case 'demo':
         return t('messages.previewRange')
@@ -229,7 +228,7 @@ export function ReplacementReview({
                   className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2"
                 >
                   <span className="font-bold">
-                    {courseNames[block.slot as Course] ?? block.slot}{' '}
+                    {blockName(block.slot)}{' '}
                     <span className="font-normal text-muted-foreground tabular-nums">
                       {block.from != null && block.to != null && block.from !== block.to
                         ? `★${block.from} → ★${block.to}`

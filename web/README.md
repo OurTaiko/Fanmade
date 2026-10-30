@@ -75,7 +75,7 @@ PLAYWRIGHT_BASE_URL=http://<Mac-IP>:5173 pnpm exec playwright test e2e/detail.sp
 - `src/api/client.ts`：JSON 请求、错误处理和 XHR 上传进度；直接使用 endpoints 返回的地址。
 - `src/api/types.ts`：API 请求和响应共享类型。
 - `src/chart-activity.tsx`：详情难度选择、TJA 请求和排行榜分页。
-- `src/chart-preview.tsx`、`src/preview-tja.ts`：TJARenderer 交互画布及按谱面块分离的解析适配。
+- `src/chart-preview.tsx`：TJARenderer 交互画布；按谱面块分离的解析适配是框架的 `preview-tja.ts`。
 - `src/session-context.ts`、`src/session.tsx`：会话上下文与 Provider，分离以支持热更新。
 - `src/components/`、`src/styles.css`：公共界面与响应式样式。
 - `e2e/upload.spec.ts`：Playwright 真实浏览器测试。
@@ -84,7 +84,7 @@ PLAYWRIGHT_BASE_URL=http://<Mac-IP>:5173 pnpm exec playwright test e2e/detail.sp
 
 ## TJARenderer 依赖
 
-`TJARenderer/` 为 [jack9966qk/TJARenderer](https://github.com/jack9966qk/TJARenderer) 的 Git submodule，固定版本由 Git 的 submodule 提交指针记录。克隆时使用 `git clone --recurse-submodules`，或执行上面的初始化命令；不在子模块内运行 npm，也不修改其源码。前端通过 Vite 编译其中的 TypeScript，无额外运行时包依赖；上游 MIT LICENSE 保留在子模块内。
+[jack9966qk/TJARenderer](https://github.com/jack9966qk/TJARenderer) 是 OurTaikoSiteKit 的 Git submodule（`kit/web/TJARenderer/`，两站共用一份），固定版本由框架的 submodule 提交指针记录，站点经 `@sitekit/tja-renderer` 使用。克隆时使用 `git clone --recurse-submodules`，或执行上面的初始化命令（`--recursive` 会连框架里的子模块一起取）；不在子模块内运行 npm，也不修改其源码。前端通过 Vite 编译其中的 TypeScript，无额外运行时包依赖；上游 MIT LICENSE 保留在子模块内。
 
 交互方式参考 OurTaikoWiki 和 [TJAAnalyzer](https://github.com/jack9966qk/TJAAnalyzer)。为了支持选区高亮与复用已解析谱面，适配层使用 TJARenderer 的内部 ChartView API，因此升级 submodule 时需要重新运行预览测试。渲染模块独立懒加载，不进入首页主体包。预览用内存中的谱面块副本，原始 TJA 下载、后端校验和版本不受影响。
 

@@ -1,5 +1,5 @@
 import { t } from '@sitekit/i18n'
-import { courseNames, slotKey } from './courses'
+import { blockName, slotKey } from '@sitekit/courses'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { DialogClose } from '@sitekit/components/ui/dialog'
@@ -304,7 +304,7 @@ export function EditMetadata({
               {makers.map((d, index) => (
                 <div key={slotKey(d)} className="space-y-2">
                   <Label htmlFor={`edit-maker-${slotKey(d)}`}>
-                    {courseNames[slotKey(d) as keyof typeof courseNames] ?? slotKey(d)} ★
+                    {blockName(d)} ★
                     {chart.difficulties[index].level}
                   </Label>
                   <Input

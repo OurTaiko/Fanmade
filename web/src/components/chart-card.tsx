@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import type { Chart } from '@/api/types'
 import { coverSource } from '@sitekit/cover'
 import { CategoryLabels } from '@/categories'
-import { supportsChart } from '@/courses'
+import { supportsChart } from '@sitekit/courses'
 import { Badge } from '@sitekit/components/ui/badge'
 import { Card, CardContent } from '@sitekit/components/ui/card'
 import { DifficultyBadges } from '@/components/difficulty-badges'
@@ -20,7 +20,7 @@ export function ChartCard({ chart }: { chart: Chart }) {
 
   const cover = useCardCover(coverSource(chart))
   const hasCover = !!cover.source
-  if (!supportsChart(chart.difficulties)) return null
+  if (!supportsChart(chart)) return null
   return (
     <Link
       className="group block rounded-[14px] outline-none focus-visible:ring-ring focus-visible:ring-3 focus-visible:ring-offset-4 min-w-0 hover:-translate-y-0.5 motion-reduce:transform-none transition-transform motion-reduce:transition-none duration-150"

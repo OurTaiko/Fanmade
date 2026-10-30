@@ -27,15 +27,14 @@ import {
 import { api } from '@sitekit/api/client'
 import type { Chart, Leaderboard } from './api/types'
 import {
-  courseNames,
-  isSupportedCourse,
+  blockName,
   baseCourse,
   groupCourses,
   sideName,
   slotKey,
   groupLevel,
   groupName,
-} from './courses'
+} from '@sitekit/courses'
 import { Notice } from '@sitekit/notifications'
 import { withChartTitles } from '@sitekit/tja-titles'
 import { useSession } from './session-context'
@@ -345,7 +344,7 @@ function ChartLeaderboard({ chart, course }: { chart: Chart; course: string }) {
           <Table>
             <TableCaption className="sr-only">
               {t('messages.difficultyLeaderboard', {
-                difficulty: isSupportedCourse(course) ? courseNames[course] : course,
+                difficulty: blockName(course),
               })}
             </TableCaption>
             <TableHeader>

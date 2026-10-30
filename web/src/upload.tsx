@@ -38,7 +38,7 @@ import { api, previewReplacement, uploadChart } from '@sitekit/api/client'
 import type { Chart } from './api/types'
 import { Modal, Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
-import { courseNames, slotKey } from './courses'
+import { blockName, slotKey } from '@sitekit/courses'
 import { DifficultyBadges } from '@/components/difficulty-badges'
 import { useSession } from './session-context'
 import { isAudioFilename, isMovieFilename, prepareTja, validateFiles, validateMovie } from './tja'
@@ -628,7 +628,7 @@ export function UploadPage({
                       {metadata.difficulties.map((d) => (
                         <TableRow key={slotKey(d)}>
                           <TableHead scope="row">
-                            {courseNames[slotKey(d) as keyof typeof courseNames]} · {slotKey(d)} ★
+                            {blockName(d)} · {slotKey(d)} ★
                             {d.level}
                           </TableHead>
                           <TableCell>

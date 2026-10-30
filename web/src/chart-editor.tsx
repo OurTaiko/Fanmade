@@ -16,12 +16,12 @@ import {
 } from '@phosphor-icons/react'
 import { api, previewReplacement, uploadChart } from '@sitekit/api/client'
 import type { Chart } from './api/types'
-import { baseCourse, courseNames, isSupportedCourse, slotKey } from './courses'
+import { baseCourse, blockName, slotKey } from '@sitekit/courses'
 import { isChartOwner } from '@sitekit/chart-owners'
 import { useSession } from './session-context'
 import { Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
-import { parsePreviewTja } from './preview-tja'
+import { parsePreviewTja } from '@sitekit/preview-tja'
 import { maxTja, parseTja, ValidationError } from './tja'
 import type { Side } from './tja'
 import { withChartTitles } from '@sitekit/tja-titles'
@@ -345,7 +345,7 @@ export function ChartEditorPage() {
                 onValueChange={setCourse}
                 items={blocks.keys.map((key) => ({
                   value: key,
-                  label: isSupportedCourse(key) ? courseNames[key] : key,
+                  label: blockName(key),
                 }))}
               />
             )}

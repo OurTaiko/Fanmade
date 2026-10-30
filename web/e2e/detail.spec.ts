@@ -1,6 +1,10 @@
+import { fileURLToPath } from 'node:url'
 import { selectValue } from './ui-helpers'
 import { expect, test } from '@playwright/test'
 import type { Chart } from '../src/api/types'
+
+// The preview adapter and TJARenderer are OurTaikoSiteKit's; Vite serves them under /@fs/.
+const kitSource = `/@fs${fileURLToPath(new URL('../../kit/web/src', import.meta.url))}`
 
 test('real ESE preview, default Oni, zoom, difficulty switching and public leaderboard', async ({
   page,
@@ -147,20 +151,22 @@ LEVEL:5
   await expect(page.getByLabel('选择分支')).toHaveAttribute('data-value', 'master')
   await selectValue(page, '选择分支', 'all')
   // Use the renderer's layout API to locate a note, then trigger a real pointer click.
-  const position = await page.evaluate(async (text) => {
-    const adapterPath = '/src/preview-tja.ts'
-    const hitPath = '/TJARenderer/src/hit-testing.ts'
-    const primitivesPath = '/TJARenderer/src/primitives.ts'
-    const [{ parsePreviewTja }, { getNotePosition }, { DEFAULT_RENDER_OPTIONS }] =
-      await Promise.all([import(adapterPath), import(hitPath), import(primitivesPath)])
-    return getNotePosition(
-      parsePreviewTja(text)[0],
-      document.querySelector('canvas'),
-      { ...DEFAULT_RENDER_OPTIONS, beatsPerLine: 16, showAllBranches: true },
-      0,
-      0,
-    )
-  }, tja)
+  const position = await page.evaluate(
+    async ({ text, kit }) => {
+      const [{ parsePreviewTja }, { getNotePosition, DEFAULT_RENDER_OPTIONS }] = await Promise.all([
+        import(`${kit}/preview-tja.ts`),
+        import(`${kit}/tja-renderer.ts`),
+      ])
+      return getNotePosition(
+        parsePreviewTja(text)[0],
+        document.querySelector('canvas'),
+        { ...DEFAULT_RENDER_OPTIONS, beatsPerLine: 16, showAllBranches: true },
+        0,
+        0,
+      )
+    },
+    { text: tja, kit: kitSource },
+  )
   expect(position).toBeTruthy()
   await canvas.click({ position })
   await expect(page.locator('[data-testid="preview-note-info"]')).toContainText('150')

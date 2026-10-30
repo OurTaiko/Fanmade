@@ -1,5 +1,5 @@
 import { t } from '@sitekit/i18n'
-import { parseTjaCourse } from './courses'
+import { parseTjaCourse } from '@sitekit/courses'
 import { normalizeTja } from '@sitekit/tja-encoding'
 import { ValidationError } from '@sitekit/validation-error'
 import type { Difficulty, Side, TitleTexts } from '@sitekit/api/types'

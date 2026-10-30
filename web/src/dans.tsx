@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CommentSection, danSubject } from '@/comments'
+import { CommentSection, danSubject } from '@sitekit/comments'
 import { danTitle } from '@sitekit/dan-title'
 export { danTitle }
 import { VoteControl } from '@sitekit/components/vote-control'

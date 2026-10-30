@@ -18,18 +18,6 @@
   "interactions": {
     "orderUpdated": "Recently changed"
   },
-  "playlists": {
-    "system": {
-      "liked": {
-        "name": "Liked Songs",
-        "description": "Songs you upvoted, newest first."
-      },
-      "acclaimed": {
-        "name": "Recently Acclaimed",
-        "description": "The 20 best rated songs uploaded in the last 30 days."
-      }
-    }
-  },
   "categories": {
     "game": "Game",
     "virtual-singer": "Virtual Singer",

@@ -38,7 +38,7 @@ func TestPublicGameSearch(t *testing.T) {
 	s := testServer(t, pool, Config{Origin: "http://localhost"})
 	handler := s.Handler()
 	// The game filters by keyword, difficulty and star level in one bulk list;
-	// the website pages a keyword search and ignores difficulty filters.
+	// the website pages the same filters, and a category.
 	for _, tc := range []struct {
 		endpoint, query      string
 		total, items, status int
@@ -61,8 +61,12 @@ func TestPublicGameSearch(t *testing.T) {
 		{"/api/v1/charts", "?q=Artist&order=hot", 14, 12, 200},
 		{"/api/v1/charts", "?q=公开昵称", 0, 0, 200},
 		{"/api/v1/charts", "?q=searcher", 0, 0, 200},
-		{"/api/v1/charts", "?q=Search&course=Easy&level=8", 14, 12, 200},
-		{"/api/v1/charts", "?course=Tower&level=nope", 14, 12, 200},
+		// The website's list filters by course and star level too, one block holding both.
+		{"/api/v1/charts", "?q=Search&course=Easy&level=8", 0, 0, 200},
+		{"/api/v1/charts", "?q=Search&course=Oni&level=8", 14, 12, 200},
+		{"/api/v1/charts", "?level=3", 14, 12, 200},
+		{"/api/v1/charts", "?course=Tower", 0, 0, 400},
+		{"/api/v1/charts", "?level=nope", 0, 0, 400},
 		{"/api/v1/charts", "?order=unfc", 0, 0, 400},
 		{"/api/v1/charts", "?order=unperfect", 0, 0, 400},
 		{"/api/v1/charts", "?page=10001", 0, 0, 400},

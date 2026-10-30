@@ -13,14 +13,20 @@ import { UpdatePage } from './upload'
 import { ChartEditorPage } from './chart-editor'
 import { NotificationProvider } from '@sitekit/notifications'
 import { CategoryProvider } from '@sitekit/categories'
+import { SiteChartCardProvider } from '@sitekit/components/chart-card'
+import { ChartCard } from '@/components/chart-card'
+import type { Chart, ChartBase } from '@/api/types'
 import { ProfilePage } from './profile'
 import { UsersPage } from '@sitekit/users'
 import { UserSpacePage } from './user-space'
 import { NotificationsPage } from './notification-center'
-import { MyPlaylistsPage, PlaylistPage, PlaylistsPage } from './playlists'
+import { MyPlaylistsPage, PlaylistPage, PlaylistsPage } from '@sitekit/playlists'
 import { DanEditorPage, DanPage, DansPage } from './dans'
 import './styles.css'
 import { ThemeProvider } from './theme'
+// The shared pages that list charts show this site's card.
+const renderChartCard = (chart: ChartBase) => <ChartCard chart={chart as Chart} />
+
 function App() {
   const { t } = useTranslation()
 
@@ -34,46 +40,48 @@ function App() {
                 <LanguageProvider>
                   <DocumentLanguage />
                   <CategoryProvider>
-                    <Routes>
-                      <Route element={<Layout />}>
-                        <Route index element={<Library />} />
-                        <Route path="users" element={<UsersPage />} />
-                        <Route path="users/:id" element={<UserSpacePage />} />
-                        <Route path="me/profile" element={<ProfilePage />} />
-                        <Route path="me/charts" element={<ChartManagerPage />} />
-                        <Route path="me/charts/publish" element={<ChartManagerPage />} />
-                        <Route path="playlists" element={<PlaylistsPage />} />
-                        <Route path="dans" element={<DansPage />} />
-                        <Route path="dans/new" element={<DanEditorPage />} />
-                        <Route path="dans/:id" element={<DanPage />} />
-                        <Route path="dans/:id/comments/:commentId" element={<DanPage />} />
-                        <Route path="dans/:id/edit" element={<DanEditorPage />} />
-                        <Route path="playlists/:id" element={<PlaylistPage />} />
-                        <Route path="me/playlists" element={<MyPlaylistsPage />} />
-                        <Route
-                          path="upload"
-                          element={<Navigate to="/me/charts/publish" replace />}
-                        />
-                        <Route path="charts/:id/update" element={<UpdatePage />} />
-                        <Route path="charts/:id/edit" element={<ChartEditorPage />} />
-                        <Route path="charts/:id" element={<Detail />} />
-                        <Route path="charts/:id/comments/:commentId" element={<Detail />} />
-                        <Route path="notifications" element={<NotificationsPage />} />
-                        <Route path="login" element={<Auth key="login" />} />
-                        <Route path="register" element={<Auth key="register" register />} />
-                        <Route
-                          path="*"
-                          element={
-                            <div className="flex flex-col items-center justify-center gap-4 rounded-[14px] border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground">
-                              <h1 className="text-2xl font-extrabold sm:text-3xl">
-                                {t('messages.pageNotFound')}
-                              </h1>
-                              <Link to="/">{t('messages.backToExplore')}</Link>
-                            </div>
-                          }
-                        />
-                      </Route>
-                    </Routes>
+                    <SiteChartCardProvider value={renderChartCard}>
+                      <Routes>
+                        <Route element={<Layout />}>
+                          <Route index element={<Library />} />
+                          <Route path="users" element={<UsersPage />} />
+                          <Route path="users/:id" element={<UserSpacePage />} />
+                          <Route path="me/profile" element={<ProfilePage />} />
+                          <Route path="me/charts" element={<ChartManagerPage />} />
+                          <Route path="me/charts/publish" element={<ChartManagerPage />} />
+                          <Route path="playlists" element={<PlaylistsPage />} />
+                          <Route path="dans" element={<DansPage />} />
+                          <Route path="dans/new" element={<DanEditorPage />} />
+                          <Route path="dans/:id" element={<DanPage />} />
+                          <Route path="dans/:id/comments/:commentId" element={<DanPage />} />
+                          <Route path="dans/:id/edit" element={<DanEditorPage />} />
+                          <Route path="playlists/:id" element={<PlaylistPage />} />
+                          <Route path="me/playlists" element={<MyPlaylistsPage />} />
+                          <Route
+                            path="upload"
+                            element={<Navigate to="/me/charts/publish" replace />}
+                          />
+                          <Route path="charts/:id/update" element={<UpdatePage />} />
+                          <Route path="charts/:id/edit" element={<ChartEditorPage />} />
+                          <Route path="charts/:id" element={<Detail />} />
+                          <Route path="charts/:id/comments/:commentId" element={<Detail />} />
+                          <Route path="notifications" element={<NotificationsPage />} />
+                          <Route path="login" element={<Auth key="login" />} />
+                          <Route path="register" element={<Auth key="register" register />} />
+                          <Route
+                            path="*"
+                            element={
+                              <div className="flex flex-col items-center justify-center gap-4 rounded-[14px] border border-dashed bg-card/60 px-6 py-16 text-center [&>p]:max-w-lg [&>p]:text-muted-foreground">
+                                <h1 className="text-2xl font-extrabold sm:text-3xl">
+                                  {t('messages.pageNotFound')}
+                                </h1>
+                                <Link to="/">{t('messages.backToExplore')}</Link>
+                              </div>
+                            }
+                          />
+                        </Route>
+                      </Routes>
+                    </SiteChartCardProvider>
                   </CategoryProvider>
                 </LanguageProvider>
               </SessionProvider>

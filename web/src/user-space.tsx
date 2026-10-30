@@ -14,9 +14,9 @@ import { Card } from '@sitekit/components/ui/card'
 import { useSession } from '@/session-context'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@sitekit/components/ui/tabs'
 import { ChoiceSelect } from '@sitekit/components/choice-select'
-import { CommentListView } from '@/comments'
+import { CommentListView } from '@sitekit/comments'
 import type { CommentList } from '@/api/types'
-import { UserPlaylists } from '@/playlists'
+import { UserPlaylists } from '@sitekit/playlists'
 
 export function UserSpacePage() {
   const { id = '' } = useParams()

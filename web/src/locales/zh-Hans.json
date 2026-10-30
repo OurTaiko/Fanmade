@@ -18,18 +18,6 @@
   "interactions": {
     "orderUpdated": "最近更改"
   },
-  "playlists": {
-    "system": {
-      "liked": {
-        "name": "我赞过的",
-        "description": "你点过赞的歌曲，最近的排在前面。"
-      },
-      "acclaimed": {
-        "name": "近期好评",
-        "description": "最近 30 天上传的歌曲中评价最高的 20 首。"
-      }
-    }
-  },
   "categories": {
     "game": "游戏",
     "virtual-singer": "虚拟歌手",

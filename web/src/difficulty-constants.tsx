@@ -2,7 +2,7 @@ import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StarIcon } from '@phosphor-icons/react'
 import { cn } from '@sitekit/lib/utils'
-import { difficultyColors } from '@/components/difficulty-badges'
+import { difficultyColors } from '@sitekit/components/difficulty-badges'
 import { blockName } from '@sitekit/courses'
 import type { Difficulty, DifficultyConstants as Constants } from './tja'
 

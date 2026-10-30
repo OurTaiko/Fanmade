@@ -18,18 +18,6 @@
   "interactions": {
     "orderUpdated": "最近の変更"
   },
-  "playlists": {
-    "system": {
-      "liked": {
-        "name": "高評価した曲",
-        "description": "あなたが高評価した曲を新しい順に表示します。"
-      },
-      "acclaimed": {
-        "name": "最近の高評価",
-        "description": "直近 30 日間に投稿された曲のうち評価の高い 20 曲。"
-      }
-    }
-  },
   "categories": {
     "game": "ゲーム",
     "virtual-singer": "バーチャルシンガー",

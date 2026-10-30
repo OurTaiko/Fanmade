@@ -1,16 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { languageNames, normalizeLanguage } from './i18n'
 import { endpoints } from '@/api/endpoints'
-import { UserAvatar } from '@/components/user-avatar'
-import { buttonVariants } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { UserAvatar } from '@sitekit/components/user-avatar'
+import { buttonVariants } from '@sitekit/components/ui/button'
+import { Card } from '@sitekit/components/ui/card'
+import { Label } from '@sitekit/components/ui/label'
+import { Input } from '@sitekit/components/ui/input'
 import { Link } from 'react-router-dom'
 import { ArrowUpRightIcon as ArrowUpRight } from '@phosphor-icons/react'
-import { PROFILE_URL } from '@/components/profile-plate'
+import { PROFILE_URL } from '@sitekit/components/profile-plate'
 import { useSession } from './session-context'
-import { Notice } from './notifications'
+import { Notice } from '@sitekit/notifications'
 
 export function ProfilePage() {
   const { t } = useTranslation()

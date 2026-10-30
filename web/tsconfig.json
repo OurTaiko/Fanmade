@@ -17,8 +17,9 @@
     "noUnusedParameters": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@sitekit/*": ["../kit/web/src/*"]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "../kit/web/src", "vite.config.ts"]
 }

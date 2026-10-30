@@ -4,12 +4,12 @@ import { api, jsonRequest } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, UserDirectory } from '@/api/types'
 import { isChartOwner } from '@/chart-owners'
-import { Button } from '@/components/ui/button'
-import { SearchInput } from '@/components/search-input'
-import { UserAvatar } from '@/components/user-avatar'
-import { Modal, Notice } from '@/notifications'
+import { Button } from '@sitekit/components/ui/button'
+import { SearchInput } from '@sitekit/components/search-input'
+import { UserAvatar } from '@sitekit/components/user-avatar'
+import { Modal, Notice } from '@sitekit/notifications'
 import { useSession } from '@/session-context'
-import { useNotification } from '@/notification-context'
+import { useNotification } from '@sitekit/notification-context'
 
 export function CollaborationDialog({ chart, onDismiss }: { chart: Chart; onDismiss: () => void }) {
   const { t } = useTranslation()

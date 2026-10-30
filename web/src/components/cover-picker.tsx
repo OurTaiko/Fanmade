@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { useEffect, useId, useRef, useState } from 'react'
 import { ImageIcon } from '@phosphor-icons/react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@sitekit/components/ui/button'
+import { Input } from '@sitekit/components/ui/input'
+import { Label } from '@sitekit/components/ui/label'
 import { coverFileError } from '../cover'
 
 export function CoverPicker({

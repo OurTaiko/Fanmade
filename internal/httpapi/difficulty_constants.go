@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"ourtaiko.dev/fanmade/api/internal/constants"
+	"ourtaiko.dev/sitekit/constants"
 )
 
 // RunDifficultyConstants keeps difficulty_constants complete and rated: the startup backfill

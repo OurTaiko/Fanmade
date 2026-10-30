@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { StarIcon } from '@phosphor-icons/react'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { Badge } from '@sitekit/components/ui/badge'
+import { cn } from '@sitekit/lib/utils'
 import type { Difficulty } from '@/tja'
 import {
   courseNames,

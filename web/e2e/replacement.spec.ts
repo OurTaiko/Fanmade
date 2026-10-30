@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import sharp from 'sharp'
 import type { Chart } from '../src/api/types'
 
-const audio = readFileSync('../internal/audio/testdata/cbr.mp3')
+const audio = readFileSync('../kit/audio/testdata/cbr.mp3')
 const source =
   'TITLE:Replacement preview\nSUBTITLE:New subtitle\nMAKER:A\nBPM:120\nWAVE:cbr.mp3\n' +
   ['Hard', 'Oni'].map((course) => `COURSE:${course}\nLEVEL:5\n#START\n1000,\n#END\n`).join('')

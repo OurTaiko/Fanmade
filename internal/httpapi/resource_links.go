@@ -5,9 +5,9 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"net/http"
-	"ourtaiko.dev/fanmade/api/internal/audio"
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
-	"ourtaiko.dev/fanmade/api/internal/video"
+	"ourtaiko.dev/sitekit/audio"
+	"ourtaiko.dev/sitekit/objectstore"
+	"ourtaiko.dev/sitekit/video"
 	"time"
 )
 

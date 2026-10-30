@@ -13,10 +13,10 @@ import (
 	"unicode"
 
 	"golang.org/x/text/unicode/norm"
-	"ourtaiko.dev/fanmade/api/internal/audio"
 	"ourtaiko.dev/fanmade/api/internal/charthash"
-	"ourtaiko.dev/fanmade/api/internal/constants"
-	"ourtaiko.dev/fanmade/api/internal/video"
+	"ourtaiko.dev/sitekit/audio"
+	"ourtaiko.dev/sitekit/constants"
+	"ourtaiko.dev/sitekit/video"
 )
 
 const Version = "tja-upload-v12"

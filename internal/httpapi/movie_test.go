@@ -46,7 +46,7 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 	}
 	app := testServer(t, pool, cfg)
 	handler := app.Handler()
-	audio, err := os.ReadFile("../audio/testdata/vorbis.ogg")
+	audio, err := os.ReadFile("../../kit/audio/testdata/vorbis.ogg")
 	if err != nil {
 		t.Fatal(err)
 	}

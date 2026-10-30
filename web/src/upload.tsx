@@ -3,12 +3,12 @@ import { chartText } from '@/chart-language'
 import { i18n } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { AudioPlayer } from '@/components/audio-player'
-import { Card } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sitekit/components/ui/tabs'
+import { AudioPlayer } from '@sitekit/components/audio-player'
+import { Card } from '@sitekit/components/ui/card'
+import { Label } from '@sitekit/components/ui/label'
+import { Input } from '@sitekit/components/ui/input'
+import { Button } from '@sitekit/components/ui/button'
 import {
   Table,
   TableHeader,
@@ -16,9 +16,9 @@ import {
   TableHead,
   TableBody,
   TableCell,
-} from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
-import { Progress } from '@/components/ui/progress'
+} from '@sitekit/components/ui/table'
+import { Textarea } from '@sitekit/components/ui/textarea'
+import { Progress } from '@sitekit/components/ui/progress'
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent, FormEvent } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -32,19 +32,19 @@ import {
   WarningIcon,
 } from '@phosphor-icons/react'
 import { CoverPicker } from '@/components/cover-picker'
-import { MoviePicker } from '@/components/movie-picker'
+import { MoviePicker } from '@sitekit/components/movie-picker'
 import { CategoryPicker } from './categories'
 import { api, previewReplacement, uploadChart } from './api/client'
 import type { Chart } from './api/types'
-import { Modal, Notice } from './notifications'
-import { useNotification } from './notification-context'
+import { Modal, Notice } from '@sitekit/notifications'
+import { useNotification } from '@sitekit/notification-context'
 import { courseNames, slotKey } from './courses'
 import { DifficultyBadges } from '@/components/difficulty-badges'
 import { useSession } from './session-context'
 import { isAudioFilename, isMovieFilename, prepareTja, validateFiles, validateMovie } from './tja'
 import type { PreparedTja } from './tja'
-import { audioDiffers, replacementFields, reviewReplacement } from './replacement-diff'
-import type { Proposal, ReplacementPreview, Review } from './replacement-diff'
+import { audioDiffers, replacementFields, reviewReplacement } from '@sitekit/replacement-diff'
+import type { Proposal, ReplacementPreview, Review } from '@sitekit/replacement-diff'
 import { ReplacementReview } from './replacement-review'
 
 function createRequestKey() {

@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StarIcon } from '@phosphor-icons/react'
-import { cn } from '@/lib/utils'
+import { cn } from '@sitekit/lib/utils'
 import { difficultyColors } from '@/components/difficulty-badges'
 import { courseNames, slotKey } from './courses'
 import type { Difficulty, DifficultyConstants as Constants } from './tja'

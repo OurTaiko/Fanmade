@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/audio"
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
+	"ourtaiko.dev/sitekit/audio"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 func (s *Server) readChart(row pgx.Row) (Chart, error) {

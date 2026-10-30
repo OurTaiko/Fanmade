@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"ourtaiko.dev/fanmade/api/internal/cover"
+	"ourtaiko.dev/sitekit/cover"
 )
 
 func TestCoverLifecycle(t *testing.T) {
@@ -122,7 +122,7 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	}
 	pngImage := picture(false, color.NRGBA{R: 255, A: 180})
 	jpgImage := picture(true, color.NRGBA{B: 255, A: 255})
-	audio, err := os.ReadFile("../audio/testdata/vorbis.ogg")
+	audio, err := os.ReadFile("../../kit/audio/testdata/vorbis.ogg")
 	if err != nil {
 		t.Fatal(err)
 	}

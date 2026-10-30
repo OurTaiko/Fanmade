@@ -7,7 +7,7 @@ const source =
   ['Hard', 'Oni', 'Edit']
     .map((course) => `COURSE:${course}\nLEVEL:5\n#START\n1000,\n#END\n`)
     .join('')
-const audio = readFileSync('../internal/audio/testdata/cbr.mp3')
+const audio = readFileSync('../kit/audio/testdata/cbr.mp3')
 const chart: Chart = {
   id: 'a'.repeat(32),
   ownerId: 'owner',

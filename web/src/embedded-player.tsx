@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
+import { Button } from '@sitekit/components/ui/button'
+import { Slider } from '@sitekit/components/ui/slider'
 import { endpoints } from '@/api/endpoints'
 import type { Chart } from '@/api/types'
-import { resolvePlayerUrl } from './embedded-player-source'
+import { resolvePlayerUrl } from '@sitekit/embedded-player-source'
 import { PlayerAudioLoad } from './embedded-player-audio'
 import {
   defaultDrumVolume,
@@ -12,7 +12,7 @@ import {
   playerChannel,
   playerDrumVolume,
   type PlayerMode,
-} from './embedded-player-protocol'
+} from '@sitekit/embedded-player-protocol'
 
 const playerManifestUrl = 'https://distrib.ourtaiko.org/player-build.json'
 

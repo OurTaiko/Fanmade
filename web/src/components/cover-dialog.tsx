@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/api/client'
-import { Button } from '@/components/ui/button'
+import { Button } from '@sitekit/components/ui/button'
 import { CoverPicker } from '@/components/cover-picker'
-import { Modal } from '@/notifications'
+import { Modal } from '@sitekit/notifications'
 import { useSession } from '@/session-context'
 
 // Uploads a cover to `endpoint` (PUT, multipart field "cover"). With

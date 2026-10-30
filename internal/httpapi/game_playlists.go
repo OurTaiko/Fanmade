@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/cover"
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
+	"ourtaiko.dev/sitekit/cover"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 // GamePlaylist is a folder of the game's song select: the user's own and

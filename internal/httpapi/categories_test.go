@@ -45,7 +45,7 @@ func TestCategoriesFlow(t *testing.T) {
 		handler.ServeHTTP(w, r)
 		return w
 	}
-	audio, err := os.ReadFile("../audio/testdata/cbr.mp3")
+	audio, err := os.ReadFile("../../kit/audio/testdata/cbr.mp3")
 	if err != nil {
 		t.Fatal(err)
 	}

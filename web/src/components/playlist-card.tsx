@@ -5,12 +5,16 @@ import { HeartIcon, LockSimpleIcon, MusicNotesIcon } from '@phosphor-icons/react
 import { endpoints } from '@/api/endpoints'
 import type { Playlist } from '@/api/types'
 import { CategoryLabels } from '@/categories'
-import { Badge } from '@/components/ui/badge'
-import { Card } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { UserAvatar } from '@/components/user-avatar'
-import { cn } from '@/lib/utils'
-import { CardCoverBackdrop, coveredTextClassName, useCardCover } from '@/components/card-cover'
+import { Badge } from '@sitekit/components/ui/badge'
+import { Card } from '@sitekit/components/ui/card'
+import { Skeleton } from '@sitekit/components/ui/skeleton'
+import { UserAvatar } from '@sitekit/components/user-avatar'
+import { cn } from '@sitekit/lib/utils'
+import {
+  CardCoverBackdrop,
+  coveredTextClassName,
+  useCardCover,
+} from '@sitekit/components/card-cover'
 
 const systemIds = ['liked', 'popular', 'acclaimed', 'daily'] as const
 export const emptyStateClassName =

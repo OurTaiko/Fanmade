@@ -26,7 +26,7 @@ func TestAsyncUploadReportsByNotification(t *testing.T) {
 		t.Fatal(err)
 	}
 	app := testServer(t, pool, Config{Origin: "http://localhost", Storage: t.TempDir()})
-	audio, err := os.ReadFile("../audio/testdata/vorbis.ogg")
+	audio, err := os.ReadFile("../../kit/audio/testdata/vorbis.ogg")
 	if err != nil {
 		t.Fatal(err)
 	}

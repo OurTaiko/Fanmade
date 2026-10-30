@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowRightIcon } from '@phosphor-icons/react'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { DialogClose } from '@/components/ui/dialog'
+import { Button } from '@sitekit/components/ui/button'
+import { Checkbox } from '@sitekit/components/ui/checkbox'
+import { DialogClose } from '@sitekit/components/ui/dialog'
 import { CategoryLabels } from './categories'
 import { courseNames } from './courses'
 import type { Course } from './courses'
-import { Modal } from './notifications'
-import type { Line, LineLabel, Review } from './replacement-diff'
+import { Modal } from '@sitekit/notifications'
+import type { Line, LineLabel, Review } from '@sitekit/replacement-diff'
 
 /** The files a replacement sends, as the review lists them. */
 export type ReplacementFiles = {

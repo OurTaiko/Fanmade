@@ -17,10 +17,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"ourtaiko.dev/fanmade/api/internal/cover"
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
 	"ourtaiko.dev/fanmade/api/internal/tja"
-	"ourtaiko.dev/fanmade/api/internal/video"
+	"ourtaiko.dev/sitekit/cover"
+	"ourtaiko.dev/sitekit/objectstore"
+	"ourtaiko.dev/sitekit/video"
 )
 
 type Config struct {

@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { SortDescendingIcon } from '@phosphor-icons/react'
-import { ChoiceSelect } from '@/components/choice-select'
-import { SearchInput } from '@/components/search-input'
+import { ChoiceSelect } from '@sitekit/components/choice-select'
+import { SearchInput } from '@sitekit/components/search-input'
 
 // The website's song orders. Difficulty, star and completion filters belong to
 // the game's search only.

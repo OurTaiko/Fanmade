@@ -3,9 +3,9 @@ import { slotKey } from './courses'
 import { i18n } from './i18n'
 import { t } from '@/i18n'
 import { useTranslation } from 'react-i18next'
-import { ChoiceSelect } from '@/components/choice-select'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
+import { ChoiceSelect } from '@sitekit/components/choice-select'
+import { Label } from '@sitekit/components/ui/label'
+import { Button } from '@sitekit/components/ui/button'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   GitBranchIcon as GitBranch,
@@ -20,8 +20,8 @@ import type { RenderOptions } from '../TJARenderer/src/internal'
 import type { HitInfo } from '../TJARenderer/src/hit-testing'
 import type { BranchName, NoteLocation } from '../TJARenderer/src/primitives'
 import type { Chart } from './api/types'
-import { Notice } from './notifications'
-import { useNotification } from './notification-context'
+import { Notice } from '@sitekit/notifications'
+import { useNotification } from '@sitekit/notification-context'
 import { parsePreviewTja } from './preview-tja'
 
 const getBranchLabels = () => ({

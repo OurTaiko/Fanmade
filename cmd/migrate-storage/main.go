@@ -20,7 +20,7 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"ourtaiko.dev/fanmade/api/internal/database"
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 type entry struct {

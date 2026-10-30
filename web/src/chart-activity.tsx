@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom'
 import { formatLocale, i18n } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { UserAvatar } from '@/components/user-avatar'
-import { ProfilePlate } from '@/components/profile-plate'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@sitekit/components/ui/tabs'
+import { cn } from '@sitekit/lib/utils'
+import { Button } from '@sitekit/components/ui/button'
+import { UserAvatar } from '@sitekit/components/user-avatar'
+import { ProfilePlate } from '@sitekit/components/profile-plate'
 import {
   Table,
   TableCaption,
@@ -15,7 +15,7 @@ import {
   TableHead,
   TableBody,
   TableCell,
-} from '@/components/ui/table'
+} from '@sitekit/components/ui/table'
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import {
   FileAudioIcon as FileMusic,
@@ -36,7 +36,7 @@ import {
   groupLevel,
   groupName,
 } from './courses'
-import { Notice } from './notifications'
+import { Notice } from '@sitekit/notifications'
 import { withChartTitles } from './tja-titles'
 import { useSession } from './session-context'
 import { maxTja } from './tja'

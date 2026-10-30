@@ -16,3 +16,4 @@ web/.env.*
 dist
 public
 TJARenderer
+kit/web/node_modules

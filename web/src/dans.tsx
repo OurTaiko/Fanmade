@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CommentSection, danSubject } from '@/comments'
-import { danTitle } from '@/dan-title'
+import { danTitle } from '@sitekit/dan-title'
 export { danTitle }
 import { VoteControl } from '@/components/vote-control'
 import {
@@ -30,15 +30,21 @@ import type {
   VoteResult,
 } from '@/api/types'
 import { chartText } from '@/chart-language'
-import { ChoiceSelect } from '@/components/choice-select'
-import { SearchInput } from '@/components/search-input'
-import { Badge } from '@/components/ui/badge'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Modal, Notice } from '@/notifications'
+import { ChoiceSelect } from '@sitekit/components/choice-select'
+import { SearchInput } from '@sitekit/components/search-input'
+import { Badge } from '@sitekit/components/ui/badge'
+import { Button, buttonVariants } from '@sitekit/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@sitekit/components/ui/card'
+import { Checkbox } from '@sitekit/components/ui/checkbox'
+import { Input } from '@sitekit/components/ui/input'
+import { Label } from '@sitekit/components/ui/label'
+import { Modal, Notice } from '@sitekit/notifications'
 import {
   TitleBand,
   profileTitlesPage,
@@ -47,7 +53,7 @@ import {
   useProfileTitles,
 } from '@/profile-titles'
 import { useSession } from '@/session-context'
-import { cn } from '@/lib/utils'
+import { cn } from '@sitekit/lib/utils'
 
 // 段位 courses as OurTaikoPlay plays them (one to three songs with conditions). The game reads
 // them from this server; passing an official one gives a 段位 badge on OurTaikoProfile.

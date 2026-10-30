@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
 	"ourtaiko.dev/fanmade/api/internal/teststore"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 func TestCDNAvatarAllowlist(t *testing.T) {

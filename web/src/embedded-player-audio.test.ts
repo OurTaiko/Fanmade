@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PlayerAudioLoad } from './embedded-player-audio'
-import type { playerLoad } from './embedded-player-protocol'
+import type { playerLoad } from '@sitekit/embedded-player-protocol'
 
 const loads: PlayerAudioLoad[] = []
 afterEach(() => {

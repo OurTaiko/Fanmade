@@ -2,10 +2,10 @@ import { chartText } from '@/chart-language'
 import { i18n } from '@/i18n'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { ChoiceSelect } from '@/components/choice-select'
+import { Button } from '@sitekit/components/ui/button'
+import { Card } from '@sitekit/components/ui/card'
+import { Progress } from '@sitekit/components/ui/progress'
+import { ChoiceSelect } from '@sitekit/components/choice-select'
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
@@ -19,18 +19,18 @@ import type { Chart } from './api/types'
 import { baseCourse, courseNames, isSupportedCourse, slotKey } from './courses'
 import { isChartOwner } from './chart-owners'
 import { useSession } from './session-context'
-import { Notice } from './notifications'
-import { useNotification } from './notification-context'
+import { Notice } from '@sitekit/notifications'
+import { useNotification } from '@sitekit/notification-context'
 import { parsePreviewTja } from './preview-tja'
 import { maxTja, parseTja, ValidationError } from './tja'
 import type { Side } from './tja'
 import { withChartTitles } from './tja-titles'
-import { replacementFields, reviewReplacement } from './replacement-diff'
-import type { Proposal, ReplacementPreview, Review } from './replacement-diff'
+import { replacementFields, reviewReplacement } from '@sitekit/replacement-diff'
+import type { Proposal, ReplacementPreview, Review } from '@sitekit/replacement-diff'
 import { ReplacementReview } from './replacement-review'
 
 const ChartPreview = lazy(() => import('./chart-preview'))
-const TjaEditor = lazy(() => import('@/components/tja-editor'))
+const TjaEditor = lazy(() => import('@sitekit/components/tja-editor'))
 
 function createRequestKey() {
   const bytes = crypto.getRandomValues(new Uint8Array(16))

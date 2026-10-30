@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { resolvePlayerUrl } from './embedded-player-source'
+import { resolvePlayerUrl } from '@sitekit/embedded-player-source'
 
 const options = () => ({
   manifestUrl: 'https://distrib.ourtaiko.org/player-build.json',

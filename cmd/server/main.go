@@ -17,8 +17,8 @@ import (
 	"ourtaiko.dev/fanmade/api/internal/charthash"
 	"ourtaiko.dev/fanmade/api/internal/database"
 	"ourtaiko.dev/fanmade/api/internal/httpapi"
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
 	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 func env(key, fallback string) string {

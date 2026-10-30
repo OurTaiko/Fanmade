@@ -1,4 +1,4 @@
-import { API_ROOT } from './config'
+import { API_ROOT } from '@sitekit/api/config'
 import type { Chart } from './types'
 
 function withQuery(url: string, values: Record<string, string | number>): string {

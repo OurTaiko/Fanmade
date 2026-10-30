@@ -18,23 +18,23 @@ import { api, jsonRequest } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
 import { errorCodeMessage } from '@/api/error-message'
 import type { AppNotification, NotificationPage, NotificationSetting } from '@/api/types'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@sitekit/components/ui/button'
+import { Checkbox } from '@sitekit/components/ui/checkbox'
+import { Skeleton } from '@sitekit/components/ui/skeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { UserAvatar } from '@/components/user-avatar'
+} from '@sitekit/components/ui/dropdown-menu'
+import { UserAvatar } from '@sitekit/components/user-avatar'
 import { loginPath } from '@/components/vote-control'
 import { RelativeTime, commentPath, danCommentPath } from '@/comments'
-import { danTitle } from '@/dan-title'
-import { cn } from '@/lib/utils'
-import { Notice } from '@/notifications'
-import { useNotification } from '@/notification-context'
+import { danTitle } from '@sitekit/dan-title'
+import { cn } from '@sitekit/lib/utils'
+import { Notice } from '@sitekit/notifications'
+import { useNotification } from '@sitekit/notification-context'
 import { useSession } from '@/session-context'
 
 // Any change to read state anywhere refreshes the bell's count.

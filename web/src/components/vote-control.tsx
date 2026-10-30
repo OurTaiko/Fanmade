@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowFatDownIcon, ArrowFatUpIcon } from '@phosphor-icons/react'
-import { cn } from '@/lib/utils'
+import { cn } from '@sitekit/lib/utils'
 import { formatLocale } from '@/i18n'
 import { useSession } from '@/session-context'
-import { useNotification } from '@/notification-context'
+import { useNotification } from '@sitekit/notification-context'
 import type { Vote, VoteResult } from '@/api/types'
 
 export function compactNumber(value: number, language: string) {

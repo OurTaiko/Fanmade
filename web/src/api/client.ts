@@ -2,7 +2,7 @@ import { apiErrorMessage } from './error-message'
 import { t } from '../i18n'
 import { endpoints } from './endpoints'
 import type { Chart } from './types'
-import type { ReplacementPreview } from '../replacement-diff'
+import type { ReplacementPreview } from '@sitekit/replacement-diff'
 
 export class ApiError extends Error {
   constructor(

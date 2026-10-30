@@ -1,4 +1,8 @@
-import { playerLoad, type PlayerAudioDecode, type PlayerMode } from './embedded-player-protocol'
+import {
+  playerLoad,
+  type PlayerAudioDecode,
+  type PlayerMode,
+} from '@sitekit/embedded-player-protocol'
 import { maxMovie } from './tja'
 
 type Options = {

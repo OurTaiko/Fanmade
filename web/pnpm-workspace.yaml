@@ -1,3 +1,5 @@
+packages:
+  - ../kit/web
 allowBuilds:
   agent-browser: true
   esbuild: true

@@ -4,7 +4,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 // Call only after checking publication and resolving the current object's key.

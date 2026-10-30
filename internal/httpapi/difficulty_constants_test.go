@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"ourtaiko.dev/fanmade/api/internal/constants"
+	"ourtaiko.dev/sitekit/constants"
 )
 
 // Difficulty constants from upload to rating: every route stored on upload, rated by the first
@@ -27,7 +27,7 @@ func TestDifficultyConstants(t *testing.T) {
 		t.Fatal(err)
 	}
 	app := testServer(t, pool, Config{Origin: "http://localhost", Storage: t.TempDir()})
-	audio, err := os.ReadFile("../audio/testdata/cbr.mp3")
+	audio, err := os.ReadFile("../../kit/audio/testdata/cbr.mp3")
 	if err != nil {
 		t.Fatal(err)
 	}

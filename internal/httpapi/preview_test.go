@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
 	"ourtaiko.dev/fanmade/api/internal/teststore"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 func TestPreviewLifecycle(t *testing.T) {
@@ -33,11 +33,11 @@ func TestPreviewLifecycle(t *testing.T) {
 				cfg.Objects = teststore.New(t)
 			}
 			app := testServer(t, pool, cfg)
-			source, err := os.ReadFile("../audio/testdata/vorbis.ogg")
+			source, err := os.ReadFile("../../kit/audio/testdata/vorbis.ogg")
 			if err != nil {
 				t.Fatal(err)
 			}
-			file, err := os.Open("../audio/testdata/vorbis.ogg")
+			file, err := os.Open("../../kit/audio/testdata/vorbis.ogg")
 			if err != nil {
 				t.Fatal(err)
 			}

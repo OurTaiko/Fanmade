@@ -12,8 +12,8 @@
     "test:e2e": "playwright test",
     "preview": "vite preview --host 127.0.0.1",
     "lint": "eslint src",
-    "format": "prettier --write src vite.config.ts playwright.config.ts",
-    "format:check": "prettier --check src vite.config.ts"
+    "format": "prettier --write src ../kit/web/src vite.config.ts playwright.config.ts",
+    "format:check": "prettier --check src ../kit/web/src vite.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -22,6 +22,7 @@
     "@codemirror/state": "6.5.2",
     "@codemirror/view": "6.38.1",
     "@lezer/highlight": "1.2.1",
+    "@ourtaiko/sitekit": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/vite": "^4.3.3",
     "class-variance-authority": "^0.7.1",

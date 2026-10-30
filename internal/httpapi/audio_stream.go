@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/audio"
+	"ourtaiko.dev/sitekit/audio"
 )
 
 // AudioPreview describes the original audio stream, not a transcoded excerpt.

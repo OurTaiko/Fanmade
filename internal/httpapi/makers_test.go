@@ -23,7 +23,7 @@ func TestDifficultyMakersFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	handler := testServer(t, pool, Config{Origin: "http://localhost", Storage: t.TempDir()}).Handler()
-	audio, err := os.ReadFile("../audio/testdata/cbr.mp3")
+	audio, err := os.ReadFile("../../kit/audio/testdata/cbr.mp3")
 	if err != nil {
 		t.Fatal(err)
 	}

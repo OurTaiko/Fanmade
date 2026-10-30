@@ -52,7 +52,7 @@ func testChartReplacement(t *testing.T, remote bool) {
 		return io.ReadAll(f)
 	}
 	handler := app.Handler()
-	audio, err := os.ReadFile("../audio/testdata/cbr.mp3")
+	audio, err := os.ReadFile("../../kit/audio/testdata/cbr.mp3")
 	if err != nil {
 		t.Fatal(err)
 	}

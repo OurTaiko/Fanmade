@@ -5,10 +5,10 @@ import { api } from '@/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, ChartList } from '@/api/types'
 import { chartText } from '@/chart-language'
-import { SearchInput } from '@/components/search-input'
-import { ToggleRow } from '@/components/toggle-row'
-import { Button } from '@/components/ui/button'
-import { Modal } from '@/notifications'
+import { SearchInput } from '@sitekit/components/search-input'
+import { ToggleRow } from '@sitekit/components/toggle-row'
+import { Button } from '@sitekit/components/ui/button'
+import { Modal } from '@sitekit/notifications'
 
 // Searches every public song for the owner of a playlist. Each result shows
 // whether the playlist holds it; selecting one adds it or takes it out.

@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"ourtaiko.dev/fanmade/api/internal/constants"
+	"ourtaiko.dev/sitekit/constants"
 )
 
 // Inspection is `tjaparser inspect`'s output.

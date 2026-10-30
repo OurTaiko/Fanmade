@@ -15,9 +15,9 @@ import (
 	"strings"
 	"testing"
 
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
 	"ourtaiko.dev/fanmade/api/internal/teststore"
 	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 func TestAudioPreviewWindow(t *testing.T) {
@@ -64,7 +64,7 @@ func testAudioStreamHTTP(t *testing.T, remote bool) {
 	app := testServer(t, pool, cfg)
 	for _, filename := range []string{"cbr.mp3", "vorbis.ogg"} {
 		t.Run(filename, func(t *testing.T) {
-			data, err := os.ReadFile("../audio/testdata/" + filename)
+			data, err := os.ReadFile("../../kit/audio/testdata/" + filename)
 			if err != nil {
 				t.Fatal(err)
 			}

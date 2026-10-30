@@ -2,17 +2,17 @@ import { useTranslation } from 'react-i18next'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { MoonIcon as Moon, SunIcon as Sun, MonitorIcon as Monitor } from '@phosphor-icons/react'
-import { ThemeContext } from './theme-context'
-import type { Theme } from './theme-context'
-import { useTheme } from './theme-context'
-import { Button } from '@/components/ui/button'
+import { ThemeContext } from '@sitekit/theme-context'
+import type { Theme } from '@sitekit/theme-context'
+import { useTheme } from '@sitekit/theme-context'
+import { Button } from '@sitekit/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@sitekit/components/ui/dropdown-menu'
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {

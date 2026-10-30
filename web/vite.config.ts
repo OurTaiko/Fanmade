@@ -7,8 +7,15 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
-    resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+        // OurTaikoSiteKit, the git submodule shared with the other chart site.
+        '@sitekit': fileURLToPath(new URL('../kit/web/src', import.meta.url)),
+      },
+    },
     server: {
+      fs: { allow: ['.', '../kit/web'] },
       watch: { usePolling: env.VITE_USE_POLLING === 'true' },
       proxy: {
         '/api': {

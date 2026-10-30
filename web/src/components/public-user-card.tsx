@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { ArrowRightIcon } from '@phosphor-icons/react'
 import type { PublicUser } from '@/api/types'
-import { UserAvatar } from '@/components/user-avatar'
-import { buttonVariants } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
+import { UserAvatar } from '@sitekit/components/user-avatar'
+import { buttonVariants } from '@sitekit/components/ui/button'
+import { Card } from '@sitekit/components/ui/card'
 import { formatLocale } from '@/i18n'
 
 export function PublicUserCard({

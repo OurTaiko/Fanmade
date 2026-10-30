@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/objectstore"
+	"ourtaiko.dev/sitekit/objectstore"
 )
 
 // Export inline local covers before removing bytea storage. Existing S3 keys are

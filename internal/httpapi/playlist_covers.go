@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/cover"
+	"ourtaiko.dev/sitekit/cover"
 )
 
 func (s *Server) getPlaylistCover(w http.ResponseWriter, r *http.Request) {

@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/constants"
 	"ourtaiko.dev/fanmade/api/internal/tja"
-	"ourtaiko.dev/fanmade/api/internal/video"
+	"ourtaiko.dev/sitekit/constants"
+	"ourtaiko.dev/sitekit/video"
 )
 
 type Chart struct {

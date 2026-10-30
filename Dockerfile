@@ -2,7 +2,10 @@ FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 WORKDIR /src/web
 RUN corepack enable
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+# The web half of OurTaikoSiteKit (the kit/ submodule) is a workspace package.
+COPY kit/web/package.json /src/kit/web/
 RUN pnpm install --frozen-lockfile
+COPY kit/web/ /src/kit/web/
 COPY web/ ./
 RUN pnpm build
 
@@ -25,7 +28,10 @@ FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 ARG TARGETOS TARGETARCH
 WORKDIR /src
 COPY go.mod go.sum ./
+# go.mod replaces ourtaiko.dev/sitekit with the kit/ submodule.
+COPY kit/go.mod kit/go.sum ./kit/
 RUN go mod download
+COPY kit/ ./kit/
 COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 COPY site.go ./

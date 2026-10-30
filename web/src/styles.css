@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@source '../../kit/web/src';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -62,7 +63,7 @@
    colour; OurTaikoDatabase takes the ka teal. */
 @font-face {
   font-family: ChillRound;
-  src: url('./assets/donder/ChillRoundF.woff2') format('woff2');
+  src: url('@sitekit/assets/donder/ChillRoundF.woff2') format('woff2');
   font-weight: 100 900;
   font-display: swap;
 }

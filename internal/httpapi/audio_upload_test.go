@@ -41,7 +41,7 @@ func testAudioUploadAndDownload(t *testing.T, remote bool) {
 	handler := app.Handler()
 	for _, name := range []string{"cbr.mp3", "vorbis.ogg"} {
 		t.Run(name, func(t *testing.T) {
-			data, err := os.ReadFile("../audio/testdata/" + name)
+			data, err := os.ReadFile("../../kit/audio/testdata/" + name)
 			if err != nil {
 				t.Fatal(err)
 			}

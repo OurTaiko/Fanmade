@@ -12,17 +12,17 @@ import {
   MedalIcon,
 } from '@phosphor-icons/react'
 import { useState } from 'react'
-import { Notice } from '@/notifications'
+import { Notice } from '@sitekit/notifications'
 import { useSession } from '@/session-context'
-import { Button, buttonVariants } from '@/components/ui/button'
-import { UserAvatar } from '@/components/user-avatar'
+import { Button, buttonVariants } from '@sitekit/components/ui/button'
+import { UserAvatar } from '@sitekit/components/user-avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { cn } from '@/lib/utils'
+} from '@sitekit/components/ui/dropdown-menu'
+import { cn } from '@sitekit/lib/utils'
 import { ThemeToggle } from '@/theme'
 import { NotificationBell } from '@/notification-center'
 

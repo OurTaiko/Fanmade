@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { PROFILE_URL } from '@/components/profile-plate'
+import { PROFILE_URL } from '@sitekit/components/profile-plate'
 import { normalizeLanguage } from '@/i18n'
-import { cn } from '@/lib/utils'
+import { cn } from '@sitekit/lib/utils'
 
 // The title catalog of OurTaikoProfile (profile.ourtaiko.org), which 段位 courses give titles
 // from. A course may give official titles (once it is official itself), its maker's own

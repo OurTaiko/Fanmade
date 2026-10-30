@@ -691,6 +691,12 @@ export function Detail() {
               <dd>
                 {new Date(chart.createdAt).toLocaleDateString(formatLocale(i18n.resolvedLanguage))}
               </dd>
+              <dt>{t('messages.lastChanged')}</dt>
+              <dd>
+                <time dateTime={chart.updateAt}>
+                  {new Date(chart.updateAt).toLocaleDateString(formatLocale(i18n.resolvedLanguage))}
+                </time>
+              </dd>
               {/* The header shows this link from sm up. */}
               <dt className="sm:hidden">{t('messages.sourceFiles')}</dt>
               <dd className="sm:hidden">

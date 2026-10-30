@@ -39,10 +39,12 @@ type Chart struct {
 	UploaderAvatarURL string    `json:"uploaderAvatarUrl"`
 	Description       string    `json:"description"`
 	CreatedAt         time.Time `json:"createdAt"`
-	Duration          float64   `json:"duration"`
-	Encoding          string    `json:"encoding"`
-	TJAName           string    `json:"tjaName"`
-	AudioName         string    `json:"audioName"`
+	// UpdateAt is when the chart or anything about it last changed (R010, as on OurTaiko Database).
+	UpdateAt  time.Time `json:"updateAt"`
+	Duration  float64   `json:"duration"`
+	Encoding  string    `json:"encoding"`
+	TJAName   string    `json:"tjaName"`
+	AudioName string    `json:"audioName"`
 	// The stored file's hash: object key and download check, not the chart's identity (that is
 	// each block's chartHash). Not in the JSON; the resource manifest carries it as sha256.
 	TJAHash   string `json:"-"`
@@ -70,7 +72,7 @@ const publishedChart = `c.status='published'`
 // Blocks are listed Easy to Edit, each as single, p1, p2.
 const slotOrder = `array_position(ARRAY['Easy','Normal','Hard','Oni','Edit'],d.course),array_position(ARRAY['single','p1','p2'],d.side)`
 
-const chartSelect = `SELECT c.id,c.number_id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,
+const chartSelect = `SELECT c.id,c.number_id,c.owner_ids,''::text,c.description,c.created_at,c.update_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'course',d.course,'side',d.side,'level',d.level,'maker',d.maker,'branching',d.branching,'chartHash',d.content_hash) ORDER BY ` + slotOrder + `) FROM chart_difficulties d WHERE d.chart_id=c.id),'[]'),
  c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE id=c.preview_file),''),
  c.movie_offset,COALESCE(mf.sha256,''),COALESCE(mf.byte_size,0),COALESCE(mf.storage_key,''),
@@ -81,7 +83,7 @@ func readChart(row pgx.Row) (Chart, error) {
 	c := Chart{Encoding: "utf-8"} // Compatibility field; stored TJA bytes are always UTF-8.
 	var difficulties []byte
 	var flags CategoryFlags
-	e := row.Scan(&c.ID, &c.NumberID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
+	e := row.Scan(&c.ID, &c.NumberID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.UpdateAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
 	if e == nil {
 		c.OwnerID = c.OwnerIDs[0]
 		c.Score = c.Upvotes - c.Downvotes

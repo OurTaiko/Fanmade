@@ -27,6 +27,8 @@ export type Chart = Metadata & {
   uploaderAvatarUrl?: string
   description: string
   createdAt: string
+  /** When the chart or anything about it last changed (votes, comments, files, blocks). */
+  updateAt: string
   duration: number
   encoding: string
   tjaName: string

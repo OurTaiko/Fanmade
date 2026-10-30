@@ -276,11 +276,30 @@ type commentState struct {
 	gone                         bool
 }
 
-// lockComment loads a comment of a published song or course with the given row lock.
+// subjectWriteLock is how writers lock a comment's or vote's song or course.
+// Votes and comments also refresh the song's update_at (R010, as on OurTaiko
+// Database) and the course's tallies, so every writer takes the row lock it will
+// need up front: two writers holding FOR SHARE and both upgrading would deadlock.
+const subjectWriteLock = "FOR NO KEY UPDATE"
+
+// lockComment loads a comment of a published song or course with the given row
+// lock, after locking its song or course the way writers do, so a comment's
+// writers and a reply's (song, then parent comment) always lock in one order.
 func lockComment(w http.ResponseWriter, r *http.Request, tx pgx.Tx, lock string) (commentState, bool) {
 	var c commentState
 	var chartID, danID *string
-	e := tx.QueryRow(r.Context(), `SELECT m.id,m.chart_id,m.dan_id,m.author_id,m.parent_id,m.depth,m.reply_count,m.deleted_at IS NOT NULL OR m.removed_at IS NOT NULL
+	// A comment never moves to another subject, so this read needs no lock.
+	e := tx.QueryRow(r.Context(), `SELECT chart_id,dan_id FROM comments WHERE id=$1`, r.PathValue("id")).Scan(&chartID, &danID)
+	if e == nil && chartID != nil {
+		_, e = tx.Exec(r.Context(), `SELECT 1 FROM charts WHERE id=$1 `+subjectWriteLock, *chartID)
+	} else if e == nil && danID != nil {
+		_, e = tx.Exec(r.Context(), `SELECT 1 FROM dan_courses WHERE id=$1 `+subjectWriteLock, *danID)
+	}
+	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
+		internal(w, e)
+		return c, false
+	}
+	e = tx.QueryRow(r.Context(), `SELECT m.id,m.chart_id,m.dan_id,m.author_id,m.parent_id,m.depth,m.reply_count,m.deleted_at IS NOT NULL OR m.removed_at IS NOT NULL
 	 FROM comments m`+commentSubjects+` WHERE m.id=$1 AND `+publishedSubject+` `+lock, r.PathValue("id")).
 		Scan(&c.id, &chartID, &danID, &c.authorID, &c.parentID, &c.depth, &c.replies, &c.gone)
 	if chartID != nil {
@@ -445,8 +464,8 @@ func (s *Server) createSubjectComment(w http.ResponseWriter, r *http.Request, lo
 		return
 	}
 	defer tx.Rollback(ctx)
-	// FOR SHARE serializes with a song deletion, which locks the row FOR UPDATE.
-	subject, ok := load(w, r, tx, "FOR SHARE")
+	// The lock also serializes with a song deletion, which locks the row FOR UPDATE.
+	subject, ok := load(w, r, tx, subjectWriteLock)
 	if !ok {
 		return
 	}

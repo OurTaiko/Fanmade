@@ -18,6 +18,7 @@ const chart = {
   coverHash: hash(cover),
   wave: `${hash(audio)}.ogg`,
   createdAt: '2026-10-12T00:00:00Z',
+  updateAt: '2026-10-12T00:00:00Z',
   title: 'Renamed',
   subtitle: 'Artist',
   titleTranslations: { ja: '改名' },

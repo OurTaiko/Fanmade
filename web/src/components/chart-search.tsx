@@ -5,7 +5,7 @@ import { SearchInput } from '@sitekit/components/search-input'
 
 // The website's song orders. Difficulty, star and completion filters belong to
 // the game's search only.
-export const chartOrders = ['hot', 'top', 'comments'] as const
+export const chartOrders = ['hot', 'top', 'comments', 'updated'] as const
 export type ChartOrder = (typeof chartOrders)[number]
 
 export function useChartOrderLabels(): Record<'' | ChartOrder, string> {
@@ -15,6 +15,7 @@ export function useChartOrderLabels(): Record<'' | ChartOrder, string> {
     hot: t('interactions.orderHot'),
     top: t('interactions.orderTop'),
     comments: t('interactions.orderComments'),
+    updated: t('interactions.orderUpdated'),
   }
 }
 

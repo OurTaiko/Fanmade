@@ -241,7 +241,7 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 			problem(w, 422, "DESCRIPTION_INVALID", "谱面介绍最多 1000 字符，不能包含空字符")
 			return
 		}
-		if _, err = tx.Exec(r.Context(), `UPDATE charts SET description=$2,metadata_updated_at=now() WHERE id=$1`, r.PathValue("id"), description); err != nil {
+		if _, err = tx.Exec(r.Context(), `UPDATE charts SET description=$2 WHERE id=$1`, r.PathValue("id"), description); err != nil {
 			internal(w, err)
 			return
 		}
@@ -256,15 +256,12 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 			problem(w, 422, "MAKERS_INVALID", err.Error())
 			return
 		}
+		// A changed block refreshes the chart's update_at by trigger.
 		for _, d := range difficulties {
 			if _, err = tx.Exec(r.Context(), `UPDATE chart_difficulties SET maker=$2 WHERE id=$1`, d.ID, d.Maker); err != nil {
 				internal(w, err)
 				return
 			}
-		}
-		if _, err = tx.Exec(r.Context(), `UPDATE charts SET metadata_updated_at=now() WHERE id=$1`, r.PathValue("id")); err != nil {
-			internal(w, err)
-			return
 		}
 	}
 	if len(patch.DemoStart)+len(patch.DemoEnd) > 0 {
@@ -293,7 +290,7 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 				internal(w, e)
 				return
 			}
-			if _, e = tx.Exec(r.Context(), `UPDATE charts SET demo_start=$2,demo_end=$3,metadata_updated_at=now() WHERE id=$1`, c.ID, start, end); e != nil {
+			if _, e = tx.Exec(r.Context(), `UPDATE charts SET demo_start=$2,demo_end=$3 WHERE id=$1`, c.ID, start, end); e != nil {
 				internal(w, e)
 				return
 			}
@@ -316,7 +313,7 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(patch.Title)+len(patch.Subtitle)+len(patch.TitleTranslations)+len(patch.SubtitleTranslations) > 0 {
-		_, err = tx.Exec(r.Context(), `UPDATE charts SET title=$4,subtitle=$5,title_translations=$2,subtitle_translations=$3,metadata_updated_at=now() WHERE id=$1`, r.PathValue("id"), translations.Titles, translations.Subtitles, title, subtitle)
+		_, err = tx.Exec(r.Context(), `UPDATE charts SET title=$4,subtitle=$5,title_translations=$2,subtitle_translations=$3 WHERE id=$1`, r.PathValue("id"), translations.Titles, translations.Subtitles, title, subtitle)
 		if err != nil {
 			internal(w, err)
 			return

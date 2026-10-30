@@ -71,10 +71,10 @@ func (s *Server) voteChart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	// Holding the song row FOR SHARE serializes the vote with a deletion.
+	// The lock also serializes the vote with a deletion.
 	var id string
 	var owners []string
-	e = tx.QueryRow(ctx, `SELECT c.id,c.owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR SHARE`, r.PathValue("id")).Scan(&id, &owners)
+	e = tx.QueryRow(ctx, `SELECT c.id,c.owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart+` `+subjectWriteLock, r.PathValue("id")).Scan(&id, &owners)
 	if errors.Is(e, pgx.ErrNoRows) {
 		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
 		return
@@ -127,7 +127,7 @@ func (s *Server) voteDan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	subject, ok := danSubject(w, r, tx, "FOR SHARE")
+	subject, ok := danSubject(w, r, tx, subjectWriteLock)
 	if !ok {
 		return
 	}

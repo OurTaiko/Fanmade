@@ -117,8 +117,10 @@ func (s *Server) webSearch(w http.ResponseWriter, r *http.Request, owner string)
 		ordering = ` ORDER BY ` + chartScoreSQL + ` DESC, c.created_at DESC,c.id DESC`
 	case "comments":
 		ordering = ` ORDER BY COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0) DESC, c.created_at DESC,c.id DESC`
+	case "updated":
+		ordering = ` ORDER BY c.update_at DESC,c.id DESC`
 	default:
-		problem(w, 400, "QUERY_INVALID", "顺序必须为 default / hot / top / comments")
+		problem(w, 400, "QUERY_INVALID", "顺序必须为 default / hot / top / comments / updated")
 		return
 	}
 	where := keywordFilter + ` AND ($2='' OR c.owner_ids @> ARRAY[$2::text])`

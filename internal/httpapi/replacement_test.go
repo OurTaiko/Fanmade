@@ -346,6 +346,12 @@ func testChartReplacement(t *testing.T, remote bool) {
 		t.Fatal(removed.Body.String())
 	}
 
+	// A replacement keeps the description and categories it does not send, as on OurTaiko Database.
+	mustExec(`UPDATE charts SET description='kept',category_flags=1 WHERE id='` + unrelated.ID + `'`)
+	keptChart := decode(request("9b893bc6d9422c93536ff0df503b81e9", "PUT", "/api/v1/charts/"+unrelated.ID+"/files", ID(), replacement, "", nil, map[string]string{"confirmReset": "true"}), 200)
+	if keptChart.Description != "kept" || len(keptChart.CategoryIDs) != 1 || keptChart.CategoryIDs[0] != "game" {
+		t.Fatal("unsent description or categories changed", keptChart.Description, keptChart.CategoryIDs)
+	}
 }
 
 func TestRetiredFileCleanupRetries(t *testing.T) {

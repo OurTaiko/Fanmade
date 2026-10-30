@@ -332,6 +332,13 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	if existing != nil {
 		job.existingID, job.audioHash, job.movieHash = existing.ID, existing.AudioHash, existing.MovieHash
 		job.keepTitles = fields["keepTitles"] == "true"
+		// A replacement keeps the description and categories it does not send, as on OurTaiko Database.
+		if _, sent := fields["description"]; !sent {
+			job.description = existing.Description
+		}
+		if _, sent := fields["categoryIds"]; !sent {
+			job.categoryIDs = existing.CategoryIDs
+		}
 	}
 	if tx == nil {
 		var proceed bool

@@ -14,6 +14,7 @@ import { ChartEditorPage } from '@sitekit/chart-editor'
 import { NotificationProvider } from '@sitekit/notifications'
 import { CategoryProvider } from '@sitekit/categories'
 import { SiteProvider } from '@sitekit/site'
+import { RequireSignIn } from '@sitekit/require-sign-in'
 import { site } from './site'
 import { ProfilePage } from '@sitekit/profile'
 import { UsersPage } from '@sitekit/users'
@@ -44,7 +45,11 @@ function App() {
                           <Route path="users/:id" element={<UserSpacePage />} />
                           <Route path="me/profile" element={<ProfilePage />} />
                           <Route path="me/charts" element={<ChartManagerPage />} />
-                          <Route path="me/charts/publish" element={<ChartManagerPage />} />
+                          {/* Publishing and replacing files need a signed-in user. */}
+                          <Route element={<RequireSignIn />}>
+                            <Route path="me/charts/publish" element={<ChartManagerPage />} />
+                            <Route path="charts/:id/update" element={<UpdatePage />} />
+                          </Route>
                           <Route path="playlists" element={<PlaylistsPage />} />
                           <Route path="dans" element={<DansPage />} />
                           <Route path="dans/new" element={<DanEditorPage />} />
@@ -57,7 +62,6 @@ function App() {
                             path="upload"
                             element={<Navigate to="/me/charts/publish" replace />}
                           />
-                          <Route path="charts/:id/update" element={<UpdatePage />} />
                           <Route path="charts/:id/edit" element={<ChartEditorPage />} />
                           <Route path="charts/:id" element={<Detail />} />
                           <Route path="charts/:id/comments/:commentId" element={<Detail />} />

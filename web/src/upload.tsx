@@ -8,7 +8,7 @@ import { AudioPlayer } from '@sitekit/components/audio-player'
 import { Card } from '@sitekit/components/ui/card'
 import { Label } from '@sitekit/components/ui/label'
 import { Input } from '@sitekit/components/ui/input'
-import { Button } from '@sitekit/components/ui/button'
+import { Button, buttonVariants } from '@sitekit/components/ui/button'
 import {
   Table,
   TableHeader,
@@ -21,7 +21,7 @@ import { Textarea } from '@sitekit/components/ui/textarea'
 import { Progress } from '@sitekit/components/ui/progress'
 import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent, FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowRightIcon as ArrowRight,
   WaveformIcon as AudioLines,
@@ -149,7 +149,7 @@ export function UploadPage({
       return
     }
     setValidating(true)
-    const validation = audio ? validateFiles(tja, audio) : prepareTja(tja, retainedAudioName!)
+    const validation = audio ? validateFiles(tja, audio) : prepareTja(tja, '', retainedAudioName)
     validation
       .then((m) => {
         validateMovie(m, movie, hasStoredMovie)
@@ -244,7 +244,7 @@ export function UploadPage({
   const prepare = async () => {
     const prepared = audio
       ? await validateFiles(tja!, audio)
-      : await prepareTja(tja!, existing!.audioName)
+      : await prepareTja(tja!, '', existing!.audioName)
     validateMovie(prepared, movie, hasStoredMovie)
     return prepared
   }
@@ -337,8 +337,11 @@ export function UploadPage({
         if (fields.keepTitles) form.append('keepTitles', 'true')
       }
       form.append('description', fields.description)
-      form.append('demoStart', String(fields.demoStart))
-      form.append('demoEnd', String(fields.demoEnd))
+      // A typed or kept range is sent; otherwise the server takes the new file's DEMOSTART.
+      if (proposal().typedDemo || kept.has('demo')) {
+        form.append('demoStart', String(fields.demoStart))
+        form.append('demoEnd', String(fields.demoEnd))
+      }
       form.append('categoryIds', JSON.stringify(fields.categoryIds))
       form.append('difficultyMakers', JSON.stringify(fields.difficultyMakers))
       const chart = await uploadChart<Chart>(
@@ -428,11 +431,6 @@ export function UploadPage({
           </div>
         </div>
       </div>
-      {!session.loading && !session.user && (
-        <Notice kind="info" title={t('messages.signInToPublish')}>
-          {t('messages.youCanCheckYourFilesFirstSignInOrRegisterAtThe')}
-        </Notice>
-      )}
       {existing && (
         <Card
           className="min-w-0 border p-5 shadow-none sm:p-6 gap-3 border-destructive/30 [&>h2]:text-destructive [&>p]:text-sm [&>p]:leading-relaxed"
@@ -673,13 +671,13 @@ export function UploadPage({
             <TabsContent value="description" className="pt-4">
               <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
                 <h2 className="text-base font-extrabold">
-                  {t('messages.addADescription')}
+                  {t('messages.notes')}
                   <span className="ml-2 text-xs font-normal text-muted-foreground">
                     {t('messages.optional2')}
                   </span>
                 </h2>
                 <Label className="sr-only" htmlFor="description">
-                  {t('messages.submissionDescription')}
+                  {t('messages.notes')}
                 </Label>
                 <Textarea
                   id="description"
@@ -780,6 +778,18 @@ export function UploadPage({
                     </span>
                   </div>
                 </Modal>
+              )}
+              {existing && !busy && (
+                <Link
+                  className={buttonVariants({
+                    variant: 'outline',
+                    size: 'default',
+                    className: 'w-full',
+                  })}
+                  to={`/charts/${existing.id}`}
+                >
+                  {t('messages.cancel')}
+                </Link>
               )}
               {existing && <p>{t('messages.afterUpdatingScoresForEveryDifficultyStartOver')}</p>}
             </div>

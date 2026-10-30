@@ -1,7 +1,7 @@
 import { t } from '@sitekit/i18n'
 import { blockName, slotKey } from '@sitekit/courses'
 import { useTranslation } from 'react-i18next'
-import { endpoints } from '@/api/endpoints'
+import { endpoints } from '@sitekit/api/endpoints'
 import { DialogClose } from '@sitekit/components/ui/dialog'
 import { Label } from '@sitekit/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sitekit/components/ui/tabs'

@@ -13,7 +13,7 @@ import {
 } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { Notice } from '@sitekit/notifications'
-import { useSession } from '@/session-context'
+import { useSession } from '@sitekit/session-context'
 import { Button, buttonVariants } from '@sitekit/components/ui/button'
 import { UserAvatar } from '@sitekit/components/user-avatar'
 import {

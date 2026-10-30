@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { formatLocale, i18n } from '@sitekit/i18n'
 import { useTranslation } from 'react-i18next'
-import { endpoints } from '@/api/endpoints'
+import { endpoints } from '@sitekit/api/endpoints'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@sitekit/components/ui/tabs'
 import { cn } from '@sitekit/lib/utils'
 import { Button } from '@sitekit/components/ui/button'
@@ -37,7 +37,7 @@ import {
 } from '@sitekit/courses'
 import { Notice } from '@sitekit/notifications'
 import { withChartTitles } from '@sitekit/tja-titles'
-import { useSession } from './session-context'
+import { useSession } from '@sitekit/session-context'
 import { maxTja } from './tja'
 
 const ChartPreview = lazy(() => import('./chart-preview'))

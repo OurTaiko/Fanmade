@@ -139,9 +139,6 @@ importers:
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
-      client-zip:
-        specifier: ^2.5.1
-        version: 2.5.1
       cn:
         specifier: ^0.3.2
         version: 0.3.2
@@ -245,6 +242,9 @@ importers:
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
+      client-zip:
+        specifier: ^2.5.1
+        version: 2.5.1
       cn:
         specifier: ^0.3.2
         version: 0.3.2

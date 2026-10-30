@@ -18,7 +18,7 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import { api, jsonRequest } from '@sitekit/api/client'
-import { endpoints } from '@/api/endpoints'
+import { endpoints } from '@sitekit/api/endpoints'
 import type {
   Chart,
   ChartList,
@@ -52,7 +52,7 @@ import {
   titleUsableBy,
   useProfileTitles,
 } from '@sitekit/profile-titles'
-import { useSession } from '@/session-context'
+import { useSession } from '@sitekit/session-context'
 import { cn } from '@sitekit/lib/utils'
 
 // 段位 courses as OurTaikoPlay plays them (one to three songs with conditions). The game reads

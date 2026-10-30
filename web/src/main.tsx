@@ -8,25 +8,21 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import { SessionProvider } from './session'
 import { Layout } from '@/components/layout'
-import { Auth, ChartManagerPage, Detail, Library } from './pages'
+import { Auth, ChartManagerPage, Detail, Library } from '@sitekit/pages'
 import { UpdatePage } from './upload'
 import { ChartEditorPage } from './chart-editor'
 import { NotificationProvider } from '@sitekit/notifications'
 import { CategoryProvider } from '@sitekit/categories'
-import { SiteChartCardProvider } from '@sitekit/components/chart-card'
-import { ChartCard } from '@/components/chart-card'
-import type { Chart, ChartBase } from '@/api/types'
+import { SiteProvider } from '@sitekit/site'
+import { site } from './site'
 import { ProfilePage } from './profile'
 import { UsersPage } from '@sitekit/users'
-import { UserSpacePage } from './user-space'
+import { UserSpacePage } from '@sitekit/user-space'
 import { NotificationsPage } from './notification-center'
 import { MyPlaylistsPage, PlaylistPage, PlaylistsPage } from '@sitekit/playlists'
 import { DanEditorPage, DanPage, DansPage } from './dans'
 import './styles.css'
 import { ThemeProvider } from './theme'
-// The shared pages that list charts show this site's card.
-const renderChartCard = (chart: ChartBase) => <ChartCard chart={chart as Chart} />
-
 function App() {
   const { t } = useTranslation()
 
@@ -40,7 +36,7 @@ function App() {
                 <LanguageProvider>
                   <DocumentLanguage />
                   <CategoryProvider>
-                    <SiteChartCardProvider value={renderChartCard}>
+                    <SiteProvider value={site}>
                       <Routes>
                         <Route element={<Layout />}>
                           <Route index element={<Library />} />
@@ -81,7 +77,7 @@ function App() {
                           />
                         </Route>
                       </Routes>
-                    </SiteChartCardProvider>
+                    </SiteProvider>
                   </CategoryProvider>
                 </LanguageProvider>
               </SessionProvider>

@@ -15,7 +15,7 @@ import {
   XIcon,
 } from '@phosphor-icons/react'
 import { api, jsonRequest } from '@sitekit/api/client'
-import { endpoints } from '@/api/endpoints'
+import { endpoints } from '@sitekit/api/endpoints'
 import { errorCodeMessage } from '@sitekit/api/error-message'
 import type { AppNotification, NotificationPage, NotificationSetting } from '@/api/types'
 import { Button } from '@sitekit/components/ui/button'
@@ -35,7 +35,7 @@ import { danTitle } from '@sitekit/dan-title'
 import { cn } from '@sitekit/lib/utils'
 import { Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
-import { useSession } from '@/session-context'
+import { useSession } from '@sitekit/session-context'
 
 // Any change to read state anywhere refreshes the bell's count.
 const changedEvent = 'ourtaiko:notifications-changed'

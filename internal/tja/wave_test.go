@@ -31,7 +31,7 @@ func TestSetWave(t *testing.T) {
 
 func TestMovieHeaders(t *testing.T) {
 	const source = "TITLE:A\r\nBPM:120\r\nWAVE:a.ogg\r\nBGMOVIE: 映像.MP4 // clip\r\nMOVIEOFFSET:-0.25\r\nCOURSE:Oni\r\nLEVEL:5\r\n#START\r\n1,\r\n#END\r\n"
-	m, issue := Parse([]byte(source), "utf-8", "a.ogg")
+	m, issue := Parse([]byte(source), "a.ogg")
 	if issue != nil || m.Movie != "映像.MP4" || m.MovieOffset != -0.25 || MovieName([]byte(source)) != "映像.MP4" {
 		t.Fatal(m.Movie, m.MovieOffset, issue)
 	}
@@ -39,12 +39,12 @@ func TestMovieHeaders(t *testing.T) {
 	if !ok || string(stored) != "TITLE:A\r\nBPM:120\r\nWAVE:a.ogg\r\nBGMOVIE:x.mp4\r\nMOVIEOFFSET:-0.25\r\nCOURSE:Oni\r\nLEVEL:5\r\n#START\r\n1,\r\n#END\r\n" {
 		t.Fatalf("%q", stored)
 	}
-	if m, issue = Parse(stored, "utf-8", "a.ogg"); issue != nil || m.Movie != "x.mp4" || m.MovieOffset != -0.25 {
+	if m, issue = Parse(stored, "a.ogg"); issue != nil || m.Movie != "x.mp4" || m.MovieOffset != -0.25 {
 		t.Fatal(m.Movie, issue)
 	}
 	// No movie: the offset defaults to zero and there is nothing to rewrite.
 	plain := "TITLE:A\nBPM:120\nWAVE:a.ogg\nCOURSE:Oni\nLEVEL:5\n#START\n1,\n#END\n"
-	if m, issue = Parse([]byte(plain), "utf-8", "a.ogg"); issue != nil || m.Movie != "" || m.MovieOffset != 0 {
+	if m, issue = Parse([]byte(plain), "a.ogg"); issue != nil || m.Movie != "" || m.MovieOffset != 0 {
 		t.Fatal(m.Movie, m.MovieOffset, issue)
 	}
 	if _, ok = SetMovie([]byte(plain), "x.mp4"); ok || MovieName([]byte(plain)) != "" {

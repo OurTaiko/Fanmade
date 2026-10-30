@@ -80,7 +80,8 @@ export function safeFilename(s: string) {
     !/[/\\:"<>|?*]/u.test(s)
   )
 }
-export function parseTja(data: Uint8Array, encoding: string, audioName: string): Metadata {
+/** Reads a UTF-8 TJA; prepareTja converts other encodings first. */
+export function parseTja(data: Uint8Array, audioName: string): Metadata {
   const m: Metadata = {
     title: '',
     subtitle: '',
@@ -95,13 +96,9 @@ export function parseTja(data: Uint8Array, encoding: string, audioName: string):
   }
   if (!data.length || data.length > maxTja)
     fail('FILE_SIZE_INVALID', t('messages.tjaMustNotBeEmptyOrExceed2Mib'))
-  if (!['utf-8', 'shift-jis'].includes(encoding))
-    fail('TJA_ENCODING_INVALID', t('messages.unsupportedTextEncoding'))
   let text = ''
   try {
-    text = new TextDecoder(encoding === 'shift-jis' ? 'shift_jis' : 'utf-8', { fatal: true })
-      .decode(data)
-      .replace(/^\uFEFF/, '')
+    text = new TextDecoder('utf-8', { fatal: true }).decode(data).replace(/^\uFEFF/, '')
   } catch {
     fail('TJA_ENCODING_INVALID', t('messages.cannotDecodeTextSaveAsUtf8AndSelectAgain'))
   }
@@ -319,7 +316,7 @@ export async function prepareTja(tja: File, audioName: string): Promise<Prepared
   if (!tja.size || tja.size > maxTja)
     fail('FILE_SIZE_INVALID', t('messages.filesMustNotBeEmptyTjaUpTo2MibAudioUp'))
   const normalized = await normalizeTja(new Uint8Array(await tja.arrayBuffer()), audioName)
-  const metadata = parseTja(normalized.data, 'utf-8', audioName)
+  const metadata = parseTja(normalized.data, audioName)
   return {
     ...metadata,
     sourceEncoding: normalized.sourceEncoding,

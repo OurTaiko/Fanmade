@@ -143,7 +143,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			f.sha = hex.EncodeToString(h.Sum(nil))
 			files[field] = f
 		} else {
-			if (field != "encoding" && field != "description" && field != "categoryIds" && field != "difficultyMakers" && field != "demoStart" && field != "demoEnd" && !(existing != nil && (field == "confirmReset" || field == "keepTitles"))) || name != "" {
+			if (field != "description" && field != "categoryIds" && field != "difficultyMakers" && field != "demoStart" && field != "demoEnd" && !(existing != nil && (field == "confirmReset" || field == "keepTitles"))) || name != "" {
 				problem(w, 400, "UPLOAD_FILES_INVALID", "包含不支持的上传字段")
 				return
 			}
@@ -194,23 +194,18 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	invalid := func(issue *tja.Issue) {
 		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "requestId": w.Header().Get("X-Request-ID"), "validationVersion": tja.Version})
 	}
-	encoding := fields["encoding"]
-	if encoding == "" {
-		encoding = "utf-8"
-	}
 	data, e := os.ReadFile(tf.path)
 	if e != nil {
 		internal(w, e)
 		return
 	}
-	normalized, issue := tja.NormalizeUTF8(data, encoding)
+	normalized, issue := tja.NormalizeUTF8(data)
 	if issue != nil {
 		invalid(issue)
 		return
 	}
 	tjaHash := sha256.Sum256(normalized)
 	tf.sha = hex.EncodeToString(tjaHash[:])
-	encoding = "utf-8"
 	if existing != nil && fields["confirmReset"] != "true" {
 		problem(w, 400, "REPLACEMENT_CONFIRMATION_REQUIRED", "替换需要确认删除旧文件和旧成绩")
 		return
@@ -259,7 +254,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	if af != nil {
 		waveSource = af.name
 	}
-	meta, issue := tja.Parse(normalized, "utf-8", waveSource)
+	meta, issue := tja.Parse(normalized, waveSource)
 	if issue != nil {
 		invalid(issue)
 		return
@@ -302,7 +297,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if existing == nil {
-		digestData, _ := json.Marshal([]string{tf.name, tf.sha, af.name, af.sha, encoding, fields["description"]})
+		digestData, _ := json.Marshal([]string{tf.name, tf.sha, af.name, af.sha, fields["description"]})
 		if demoStart != meta.DemoStart || demoEnd != meta.DemoStart+15 {
 			encoded, _ := json.Marshal([]any{"preview", demoStart, demoEnd})
 			digestData = append(digestData, encoded...)

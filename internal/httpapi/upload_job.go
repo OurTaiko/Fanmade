@@ -165,7 +165,7 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 	if !ok {
 		return failed(errors.New("validated TJA lost a rewritten header"))
 	}
-	if _, issue := tja.Parse(stored, "utf-8", waveName); issue != nil {
+	if _, issue := tja.Parse(stored, waveName); issue != nil {
 		return rejected(422, issue.Code, issue.Message)
 	}
 	tjaPath := filepath.Join(j.dir, "stored.tja")

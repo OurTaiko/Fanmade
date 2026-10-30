@@ -26,7 +26,7 @@ func TestChartSlots(t *testing.T) {
 		{"style in block", "#START\nSTYLE:Double\n1000,\n#END\n", nil, "TJA_STRUCTURE_INVALID"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			m, issue := Parse([]byte(header+tc.body), "utf-8", "music.ogg")
+			m, issue := Parse([]byte(header+tc.body), "music.ogg")
 			if tc.errorCode != "" {
 				if issue == nil || issue.Code != tc.errorCode || issue.Line == 0 {
 					t.Fatalf("expected %s, got %v", tc.errorCode, issue)

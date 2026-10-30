@@ -37,7 +37,7 @@ func TestESECorpus(t *testing.T) {
 				break
 			}
 		}
-		_, issue := Parse(b, "utf-8", wave)
+		_, issue := Parse(b, wave)
 		if forbidden.Match(b) {
 			unsupported++
 			if issue == nil || (issue.Code != "TJA_COURSE_UNSUPPORTED" && issue.Code != "TJA_RESOURCE_UNSUPPORTED") {

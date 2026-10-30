@@ -62,11 +62,7 @@ func (s *Server) previewReplacement(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	encoding := r.FormValue("encoding")
-	if encoding == "" {
-		encoding = "utf-8"
-	}
-	normalized, issue := tja.NormalizeUTF8(data, encoding)
+	normalized, issue := tja.NormalizeUTF8(data)
 	if issue != nil {
 		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "validationVersion": tja.Version})
 		return
@@ -80,7 +76,7 @@ func (s *Server) previewReplacement(w http.ResponseWriter, r *http.Request) {
 		}
 		wave = name
 	}
-	meta, issue := tja.Parse(normalized, "utf-8", wave)
+	meta, issue := tja.Parse(normalized, wave)
 	if issue != nil {
 		respond(w, 422, map[string]any{"code": issue.Code, "message": issue.Message, "errors": []*tja.Issue{issue}, "validationVersion": tja.Version})
 		return

@@ -16,9 +16,9 @@ func TestSharedContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	var cases []struct {
-		Name, Text, Audio, Code, Encoding string
-		Raw                               []byte
-		Line                              int
+		Name, Text, Audio, Code string
+		Raw                     []byte
+		Line                    int
 	}
 	if err := json.Unmarshal(data, &cases); err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func TestSharedContract(t *testing.T) {
 			if c.Raw != nil {
 				b = c.Raw
 			}
-			m, e := Parse(b, c.Encoding, c.Audio)
+			m, e := Parse(b, c.Audio)
 			code := ""
 			if e != nil {
 				code = e.Code
@@ -50,7 +50,7 @@ func FuzzParse(f *testing.F) {
 	f.Add([]byte("TITLE:Test\nBPM:120\nWAVE:music.ogg\nLEVEL:5\n#START\n1000,\n#END"))
 	f.Fuzz(func(t *testing.T, b []byte) {
 		if len(b) <= MaxTJA {
-			Parse(b, "utf-8", "music.ogg")
+			Parse(b, "music.ogg")
 		}
 	})
 }
@@ -59,7 +59,7 @@ func FuzzParse(f *testing.F) {
 func TestNotesDesigners(t *testing.T) {
 	source := "TITLE:Song\nBPM:120\nWAVE:a.ogg\nMAKER:All\nNOTESDESIGNER3:Oni maker\nNOTESDESIGNER4:Edit maker\n" +
 		"COURSE:Oni\nLEVEL:8\n#START\n1,\n#END\nCOURSE:Ura\nLEVEL:9\n#START\n1,\n#END\nCOURSE:Easy\nLEVEL:2\n#START\n1,\n#END\n"
-	m, issue := parse([]byte(source), "utf-8", "a.ogg", true)
+	m, issue := parse([]byte(source), "a.ogg", true)
 	if issue != nil {
 		t.Fatal(issue)
 	}

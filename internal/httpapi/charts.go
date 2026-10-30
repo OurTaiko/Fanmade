@@ -42,7 +42,6 @@ type Chart struct {
 	// UpdateAt is when the chart or anything about it last changed (R010, as on OurTaiko Database).
 	UpdateAt  time.Time `json:"updateAt"`
 	Duration  float64   `json:"duration"`
-	Encoding  string    `json:"encoding"`
 	TJAName   string    `json:"tjaName"`
 	AudioName string    `json:"audioName"`
 	// The stored file's hash: object key and download check, not the chart's identity (that is
@@ -80,7 +79,7 @@ const chartSelect = `SELECT c.id,c.number_id,c.owner_ids,''::text,c.description,
  FROM charts c JOIN chart_resources tf ON tf.id=c.tja_file JOIN chart_resources af ON af.id=c.audio_file LEFT JOIN chart_resources mf ON mf.id=c.movie_file `
 
 func readChart(row pgx.Row) (Chart, error) {
-	c := Chart{Encoding: "utf-8"} // Compatibility field; stored TJA bytes are always UTF-8.
+	c := Chart{}
 	var difficulties []byte
 	var flags CategoryFlags
 	e := row.Scan(&c.ID, &c.NumberID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.UpdateAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)

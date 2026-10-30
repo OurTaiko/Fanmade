@@ -8,7 +8,7 @@ describe('shared TJA upload contract', () => {
       const bytes = c.raw ? new Uint8Array(c.raw) : new TextEncoder().encode(c.text)
       if (c.code) {
         try {
-          parseTja(bytes, c.encoding, c.audio)
+          parseTja(bytes, c.audio)
           expect.fail('must reject invalid input')
         } catch (error) {
           expect(error).toBeInstanceOf(ValidationError)
@@ -16,7 +16,7 @@ describe('shared TJA upload contract', () => {
           if (c.line) expect((error as ValidationError).line).toBe(c.line)
         }
       } else {
-        const metadata = parseTja(bytes, c.encoding, c.audio)
+        const metadata = parseTja(bytes, c.audio)
         expect(metadata.title).toBeTruthy()
         expect(metadata.difficulties.length).toBeGreaterThan(0)
         if (c.name === 'multi difficulty')
@@ -31,13 +31,9 @@ it('defaults every difficulty to the scanned MAKER', () => {
     ['Hard', 'Oni', 'Edit']
       .map((course) => `COURSE:${course}\nLEVEL:5\n#START\n1000,\n#END\n`)
       .join('')
-  const metadata = parseTja(new TextEncoder().encode(text), 'utf-8', 'test.ogg')
+  const metadata = parseTja(new TextEncoder().encode(text), 'test.ogg')
   expect(metadata.difficulties.map((d) => d.maker)).toEqual(['A', 'A', 'A'])
-  const blank = parseTja(
-    new TextEncoder().encode(text.replace('MAKER:A\n', '')),
-    'utf-8',
-    'test.ogg',
-  )
+  const blank = parseTja(new TextEncoder().encode(text.replace('MAKER:A\n', '')), 'test.ogg')
   expect(blank.difficulties.map((d) => d.maker)).toEqual(['', '', ''])
 })
 
@@ -46,8 +42,7 @@ it('reads single, P1 and P2 blocks of a course as slots of one file', () => {
   const p1 = '#START P1\n1000,\n#END\n',
     p2 = '#START P2\n2000,\n#END\n',
     single = '#START\n1000,\n#END\n'
-  const parse = (body: string) =>
-    parseTja(new TextEncoder().encode(header + body), 'utf-8', 'a.ogg')
+  const parse = (body: string) => parseTja(new TextEncoder().encode(header + body), 'a.ogg')
   const chart = parse('STYLE:Double\n' + p2 + p1)
   expect(chart.difficulties.map((d) => [d.course, d.side])).toEqual([
     ['Oni', 'p2'],
@@ -63,8 +58,7 @@ it('reads single, P1 and P2 blocks of a course as slots of one file', () => {
 it('reads BGMOVIE and MOVIEOFFSET and matches the selected video to them', () => {
   const text = (headers: string) =>
     `TITLE:M\nBPM:120\nWAVE:a.ogg\n${headers}COURSE:Oni\nLEVEL:5\n#START\n1000,\n#END\n`
-  const parse = (headers: string) =>
-    parseTja(new TextEncoder().encode(text(headers)), 'utf-8', 'a.ogg')
+  const parse = (headers: string) => parseTja(new TextEncoder().encode(text(headers)), 'a.ogg')
   const declared = parse('BGMOVIE:映像.mp4\nMOVIEOFFSET:-0.5\n')
   expect([declared.movie, declared.movieOffset]).toEqual(['映像.mp4', -0.5])
   const plain = parse('')
@@ -99,7 +93,7 @@ describe('chart makers', () => {
     const source =
       'TITLE:Song\nBPM:120\nWAVE:a.ogg\nMAKER:All\nNOTESDESIGNER3:Oni maker\nNOTESDESIGNER4:Edit maker\n' +
       'COURSE:Oni\nLEVEL:8\n#START\n1,\n#END\nCOURSE:Ura\nLEVEL:9\n#START\n1,\n#END\nCOURSE:Easy\nLEVEL:2\n#START\n1,\n#END\n'
-    const m = parseTja(new TextEncoder().encode(source), 'utf-8', 'a.ogg')
+    const m = parseTja(new TextEncoder().encode(source), 'a.ogg')
     expect(m.difficulties.map((d) => `${d.course}=${d.maker}`)).toEqual([
       'Oni=Oni maker',
       'Edit=Edit maker',

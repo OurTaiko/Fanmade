@@ -25,7 +25,7 @@ it.skipIf(!process.env.ESE_ROOT)(
         count++
         if (/^\s*COURSE\s*:\s*(Tower|Dan|5|6)\s*(\/\/.*)?$/im.test(text)) {
           try {
-            parseTja(bytes, 'utf-8', wave)
+            parseTja(bytes, wave)
             expect.fail(`unsupported course accepted: ${path}`)
           } catch (e) {
             expect(['TJA_COURSE_UNSUPPORTED', 'TJA_RESOURCE_UNSUPPORTED'], path).toContain(
@@ -33,15 +33,15 @@ it.skipIf(!process.env.ESE_ROOT)(
             )
           }
         } else if (path.endsWith('02 Anime/Together/Together.tja')) {
-          expect(() => parseTja(bytes, 'utf-8', wave)).toThrow(ValidationError)
+          expect(() => parseTja(bytes, wave)).toThrow(ValidationError)
         } else if (text.includes('#NEXTSONG')) {
           try {
-            parseTja(bytes, 'utf-8', wave)
+            parseTja(bytes, wave)
             expect.fail(`multi-audio accepted: ${path}`)
           } catch (e) {
             expect((e as ValidationError).code, path).toBe('TJA_RESOURCE_UNSUPPORTED')
           }
-        } else expect(parseTja(bytes, 'utf-8', wave).difficulties.length, path).toBeGreaterThan(0)
+        } else expect(parseTja(bytes, wave).difficulties.length, path).toBeGreaterThan(0)
       }
     }
     await walk(root)

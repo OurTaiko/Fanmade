@@ -106,7 +106,7 @@ func (s *Server) Handler() http.Handler {
 		respond(w, 200, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("GET /api/v1/upload-rules", func(w http.ResponseWriter, r *http.Request) {
-		respond(w, 200, map[string]any{"validationVersion": tja.Version, "maxTjaBytes": tja.MaxTJA, "maxAudioBytes": tja.MaxAudio, "maxCoverBytes": cover.MaxBytes, "coverExtensions": []string{".jpg", ".png", ".webp"}, "encodings": []string{"utf-8", "shift-jis"}, "audioCodecs": []string{"vorbis", "mp3"}, "audioExtensions": []string{".ogg", ".mp3"},
+		respond(w, 200, map[string]any{"validationVersion": tja.Version, "maxTjaBytes": tja.MaxTJA, "maxAudioBytes": tja.MaxAudio, "maxCoverBytes": cover.MaxBytes, "coverExtensions": []string{".jpg", ".png", ".webp"}, "encodings": []string{"utf-8"}, "audioCodecs": []string{"vorbis", "mp3"}, "audioExtensions": []string{".ogg", ".mp3"},
 			"maxMovieBytes": video.MaxBytes, "movieExtensions": []string{".mp4", ".webm", ".mov"},
 			"movieOutput": map[string]any{"codec": "h264", "extension": "." + video.Extension, "maxWidth": video.MaxWidth, "maxHeight": video.MaxHeight, "maxFps": video.MaxFPS, "maxKbps": video.MaxKbps, "audio": false}})
 	})

@@ -831,15 +831,15 @@ func migrateToMode(ctx context.Context, pool *pgxpool.Pool, storage string, targ
 }
 
 func backfillLocalizedTitles(ctx context.Context, tx pgx.Tx, storage string) error {
-	rows, err := tx.Query(ctx, `SELECT v.id,v.encoding,v.wave_filename,f.storage_key FROM chart_versions v JOIN files f ON f.id=v.tja_file_id`)
+	rows, err := tx.Query(ctx, `SELECT v.id,v.wave_filename,f.storage_key FROM chart_versions v JOIN files f ON f.id=v.tja_file_id`)
 	if err != nil {
 		return err
 	}
-	type version struct{ id, encoding, wave, key string }
+	type version struct{ id, wave, key string }
 	versions := []version{}
 	for rows.Next() {
 		var v version
-		if err = rows.Scan(&v.id, &v.encoding, &v.wave, &v.key); err != nil {
+		if err = rows.Scan(&v.id, &v.wave, &v.key); err != nil {
 			rows.Close()
 			return err
 		}
@@ -858,7 +858,7 @@ func backfillLocalizedTitles(ctx context.Context, tx pgx.Tx, storage string) err
 		if err != nil {
 			return fmt.Errorf("read version %s: %w", v.id, err)
 		}
-		meta, issue := tja.ParseLegacy(data, v.encoding, v.wave)
+		meta, issue := tja.ParseLegacy(data, v.wave)
 		if issue != nil {
 			return fmt.Errorf("parse version %s: %w", v.id, issue)
 		}
@@ -872,16 +872,16 @@ func backfillLocalizedTitles(ctx context.Context, tx pgx.Tx, storage string) err
 // Old rows only recorded P1/P2, so STYLE:Double with a plain #START must be
 // recovered from the original file too. Never guess eligibility from player alone.
 func backfillStyles(ctx context.Context, tx pgx.Tx, storage string) error {
-	rows, err := tx.Query(ctx, `SELECT v.id, v.encoding, v.wave_filename, f.storage_key
+	rows, err := tx.Query(ctx, `SELECT v.id, v.wave_filename, f.storage_key
 	 FROM chart_versions v JOIN files f ON f.id=v.tja_file_id`)
 	if err != nil {
 		return err
 	}
-	type version struct{ id, encoding, wave, key string }
+	type version struct{ id, wave, key string }
 	versions := []version{}
 	for rows.Next() {
 		var v version
-		if err = rows.Scan(&v.id, &v.encoding, &v.wave, &v.key); err != nil {
+		if err = rows.Scan(&v.id, &v.wave, &v.key); err != nil {
 			rows.Close()
 			return err
 		}
@@ -900,7 +900,7 @@ func backfillStyles(ctx context.Context, tx pgx.Tx, storage string) error {
 		if err != nil {
 			return fmt.Errorf("read TJA for version %s: %w", v.id, err)
 		}
-		meta, issue := tja.ParseLegacy(data, v.encoding, v.wave)
+		meta, issue := tja.ParseLegacy(data, v.wave)
 		if issue != nil {
 			return fmt.Errorf("parse TJA for version %s: %w", v.id, issue)
 		}

@@ -28,7 +28,7 @@ describe('uploading a TJA in another encoding', () => {
   })
   it('enforces the size limit again after UTF-8 expansion', async () => {
     const expanded = text + ('// ' + 'あ'.repeat(200) + '\n').repeat(4000)
-    const value = '﻿' + expanded
+    const value = '\uFEFF' + expanded
     const source = new Uint8Array(value.length * 2)
     const view = new DataView(source.buffer)
     for (let i = 0; i < value.length; i++) view.setUint16(i * 2, value.charCodeAt(i), true)

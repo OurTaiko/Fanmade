@@ -124,7 +124,7 @@ it('preserves localized TJA fields for the upload preview', async () => {
   const data = new TextEncoder().encode(
     'TITLE:Original\nTITLEEN:English translation\nSUBTITLEEN:English subtitle\nTITLEZH:中文曲名\nTITLEJA:日本語\nSUBTITLEKO:한국어 부제\nWAVE:audio.ogg\nBPM:120\nCOURSE:Oni\nLEVEL:1\n#START\n1000,\n#END\n',
   )
-  const metadata = parseTja(data, 'utf-8', 'audio.ogg')
+  const metadata = parseTja(data, 'audio.ogg')
   expect(chartText(metadata, 'ko')).toEqual({
     title: 'English translation',
     subtitle: '한국어 부제',

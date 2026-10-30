@@ -38,7 +38,6 @@ func TestDifficultyConstants(t *testing.T) {
 		"COURSE:Oni\nLEVEL:8\n#START\n1000,\n#BRANCHSTART p,80,95\n#N\n1000,\n#E\n2020,\n#M\n3434,\n#BRANCHEND\n1,\n#END\n"))
 	af, _ := form.CreateFormFile("audio", "cbr.mp3")
 	af.Write(audio)
-	form.WriteField("encoding", "utf-8")
 	form.Close()
 	r := httptest.NewRequest("POST", "/api/v1/charts", &body)
 	r.Header.Set("Content-Type", form.FormDataContentType())

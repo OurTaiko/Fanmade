@@ -44,14 +44,16 @@ func TestUploadStoresCanonicalUTF8(t *testing.T) {
 	if !ok || !bytes.Contains(stored, []byte("\r\nWAVE:"+hash(string(audio))+".mp3\r\nCOURSE:Oni\r\n")) {
 		t.Fatal("WAVE header not rewritten in place")
 	}
-	post := func(data []byte, encoding, key string) *httptest.ResponseRecorder {
+	post := func(data []byte, key string, fields ...string) *httptest.ResponseRecorder {
 		var body bytes.Buffer
 		form := multipart.NewWriter(&body)
 		tf, _ := form.CreateFormFile("tja", "chart.tja")
 		tf.Write(data)
 		af, _ := form.CreateFormFile("audio", "cbr.mp3")
 		af.Write(audio)
-		form.WriteField("encoding", encoding)
+		for i := 0; i+1 < len(fields); i += 2 {
+			form.WriteField(fields[i], fields[i+1])
+		}
 		form.Close()
 		r := httptest.NewRequest("POST", "/api/v1/charts", &body)
 		r.Header.Set("Content-Type", form.FormDataContentType())
@@ -64,23 +66,22 @@ func TestUploadStoresCanonicalUTF8(t *testing.T) {
 		return w
 	}
 	for _, tc := range []struct {
-		name, encoding string
-		data           []byte
+		name string
+		data []byte
 	}{
-		{"UTF-8", "utf-8", canonical},
-		{"UTF-8 BOM", "utf-8", append([]byte("\uFEFF"), canonical...)},
-		{"Shift-JIS", "shift-jis", sjis},
+		{"UTF-8", canonical},
+		{"UTF-8 BOM", append([]byte("\uFEFF"), canonical...)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			key := ID()
-			w := post(tc.data, tc.encoding, key)
+			w := post(tc.data, key)
 			var chart Chart
 			if w.Code != 201 || json.Unmarshal(w.Body.Bytes(), &chart) != nil {
 				t.Fatal(w.Code, w.Body.String())
 			}
 			digest := sha256.Sum256(stored)
-			if chart.Encoding != "utf-8" || chart.Title != "初音ミク" {
-				t.Fatal("noncanonical metadata", chart.Encoding, chart.Title)
+			if chart.Title != "初音ミク" {
+				t.Fatal("noncanonical metadata", chart.Title)
 			}
 			// The stored file is the normalized bytes (the API no longer tells its hash).
 			var size int64
@@ -116,14 +117,21 @@ func TestUploadStoresCanonicalUTF8(t *testing.T) {
 					t.Fatal("download differs from normalized stored bytes", kind)
 				}
 			}
-			w = post(canonical, "utf-8", key)
+			w = post(canonical, key)
 			if w.Code != 200 {
 				t.Fatal("canonical idempotent retry", w.Code, w.Body.String())
 			}
 		})
 	}
-	w := post(sjis, "utf-8", ID())
+	// Uploads are UTF-8 only: the browser converts Shift-JIS and the rest first.
+	w := post(sjis, ID())
 	if w.Code != 422 || !strings.Contains(w.Body.String(), "TJA_ENCODING_INVALID") {
-		t.Fatal("invalid UTF-8 must not be trusted", w.Code, w.Body.String())
+		t.Fatal("Shift-JIS must be refused", w.Code, w.Body.String())
+	}
+	// The encoding field is gone, whatever it says.
+	for _, encoding := range []string{"utf-8", "shift-jis"} {
+		if w = post(canonical, ID(), "encoding", encoding); w.Code != 400 || !strings.Contains(w.Body.String(), "UPLOAD_FILES_INVALID") {
+			t.Fatal("encoding field accepted", encoding, w.Code, w.Body.String())
+		}
 	}
 }

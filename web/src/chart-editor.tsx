@@ -185,7 +185,7 @@ export function ChartEditorPage() {
     try {
       const bytes = new TextEncoder().encode(text)
       // The same validation the upload runs, against the stored audio's name.
-      const parsed = parseTja(bytes, 'utf-8', chart.wave)
+      const parsed = parseTja(bytes, chart.wave)
       const file = new File([bytes], chart.tjaName, { type: 'text/plain;charset=utf-8' })
       const dropsMovie = !parsed.movie && !!chart.movieHash
       setReviewing({ file, dropsMovie, preview: null, review: null })

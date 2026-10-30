@@ -124,26 +124,26 @@ func Available() bool {
 // Parse validates an upload and reads it as the game does. The header and structure rules of
 // the upload contract (contracts/validation.json) are checked here first; the blocks and their
 // content hashes then come from TJAParser, which also refuses what the game cannot list.
-func Parse(data []byte, encoding, audioName string) (Metadata, *Issue) {
-	m, issue := parse(data, encoding, audioName, true)
+func Parse(data []byte, audioName string) (Metadata, *Issue) {
+	m, issue := parse(data, audioName, true)
 	if issue != nil {
 		return m, issue
 	}
-	return inspect(m, data, encoding)
+	return inspect(m, data)
 }
 
 // ParseLegacy supports historical schema backfills before the mode migration: the header scan
 // alone, with no block hashes.
-func ParseLegacy(data []byte, encoding, audioName string) (Metadata, *Issue) {
-	return parse(data, encoding, audioName, false)
+func ParseLegacy(data []byte, audioName string) (Metadata, *Issue) {
+	return parse(data, audioName, false)
 }
 
 // inspect completes a scanned chart with TJAParser's reading of it: titles by locale as the
 // game maps them (origin + en/ja/ko/zh/zh_tw), each block's maker (NOTESDESIGNERn, else
 // MAKER), content hash, parse warnings and the raw difficulty constants. A block the game
 // cannot play is refused.
-func inspect(m Metadata, data []byte, encoding string) (Metadata, *Issue) {
-	normalized, issue := NormalizeUTF8(data, encoding)
+func inspect(m Metadata, data []byte) (Metadata, *Issue) {
+	normalized, issue := NormalizeUTF8(data)
 	if issue != nil {
 		return m, issue
 	}
@@ -196,9 +196,9 @@ func issueLine(message string) int {
 	return 0
 }
 
-func parse(data []byte, encoding, audioName string, uniform bool) (Metadata, *Issue) {
+func parse(data []byte, audioName string, uniform bool) (Metadata, *Issue) {
 	m := Metadata{Difficulties: []Difficulty{}, TitleTranslations: map[string]string{}, SubtitleTranslations: map[string]string{}}
-	data, issue := NormalizeUTF8(data, encoding)
+	data, issue := NormalizeUTF8(data)
 	if issue != nil {
 		return m, issue
 	}

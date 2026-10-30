@@ -158,7 +158,7 @@ func (s *Server) sourceMetadata(ctx context.Context, tx pgx.Tx, id string) (tja.
 	if len(data) > tja.MaxTJA {
 		return tja.Metadata{}, fmt.Errorf("source TJA exceeds limit")
 	}
-	parsed, issue := tja.Parse(data, "utf-8", tja.WaveName(data))
+	parsed, issue := tja.Parse(data, tja.WaveName(data))
 	if issue != nil {
 		return tja.Metadata{}, issue
 	}

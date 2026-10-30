@@ -10,7 +10,7 @@ func TestConstantsForEveryRoute(t *testing.T) {
 	text := "TITLE:Constants\nBPM:120\nWAVE:a.ogg\n" +
 		"COURSE:Hard\nLEVEL:6\n#START\n1020,\n1122,\n#END\n" +
 		"COURSE:Oni\nLEVEL:9\n#START\n1000,\n#BRANCHSTART p,80,95\n#N\n1000,\n#E\n2020,\n#M\n3434,\n#BRANCHEND\n1,\n#END\n"
-	m, issue := Parse([]byte(text), "utf-8", "a.ogg")
+	m, issue := Parse([]byte(text), "a.ogg")
 	if issue != nil {
 		t.Fatal(issue)
 	}

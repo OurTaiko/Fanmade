@@ -1,4 +1,4 @@
-import { isChartOwner } from './chart-owners'
+import { isChartOwner } from '@sitekit/chart-owners'
 import { danTitle } from '@sitekit/dan-title'
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -27,7 +27,7 @@ import type {
   Vote,
   VoteResult,
 } from '@/api/types'
-import { formatLocale } from '@/i18n'
+import { formatLocale } from '@sitekit/i18n'
 import { cn } from '@sitekit/lib/utils'
 import { Button, buttonVariants } from '@sitekit/components/ui/button'
 import { DialogClose } from '@sitekit/components/ui/dialog'
@@ -35,7 +35,7 @@ import { Textarea } from '@sitekit/components/ui/textarea'
 import { Skeleton } from '@sitekit/components/ui/skeleton'
 import { ChoiceSelect } from '@sitekit/components/choice-select'
 import { UserAvatar } from '@sitekit/components/user-avatar'
-import { VoteControl, loginPath } from '@/components/vote-control'
+import { VoteControl, loginPath } from '@sitekit/components/vote-control'
 import { Modal, Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
 import { useSession } from '@/session-context'

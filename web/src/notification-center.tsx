@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@sitekit/components/ui/dropdown-menu'
 import { UserAvatar } from '@sitekit/components/user-avatar'
-import { loginPath } from '@/components/vote-control'
+import { loginPath } from '@sitekit/components/vote-control'
 import { RelativeTime, commentPath, danCommentPath } from '@/comments'
 import { danTitle } from '@sitekit/dan-title'
 import { cn } from '@sitekit/lib/utils'

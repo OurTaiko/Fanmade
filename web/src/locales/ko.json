@@ -2,7 +2,7 @@
   "messages": {
     "lastChanged": "최근 변경",
     "publicChartCount": "공개 채보",
-    "firstFanmadeLogin": "Fanmade 첫 로그인",
+    "firstLogin": "Fanmade 첫 로그인",
     "noPublishedChartsYet": "아직 공개한 채보가 없습니다",
     "memberNamesUnavailable": "닉네임을 가져올 수 없습니다. 채보와 점수 통계는 계속 표시됩니다.",
     "userPublishedCharts": "이 사용자의 공개 채보",

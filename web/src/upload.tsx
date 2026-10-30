@@ -1,6 +1,6 @@
-import { isChartOwner } from './chart-owners'
-import { chartText } from '@/chart-language'
-import { i18n } from '@/i18n'
+import { isChartOwner } from '@sitekit/chart-owners'
+import { chartText } from '@sitekit/chart-language'
+import { i18n } from '@sitekit/i18n'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sitekit/components/ui/tabs'
@@ -31,7 +31,7 @@ import {
   UploadSimpleIcon as Upload,
   WarningIcon,
 } from '@phosphor-icons/react'
-import { CoverPicker } from '@/components/cover-picker'
+import { CoverPicker } from '@sitekit/components/cover-picker'
 import { MoviePicker } from '@sitekit/components/movie-picker'
 import { CategoryPicker } from './categories'
 import { api, previewReplacement, uploadChart } from '@sitekit/api/client'

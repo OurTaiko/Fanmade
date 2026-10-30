@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { formatLocale, i18n } from '@/i18n'
+import { formatLocale, i18n } from '@sitekit/i18n'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@sitekit/components/ui/tabs'
@@ -37,12 +37,12 @@ import {
   groupName,
 } from './courses'
 import { Notice } from '@sitekit/notifications'
-import { withChartTitles } from './tja-titles'
+import { withChartTitles } from '@sitekit/tja-titles'
 import { useSession } from './session-context'
 import { maxTja } from './tja'
 
 const ChartPreview = lazy(() => import('./chart-preview'))
-const EmbeddedPlayer = lazy(() => import('./embedded-player'))
+const EmbeddedPlayer = lazy(() => import('@sitekit/embedded-player'))
 
 const difficultyTabColors = {
   Easy: '[--difficulty-bg:#f9a15a]',

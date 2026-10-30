@@ -1,7 +1,7 @@
 import { downloadZip } from 'client-zip'
 import { endpoints } from './api/endpoints'
 import type { Chart } from './api/types'
-import { withChartTitles } from './tja-titles'
+import { withChartTitles } from '@sitekit/tja-titles'
 
 type PackageFile = { url: string; name: string; sha256?: string; size?: number; tja?: boolean }
 type Manifest = {

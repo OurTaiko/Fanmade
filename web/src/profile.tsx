@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { languageNames, normalizeLanguage } from './i18n'
+import { languageNames, normalizeLanguage } from '@sitekit/i18n'
 import { endpoints } from '@/api/endpoints'
 import { UserAvatar } from '@sitekit/components/user-avatar'
 import { buttonVariants } from '@sitekit/components/ui/button'

@@ -15,10 +15,7 @@ export * from '@sitekit/api/types'
 export type User = UserBase
 export type Session = SharedSession<User>
 export type Category = CategoryBase
-export type Chart = Metadata &
-  ChartBase & {
-    previewPath?: string
-  }
+export type Chart = Metadata & ChartBase
 export type ChartList = SharedChartList<Chart>
 export type Playlist = SharedPlaylist<Chart>
 export type PlaylistPage = SharedPlaylistPage<Chart>

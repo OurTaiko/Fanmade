@@ -1,4 +1,4 @@
-import { t } from './i18n'
+import { t } from '@sitekit/i18n'
 import { parseTjaCourse } from './courses'
 import { normalizeTja } from '@sitekit/tja-encoding'
 import { ValidationError } from '@sitekit/validation-error'
@@ -7,9 +7,8 @@ export { ValidationError } from '@sitekit/validation-error'
 export type { Side, Difficulty, DifficultyConstants, TitleTexts } from '@sitekit/api/types'
 
 export const validationVersion = 'tja-upload-v12'
-export const maxTja = 2 * 1024 * 1024
-export const maxAudio = 100 * 1024 * 1024
-export const maxMovie = 64 * 1024 * 1024
+import { maxAudio, maxMovie, maxTja } from '@sitekit/tja-limits'
+export { maxTja, maxAudio, maxMovie } from '@sitekit/tja-limits'
 export type Metadata = {
   title: string
   subtitle: string

@@ -1,4 +1,4 @@
-import { t } from './i18n'
+import { t } from '@sitekit/i18n'
 import type { Difficulty } from './tja'
 const baseNames = {
   get Easy() {

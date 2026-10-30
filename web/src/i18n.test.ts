@@ -1,7 +1,7 @@
 import i18next, { type CustomTypeOptions } from 'i18next'
 import { afterEach, describe, expect, it } from 'vitest'
-import { i18n, normalizeLanguage } from './i18n'
-import { chartText } from './chart-language'
+import { i18n, normalizeLanguage } from '@sitekit/i18n'
+import { chartText } from '@sitekit/chart-language'
 
 // The catalogues as the site uses them: OurTaikoSiteKit's with this site's keys added.
 type Catalogue = CustomTypeOptions['resources']['translation']

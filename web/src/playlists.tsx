@@ -15,7 +15,7 @@ import {
 import { api, jsonRequest } from '@sitekit/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, MyPlaylists, Playlist, PlaylistPage as PlaylistList } from '@/api/types'
-import { chartText } from '@/chart-language'
+import { chartText } from '@sitekit/chart-language'
 import { ChartCard } from '@/components/chart-card'
 import { ChoiceSelect } from '@sitekit/components/choice-select'
 import { SearchInput } from '@sitekit/components/search-input'
@@ -28,7 +28,7 @@ import { cn } from '@sitekit/lib/utils'
 import { Modal, Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
 import { useSession } from '@/session-context'
-import { PlaylistSongSearchDialog } from '@/playlist-song-search'
+import { PlaylistSongSearchDialog } from '@sitekit/playlist-song-search'
 import {
   usePlaylistText,
   playlistCoverSource,

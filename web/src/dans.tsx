@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CommentSection, danSubject } from '@/comments'
 import { danTitle } from '@sitekit/dan-title'
 export { danTitle }
-import { VoteControl } from '@/components/vote-control'
+import { VoteControl } from '@sitekit/components/vote-control'
 import {
   ChatCircleIcon,
   ArrowClockwiseIcon,
@@ -29,7 +29,7 @@ import type {
   Vote,
   VoteResult,
 } from '@/api/types'
-import { chartText } from '@/chart-language'
+import { chartText } from '@sitekit/chart-language'
 import { ChoiceSelect } from '@sitekit/components/choice-select'
 import { SearchInput } from '@sitekit/components/search-input'
 import { Badge } from '@sitekit/components/ui/badge'
@@ -51,7 +51,7 @@ import {
   titleText,
   titleUsableBy,
   useProfileTitles,
-} from '@/profile-titles'
+} from '@sitekit/profile-titles'
 import { useSession } from '@/session-context'
 import { cn } from '@sitekit/lib/utils'
 

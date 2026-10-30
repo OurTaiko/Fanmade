@@ -1,4 +1,4 @@
-import { t } from '@/i18n'
+import { t } from '@sitekit/i18n'
 import { courseNames, slotKey } from './courses'
 import { useTranslation } from 'react-i18next'
 import { endpoints } from '@/api/endpoints'

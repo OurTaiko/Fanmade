@@ -1,4 +1,4 @@
-import { t } from './i18n'
+import { t } from '@sitekit/i18n'
 import { parseTjaCourse } from './courses'
 import { parseTJA } from '../TJARenderer/src/tja-parser'
 import type { ParsedChart } from '../TJARenderer/src/tja-parser'

@@ -17,7 +17,7 @@ import {
   WarningIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { api, jsonRequest } from '@/api/client'
+import { api, jsonRequest } from '@sitekit/api/client'
 import { endpoints } from '@/api/endpoints'
 import type {
   Chart,

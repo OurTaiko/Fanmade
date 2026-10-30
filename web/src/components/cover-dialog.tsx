@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api } from '@/api/client'
+import { api } from '@sitekit/api/client'
 import { Button } from '@sitekit/components/ui/button'
 import { CoverPicker } from '@/components/cover-picker'
 import { Modal } from '@sitekit/notifications'

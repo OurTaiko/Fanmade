@@ -12,7 +12,7 @@ import {
   SortDescendingIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { api, jsonRequest } from '@/api/client'
+import { api, jsonRequest } from '@sitekit/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, MyPlaylists, Playlist, PlaylistPage as PlaylistList } from '@/api/types'
 import { chartText } from '@/chart-language'

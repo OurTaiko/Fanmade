@@ -8,7 +8,7 @@ import { ChoiceSelect } from '@sitekit/components/choice-select'
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { cn } from '@sitekit/lib/utils'
-import { api } from './api/client'
+import { api } from '@sitekit/api/client'
 import { categoryColor } from '@sitekit/category-colors'
 import type { Category } from './api/types'
 

@@ -14,7 +14,7 @@ import {
   FloppyDiskIcon,
   WarningCircleIcon,
 } from '@phosphor-icons/react'
-import { api, previewReplacement, uploadChart } from './api/client'
+import { api, previewReplacement, uploadChart } from '@sitekit/api/client'
 import type { Chart } from './api/types'
 import { baseCourse, courseNames, isSupportedCourse, slotKey } from './courses'
 import { isChartOwner } from './chart-owners'
@@ -104,7 +104,7 @@ export function ChartEditorPage() {
         // normalized before anything compares. The title headers are the
         // chart's own names, so saving keeps them.
         const source = withChartTitles(
-          new TextDecoder(loaded.encoding, { fatal: true }).decode(bytes).replace(/\r\n?/g, '\n'),
+          new TextDecoder('utf-8', { fatal: true }).decode(bytes).replace(/\r\n?/g, '\n'),
           loaded,
         )
         if (aborter.signal.aborted) return
@@ -228,13 +228,12 @@ export function ChartEditorPage() {
       form.append('tja', file)
       form.append('confirmReset', 'true')
       if (fields.keepTitles) form.append('keepTitles', 'true')
-      form.append('encoding', 'utf-8')
       form.append('description', fields.description)
       form.append('demoStart', String(fields.demoStart))
       form.append('demoEnd', String(fields.demoEnd))
       form.append('categoryIds', JSON.stringify(fields.categoryIds))
       form.append('difficultyMakers', JSON.stringify(fields.difficultyMakers))
-      const updated = await uploadChart(
+      const updated = await uploadChart<Chart>(
         form,
         session.csrfToken,
         requestKey.current,

@@ -1,49 +1,15 @@
 import { t } from './i18n'
 import { parseTjaCourse } from './courses'
-import { normalizeTja } from './tja-encoding'
-import { ValidationError } from './validation-error'
-export { ValidationError } from './validation-error'
+import { normalizeTja } from '@sitekit/tja-encoding'
+import { ValidationError } from '@sitekit/validation-error'
+import type { Difficulty, Side, TitleTexts } from '@sitekit/api/types'
+export { ValidationError } from '@sitekit/validation-error'
+export type { Side, Difficulty, DifficultyConstants, TitleTexts } from '@sitekit/api/types'
 
 export const validationVersion = 'tja-upload-v12'
 export const maxTja = 2 * 1024 * 1024
 export const maxAudio = 100 * 1024 * 1024
 export const maxMovie = 64 * 1024 * 1024
-export type Side = 'single' | 'p1' | 'p2'
-/**
- * One chart block: a course (Easy to Edit) on one side, as the arcade keeps a
- * single, a 1P and a 2P chart per course. The side is the block's #START:
- * plain is single, #START P1 p1, #START P2 p2.
- */
-export type Difficulty = {
-  /** The block's ID on the server; absent for a file that is not uploaded yet. */
-  id?: number
-  course: string
-  side: Side
-  level: number
-  maker: string
-  branching?: boolean
-  /**
-   * The server's content hash of the block as played ("v1:" + 64 hex): the block's identity for
-   * scores and 段位 courses. Null until the server has computed it; absent in the browser's own parse.
-   */
-  chartHash?: string | null
-  /** The block's difficulty constants by route, in a chart's detail only (none until rated). */
-  constants?: DifficultyConstants[]
-}
-/** One route's difficulty constants (定数): the main and 75/99 sub-constants and five dimensions, 0–15.5. */
-export type DifficultyConstants = {
-  route: 'unbranched' | 'normal' | 'expert' | 'master'
-  mainConstant: number
-  subConstant75: number
-  subConstant99: number
-  stamina: number
-  handspeed: number
-  burst: number
-  complex: number
-  rhythm: number
-}
-/** Title dictionaries as the TJA has them: `origin` is TITLE/SUBTITLE itself, the rest locales. */
-export type TitleTexts = Partial<Record<'origin' | 'en' | 'ja' | 'zh' | 'ko' | 'zh_tw', string>>
 export type Metadata = {
   title: string
   subtitle: string

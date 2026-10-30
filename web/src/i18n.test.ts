@@ -108,7 +108,7 @@ it('uses plural forms and resolves missing translations to Chinese', async () =>
 })
 
 it('localizes API error codes and keeps line diagnostics', async () => {
-  const { apiErrorMessage } = await import('./api/error-message')
+  const { apiErrorMessage } = await import('@sitekit/api/error-message')
   await i18n.changeLanguage('ja')
   expect(apiErrorMessage({ code: 'UNAUTHORIZED', message: '请先登录' })).toBe(
     'ログインしてください。',

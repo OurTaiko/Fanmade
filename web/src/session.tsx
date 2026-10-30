@@ -1,9 +1,9 @@
 import { endpoints } from '@/api/endpoints'
 import { useLocation } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
-import { SessionContext } from './session-context'
+import { SessionContext, type SessionState } from './session-context'
 import type { ReactNode } from 'react'
-import { api, jsonRequest } from './api/client'
+import { api, jsonRequest } from '@sitekit/api/client'
 import type { Session } from './api/types'
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
@@ -48,8 +48,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setError('')
     setSession({ user: null, csrfToken: '' })
   }
+  const value: SessionState = { ...session, loading, error, setSession, logout }
   return (
-    <SessionContext.Provider value={{ ...session, loading, error, setSession, logout }}>
+    <SessionContext.Provider value={value}>
       {children}
     </SessionContext.Provider>
   )

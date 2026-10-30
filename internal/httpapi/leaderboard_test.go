@@ -76,7 +76,7 @@ func TestLeaderboard(t *testing.T) {
 		return fmt.Sprintf("?difficultyId=%d", id)
 	}
 	v := get(path, 200, "")
-	if v.Course != "Oni" || v.Side != "single" || !v.Supported || v.Total != 23 || len(v.Items) != 20 {
+	if v.Course != "Oni" || v.Side != "single" || v.Total != 23 || len(v.Items) != 20 {
 		t.Fatalf("unexpected summary: %+v", v)
 	}
 	if v.Items[0].ID != "score00" || v.Items[0].Good != 300 || v.Items[0].MaxCombo != 300 || v.Items[0].Score.Score != 900000 || v.Items[0].Nickname != "player0" || v.Items[0].Rank != 1 || v.Items[1].Rank != 1 || v.Items[2].Rank != 3 {
@@ -89,7 +89,7 @@ func TestLeaderboard(t *testing.T) {
 	if v := get(path+"?page=3", 200, ""); v.Total != 23 || len(v.Items) != 0 {
 		t.Fatal(v)
 	}
-	if v := get(path+slot(song, "Hard"), 200, ""); !v.Supported || v.Course != "Hard" || v.Total != 0 || v.Items == nil {
+	if v := get(path+slot(song, "Hard"), 200, ""); v.Course != "Hard" || v.Total != 0 || v.Items == nil {
 		t.Fatal(v)
 	}
 	get(path+slot(song, "Easy"), 200, "")

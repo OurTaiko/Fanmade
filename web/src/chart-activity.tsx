@@ -24,7 +24,7 @@ import {
   StarIcon,
   ArrowCounterClockwiseIcon as RotateCcw,
 } from '@phosphor-icons/react'
-import { api } from './api/client'
+import { api } from '@sitekit/api/client'
 import type { Chart, Leaderboard } from './api/types'
 import {
   courseNames,
@@ -85,7 +85,7 @@ export function ChartActivity({
   // chosen block's slot key.
   const groups = groupCourses(chart.difficulties)
   const group = groups.find((g) => g.base === baseCourse(course))
-  const { id, encoding } = chart
+  const { id } = chart
   // Reload the text when any block changed (the file behind it did).
   const blockHashes = chart.difficulties.map((d) => d.chartHash ?? '').join(',')
   // The image and the player name the chart as the site does, not as the
@@ -109,7 +109,7 @@ export function ChartActivity({
         const bytes = await response.arrayBuffer()
         if (bytes.byteLength > maxTja)
           throw new Error(i18n.t('messages.chartExceedsThePreviewSizeLimit'))
-        const text = new TextDecoder(encoding, { fatal: true }).decode(bytes)
+        const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
         if (!controller.signal.aborted) setSource(text)
       } catch (e) {
         if (!controller.signal.aborted)
@@ -118,7 +118,7 @@ export function ChartActivity({
     }
     void load()
     return () => controller.abort()
-  }, [id, blockHashes, encoding, attempt])
+  }, [id, blockHashes, attempt])
 
   return (
     <Tabs
@@ -318,14 +318,6 @@ function ChartLeaderboard({ chart, course }: { chart: Chart; course: string }) {
       >
         {t('messages.loadingLeaderboard')}
       </p>
-    )
-  if (!data.supported)
-    return (
-      <div className="flex min-h-40 flex-col items-center justify-center gap-3 py-6 text-center">
-        <Notice kind="info" title={t('messages.leaderboardUnavailable')}>
-          {t('messages.serverDoesNotSupportLeaderboard')}
-        </Notice>
-      </div>
     )
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize))
   return (

@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { cn } from '@sitekit/lib/utils'
 import { CoverUploadDialog } from './cover-dialog'
 import type { Chart } from '../api/types'
-import { coverSource } from '../cover'
+import { coverSource } from '@sitekit/cover'
 
 export function ChartCover({ chart, className }: { chart: Chart; className?: string }) {
   const { t } = useTranslation()

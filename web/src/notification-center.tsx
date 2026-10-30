@@ -14,9 +14,9 @@ import {
   UploadSimpleIcon,
   XIcon,
 } from '@phosphor-icons/react'
-import { api, jsonRequest } from '@/api/client'
+import { api, jsonRequest } from '@sitekit/api/client'
 import { endpoints } from '@/api/endpoints'
-import { errorCodeMessage } from '@/api/error-message'
+import { errorCodeMessage } from '@sitekit/api/error-message'
 import type { AppNotification, NotificationPage, NotificationSetting } from '@/api/types'
 import { Button } from '@sitekit/components/ui/button'
 import { Checkbox } from '@sitekit/components/ui/checkbox'

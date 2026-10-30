@@ -21,7 +21,6 @@ type leaderboardResponse struct {
 	DifficultyID int64              `json:"difficultyId"`
 	Course       string             `json:"course"`
 	Side         string             `json:"side"`
-	Supported    bool               `json:"supported"`
 	Items        []leaderboardEntry `json:"items"`
 	Total        int                `json:"total"`
 	Page         int                `json:"page"`
@@ -77,7 +76,6 @@ func (s *Server) leaderboard(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	result.Supported = true
 	// Scores of replaced files are kept but no longer ranked.
 	err = tx.QueryRow(r.Context(), `SELECT count(DISTINCT user_id) FROM scores WHERE difficulty_id=$1 AND is_latest`, result.DifficultyID).Scan(&result.Total)
 	if err != nil {

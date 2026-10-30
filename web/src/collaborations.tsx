@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { api, jsonRequest } from '@/api/client'
+import { api, jsonRequest } from '@sitekit/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, UserDirectory } from '@/api/types'
 import { isChartOwner } from '@/chart-owners'

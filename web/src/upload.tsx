@@ -34,7 +34,7 @@ import {
 import { CoverPicker } from '@/components/cover-picker'
 import { MoviePicker } from '@sitekit/components/movie-picker'
 import { CategoryPicker } from './categories'
-import { api, previewReplacement, uploadChart } from './api/client'
+import { api, previewReplacement, uploadChart } from '@sitekit/api/client'
 import type { Chart } from './api/types'
 import { Modal, Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
@@ -330,13 +330,12 @@ export function UploadPage({
         form.append('confirmReset', 'true')
         if (fields.keepTitles) form.append('keepTitles', 'true')
       }
-      form.append('encoding', 'utf-8')
       form.append('description', fields.description)
       form.append('demoStart', String(fields.demoStart))
       form.append('demoEnd', String(fields.demoEnd))
       form.append('categoryIds', JSON.stringify(fields.categoryIds))
       form.append('difficultyMakers', JSON.stringify(fields.difficultyMakers))
-      const chart = await uploadChart(
+      const chart = await uploadChart<Chart>(
         form,
         session.csrfToken,
         requestKey.current,

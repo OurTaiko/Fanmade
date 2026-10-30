@@ -4,7 +4,7 @@ import { ImageIcon } from '@phosphor-icons/react'
 import { Button } from '@sitekit/components/ui/button'
 import { Input } from '@sitekit/components/ui/input'
 import { Label } from '@sitekit/components/ui/label'
-import { coverFileError } from '../cover'
+import { coverFileError } from '@sitekit/cover'
 
 export function CoverPicker({
   file,

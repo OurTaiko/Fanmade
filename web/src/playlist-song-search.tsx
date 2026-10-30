@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon } from '@phosphor-icons/react'
-import { api } from '@/api/client'
+import { api } from '@sitekit/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, ChartList } from '@/api/types'
 import { chartText } from '@/chart-language'

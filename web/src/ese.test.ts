@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, it } from 'vitest'
 import { parseTja, ValidationError } from './tja'
-import { normalizeTja } from './tja-encoding'
+import { normalizeTja } from '@sitekit/tja-encoding'
 
 it.skipIf(!process.env.ESE_ROOT)(
   'accepts the local ESE single-audio reference corpus',

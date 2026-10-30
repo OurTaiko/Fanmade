@@ -27,7 +27,7 @@ import {
   CaretRightIcon,
   PlaylistIcon,
 } from '@phosphor-icons/react'
-import { api, jsonRequest } from './api/client'
+import { api, jsonRequest } from '@sitekit/api/client'
 import type { Chart, ChartList } from './api/types'
 import { ChartCard } from '@/components/chart-card'
 import { slotKey, supportsChart } from './courses'
@@ -43,7 +43,7 @@ import { CommentSection, chartSubject } from './comments'
 import { VoteControl } from '@/components/vote-control'
 import { Tabs, TabsList, TabsTrigger } from '@sitekit/components/ui/tabs'
 import { cn } from '@sitekit/lib/utils'
-import { coverSource } from './cover'
+import { coverSource } from '@sitekit/cover'
 import { PageHero } from '@sitekit/components/page-hero'
 import { UploadPage } from './upload'
 import { EmptyState } from '@sitekit/components/empty-state'

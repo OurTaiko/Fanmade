@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PlusIcon } from '@phosphor-icons/react'
-import { api, jsonRequest } from '@/api/client'
+import { api, jsonRequest } from '@sitekit/api/client'
 import { endpoints } from '@/api/endpoints'
 import type { Chart, MyPlaylists, Playlist } from '@/api/types'
 import { CategorySelect } from '@/categories'

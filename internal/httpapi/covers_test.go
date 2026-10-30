@@ -229,7 +229,7 @@ func testCoverLifecycle(t *testing.T, useWebP, remote bool) {
 	if bytes.Equal(w.Body.Bytes(), initialBytes) {
 		t.Fatal("serving old cover")
 	}
-	detail := decode(get("/api/v1/charts/"+original.ID, ""))
+	detail := decode(get("/api/v1/charts/"+original.ID+"?by=id", ""))
 	if detail.CoverHash != result.CoverHash || detail.ID != original.ID || detail.OwnerID != original.OwnerID || detail.AudioHash != original.AudioHash || detail.TJAHash != original.TJAHash {
 		t.Fatal("changed chart resources")
 	}

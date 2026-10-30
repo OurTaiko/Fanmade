@@ -74,7 +74,7 @@ func TestChartCollaborations(t *testing.T) {
 		}
 	}
 	var chart Chart
-	if code := c.do("alice", "GET", "/api/v1/charts/song", "", &chart); code != 200 || len(chart.OwnerIDs) != 2 || !chart.hasOwner(alice) || len(chart.Owners) != 2 {
+	if code := c.do("alice", "GET", "/api/v1/charts/song?by=id", "", &chart); code != 200 || len(chart.OwnerIDs) != 2 || !chart.hasOwner(alice) || len(chart.Owners) != 2 {
 		t.Fatalf("accepted chart: %d %+v", code, chart)
 	}
 	if code := c.do("alice", "POST", path, `{"accept":false}`, nil); code != 409 {
@@ -109,7 +109,7 @@ func TestChartCollaborations(t *testing.T) {
 	if code := c.do("bob", "POST", declined, `{"accept":true}`, nil); code != 409 {
 		t.Fatal("accept declined", code)
 	}
-	c.do("bob", "GET", "/api/v1/charts/song", "", &chart)
+	c.do("bob", "GET", "/api/v1/charts/song?by=id", "", &chart)
 	if chart.hasOwner(bob) {
 		t.Fatal("decline granted ownership")
 	}
@@ -238,7 +238,7 @@ func TestLeaveCoOwnedChart(t *testing.T) {
 		t.Fatal("remaining owner cannot edit", code)
 	}
 	var chart Chart
-	if code := c.do("", "GET", "/api/v1/charts/song", "", &chart); code != 200 || chart.OwnerID != alice || len(chart.Owners) != 2 {
+	if code := c.do("", "GET", "/api/v1/charts/song?by=id", "", &chart); code != 200 || chart.OwnerID != alice || len(chart.Owners) != 2 {
 		t.Fatalf("chart after leaving: %d %+v", code, chart.OwnerIDs)
 	}
 	// The last two owners cannot both leave.

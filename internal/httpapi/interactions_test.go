@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -72,6 +73,53 @@ func interactionFixture(t *testing.T) (interactionClient, *Server) {
 	return interactionClient{t, s.Handler(), tokens}, s
 }
 
+// GET /charts/{id}: by=number finds the chart's number, by=id its ID; without by the form
+// decides.
+func TestChartDetailBy(t *testing.T) {
+	c, s := interactionFixture(t)
+	// Without by, an ID-shaped value (32 hex digits, even all digits) is an ID, others a number.
+	for _, id := range []string{"0123456789abcdef0123456789abcdef", "12345678901234567890123456789012"} {
+		if _, err := s.DB.Exec(context.Background(), `INSERT INTO charts(id,owner_ids,title,bpm,duration,tja_file,audio_file) VALUES($1,ARRAY['d46774d30dd13b92d9e536808da468a4'],'Hex',120,10,test_file($1||'/tja','a.tja',repeat('a',64),14),test_file($1||'/audio','a.ogg',repeat('a',64),14))`, id); err != nil {
+			t.Fatal(err)
+		}
+		var found Chart
+		if code := c.do("", "GET", "/api/v1/charts/"+id, "", &found); code != 200 || found.ID != id {
+			t.Fatal("ID without by", id, code, found.ID)
+		}
+		if code := c.do("", "GET", "/api/v1/charts/"+id+"?by=number", "", nil); code != 404 {
+			t.Fatal("ID by number", id, code)
+		}
+	}
+	var song, other Chart
+	if code := c.do("", "GET", "/api/v1/charts/song?by=id", "", &song); code != 200 || song.ID != "song" || song.NumberID <= 0 {
+		t.Fatal("by=id", code, song.ID, song.NumberID)
+	}
+	c.do("", "GET", "/api/v1/charts/other?by=id", "", &other)
+	if other.NumberID != song.NumberID+1 {
+		t.Fatal("numbers", song.NumberID, other.NumberID)
+	}
+	number := "/api/v1/charts/" + strconv.FormatInt(song.NumberID, 10)
+	for _, path := range []string{number, number + "?by=number"} {
+		var found Chart
+		if code := c.do("", "GET", path, "", &found); code != 200 || found.ID != "song" {
+			t.Fatal("by number", path, code, found.ID)
+		}
+	}
+	for path, want := range map[string]int{
+		"/api/v1/charts/song":           404, // neither an ID's form nor a number
+		"/api/v1/charts/song?by=number": 404,
+		number + "?by=id":               404, // a number is not an ID
+		"/api/v1/charts/0":              404,
+		"/api/v1/charts/01":             404,
+		"/api/v1/charts/99999999":       404,
+		"/api/v1/charts/song?by=title":  400,
+	} {
+		if code := c.do("", "GET", path, "", nil); code != want {
+			t.Fatal(path, code, "want", want)
+		}
+	}
+}
+
 func TestChartVotes(t *testing.T) {
 	c, _ := interactionFixture(t)
 	var v VoteResult
@@ -101,11 +149,11 @@ func TestChartVotes(t *testing.T) {
 		t.Fatalf("withdrawn vote: %+v", v)
 	}
 	var chart Chart
-	c.do("alice", "GET", "/api/v1/charts/song", "", &chart)
+	c.do("alice", "GET", "/api/v1/charts/song?by=id", "", &chart)
 	if chart.Score != 1 || chart.MyVote != 1 || chart.Upvotes != 1 {
 		t.Fatalf("detail: %+v %+v", chart.Score, chart.MyVote)
 	}
-	c.do("", "GET", "/api/v1/charts/song", "", &chart)
+	c.do("", "GET", "/api/v1/charts/song?by=id", "", &chart)
 	if chart.MyVote != 0 || chart.Score != 1 {
 		t.Fatal("guest detail", chart.MyVote)
 	}
@@ -189,7 +237,7 @@ func TestCommentThreads(t *testing.T) {
 		t.Fatal("unknown sort", code)
 	}
 	var chart Chart
-	c.do("", "GET", "/api/v1/charts/song", "", &chart)
+	c.do("", "GET", "/api/v1/charts/song?by=id", "", &chart)
 	if chart.CommentCount != 4 {
 		t.Fatal("chart comment count", chart.CommentCount)
 	}

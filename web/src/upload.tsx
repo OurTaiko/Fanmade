@@ -65,7 +65,7 @@ export function UpdatePage() {
     setChart(null)
     setError('')
     if (!id) return
-    api<Chart>(endpoints.chart(id), { signal: controller.signal })
+    api<Chart>(endpoints.chartDetail(id), { signal: controller.signal })
       .then((loaded) => {
         if (!controller.signal.aborted) setChart(loaded)
       })

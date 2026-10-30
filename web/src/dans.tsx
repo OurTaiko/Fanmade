@@ -677,9 +677,9 @@ export function DanEditorPage() {
         setRewardTitles(dan.rewards.titles ?? [])
         const charts = await Promise.all(
           dan.songs.map((s) =>
-            api<Chart>(endpoints.chart(String(s.chart.id)), { signal: controller.signal }).catch(
-              () => null,
-            ),
+            api<Chart>(endpoints.chartDetail(String(s.chart.id)), {
+              signal: controller.signal,
+            }).catch(() => null),
           ),
         )
         setSongs(

@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,14 +22,16 @@ import (
 )
 
 type Chart struct {
-	DemoEnd      float64             `json:"demoEnd"`
-	PreviewPath  string              `json:"previewPath,omitempty"`
-	AudioPreview *AudioPreview       `json:"audioPreview,omitempty"`
-	CoverHash    string              `json:"coverHash,omitempty"`
-	CategoryIDs  []string            `json:"categoryIds"`
-	ID           string              `json:"id"`
-	OwnerIDs     []string            `json:"ownerIds"`
-	Owners       []NotificationActor `json:"owners"`
+	DemoEnd      float64       `json:"demoEnd"`
+	PreviewPath  string        `json:"previewPath,omitempty"`
+	AudioPreview *AudioPreview `json:"audioPreview,omitempty"`
+	CoverHash    string        `json:"coverHash,omitempty"`
+	CategoryIDs  []string      `json:"categoryIds"`
+	ID           string        `json:"id"`
+	// NumberID is the chart's short number, also accepted by GET /charts/{id}.
+	NumberID int64               `json:"numberId"`
+	OwnerIDs []string            `json:"ownerIds"`
+	Owners   []NotificationActor `json:"owners"`
 	// Deprecated: original uploader only; authorization uses OwnerIDs.
 	OwnerID  string `json:"ownerId"`
 	Uploader string `json:"uploader"`
@@ -67,7 +70,7 @@ const publishedChart = `c.status='published'`
 // Blocks are listed Easy to Edit, each as single, p1, p2.
 const slotOrder = `array_position(ARRAY['Easy','Normal','Hard','Oni','Edit'],d.course),array_position(ARRAY['single','p1','p2'],d.side)`
 
-const chartSelect = `SELECT c.id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,
+const chartSelect = `SELECT c.id,c.number_id,c.owner_ids,''::text,c.description,c.created_at,c.duration,tf.original_filename,af.original_filename,tf.sha256,af.sha256,af.byte_size,tf.storage_key,af.storage_key,c.title,c.subtitle,c.bpm,c.offset_seconds,c.demo_start,af.sha256||'.'||af.extension,c.title_translations,c.subtitle_translations,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'course',d.course,'side',d.side,'level',d.level,'maker',d.maker,'branching',d.branching,'chartHash',d.content_hash) ORDER BY ` + slotOrder + `) FROM chart_difficulties d WHERE d.chart_id=c.id),'[]'),
  c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE id=c.preview_file),''),
  c.movie_offset,COALESCE(mf.sha256,''),COALESCE(mf.byte_size,0),COALESCE(mf.storage_key,''),
@@ -78,7 +81,7 @@ func readChart(row pgx.Row) (Chart, error) {
 	c := Chart{Encoding: "utf-8"} // Compatibility field; stored TJA bytes are always UTF-8.
 	var difficulties []byte
 	var flags CategoryFlags
-	e := row.Scan(&c.ID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
+	e := row.Scan(&c.ID, &c.NumberID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
 	if e == nil {
 		c.OwnerID = c.OwnerIDs[0]
 		c.Score = c.Upvotes - c.Downvotes
@@ -90,7 +93,12 @@ func readChart(row pgx.Row) (Chart, error) {
 	return c, e
 }
 func (s *Server) chart(ctx context.Context, id string) (Chart, error) {
-	c, e := s.readChart(s.DB.QueryRow(ctx, chartSelect+` WHERE c.id=$1 AND `+publishedChart, id))
+	return s.chartWhere(ctx, "c.id", id)
+}
+
+// chartWhere reads the published chart whose column (c.id or c.number_id) is value.
+func (s *Server) chartWhere(ctx context.Context, column string, value any) (Chart, error) {
+	c, e := s.readChart(s.DB.QueryRow(ctx, chartSelect+` WHERE `+column+`=$1 AND `+publishedChart, value))
 	if e == nil {
 		c.setOwners(s.publicProfiles(ctx, c.OwnerIDs))
 	}
@@ -120,8 +128,48 @@ func (s *Server) listFor(w http.ResponseWriter, r *http.Request, owner string) {
 	s.webSearch(w, r, owner)
 }
 
+// validChartID reports whether id has the form of a chart ID: 32 lowercase hex digits.
+func validChartID(id string) bool {
+	if len(id) != 32 {
+		return false
+	}
+	for _, c := range id {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// detail answers GET /charts/{id}: by=number looks {id} up as the chart's number, by=id as its
+// ID, and without by its form decides.
 func (s *Server) detail(w http.ResponseWriter, r *http.Request) {
-	c, e := s.chart(r.Context(), r.PathValue("id"))
+	raw, column := r.PathValue("id"), ""
+	var value any = raw
+	by := r.URL.Query().Get("by")
+	if by == "" {
+		// Without by, the form tells: an ID has 32 hex digits, a number at most 19.
+		by = "number"
+		if validChartID(raw) {
+			by = "id"
+		}
+	}
+	switch by {
+	case "number":
+		if n, e := strconv.ParseInt(raw, 10, 64); e == nil && n > 0 && raw[0] != '0' {
+			column, value = "c.number_id", n
+		}
+	case "id":
+		column = "c.id"
+	default:
+		problem(w, 400, "QUERY_INVALID", "by 只能是 number 或 id")
+		return
+	}
+	e := pgx.ErrNoRows
+	var c Chart
+	if column != "" {
+		c, e = s.chartWhere(r.Context(), column, value)
+	}
 	if errors.Is(e, pgx.ErrNoRows) {
 		problem(w, 404, "CHART_NOT_FOUND", "作品不存在或已删除")
 		return

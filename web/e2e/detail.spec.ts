@@ -100,7 +100,7 @@ LEVEL:5
 #START
 2222,
 #END`
-  await page.route(`**/api/v1/charts/${chart.id}`, (route) => route.fulfill({ json: chart }))
+  await page.route(`**/api/v1/charts/${chart.id}*`, (route) => route.fulfill({ json: chart }))
   let failTja = true
   await page.route('**/api/v1/charts/*/tja', (route) => {
     return failTja

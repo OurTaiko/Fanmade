@@ -114,7 +114,7 @@ func TestDifficultyConstants(t *testing.T) {
 	}
 	// The chart page gets them: every rated route of each block, in route order.
 	w = httptest.NewRecorder()
-	app.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/charts/"+chart.ID, nil))
+	app.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/api/v1/charts/"+chart.ID+"?by=id", nil))
 	var detail Chart
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &detail) != nil {
 		t.Fatal(w.Code, w.Body.String())

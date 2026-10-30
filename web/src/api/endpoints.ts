@@ -37,7 +37,10 @@ export const endpoints = {
     },
     mine = false,
   ) => withQuery(`${API_ROOT}${mine ? '/me/charts' : '/charts'}`, query),
+  /** Writes (PATCH, DELETE); reading a chart goes through chartDetail. */
   chart: chartPath,
+  /** GET /charts/{id} looks for the chart's number unless told by=id. */
+  chartDetail: (id: string) => withQuery(chartPath(id), { by: 'id' }),
   collaborations: (id: string) => `${chartPath(id)}/collaborations`,
   chartOwnership: (id: string) => `${chartPath(id)}/owners/me`,
   respondCollaboration: (id: string) =>

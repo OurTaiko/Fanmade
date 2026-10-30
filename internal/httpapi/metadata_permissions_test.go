@@ -109,7 +109,7 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 		t.Fatalf("metadata response lost cover or changed resources: %+v", edited)
 	}
 	detailResponse := httptest.NewRecorder()
-	handler.ServeHTTP(detailResponse, httptest.NewRequest("GET", "/api/v1/charts/chart", nil))
+	handler.ServeHTTP(detailResponse, httptest.NewRequest("GET", "/api/v1/charts/chart?by=id", nil))
 	var detail Chart
 	if detailResponse.Code != http.StatusOK || json.Unmarshal(detailResponse.Body.Bytes(), &detail) != nil || detail.CoverHash != edited.CoverHash || detail.TitleTranslations["zh"] != "新译名" {
 		t.Fatalf("GET/PATCH metadata mismatch: %s", detailResponse.Body.String())
@@ -127,7 +127,7 @@ func TestMetadataAuthorOrAdmin(t *testing.T) {
 		t.Fatalf("incomplete dictionary: %s", all.Body.String())
 	}
 	for _, lang := range []string{"en", "ja", "zh", "ko"} {
-		rr := httptest.NewRequest("GET", "/api/v1/charts/chart?lang="+lang, nil)
+		rr := httptest.NewRequest("GET", "/api/v1/charts/chart?by=id&lang="+lang, nil)
 		rr.Header.Set("Accept-Language", lang)
 		ww := httptest.NewRecorder()
 		handler.ServeHTTP(ww, rr)

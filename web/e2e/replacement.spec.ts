@@ -76,7 +76,9 @@ for (const { actor, replaceAudio } of ['owner', 'admin'].flatMap((actor) =>
     await page.route('**/api/v1/categories', (route) =>
       route.fulfill({ json: { items: [{ id: 'variety', title: '综艺', genre: 'バラエティ' }] } }),
     )
-    await page.route(`**/api/v1/charts/${original.id}`, (route) => route.fulfill({ json: current }))
+    await page.route(`**/api/v1/charts/${original.id}*`, (route) =>
+      route.fulfill({ json: current }),
+    )
     await page.route('**/api/v1/charts/*/tja', (route) => route.fulfill({ body: source }))
     await page.route('**/api/v1/charts/*/audio', (route) =>
       route.fulfill({ body: audio, contentType: 'audio/mpeg' }),

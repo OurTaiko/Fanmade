@@ -59,7 +59,7 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
       },
     }),
   )
-  await page.route(`**/api/v1/charts/${chart.id}`, (route) => route.fulfill({ json: chart }))
+  await page.route(`**/api/v1/charts/${chart.id}*`, (route) => route.fulfill({ json: chart }))
   await page.route('**/api/v1/charts/*/tja', (route) => route.fulfill({ body: source }))
   await page.route('**/api/v1/charts/*/comments?*', (route) =>
     route.fulfill({ json: { items: [], page: 1, pageSize: 20, total: 0 } }),

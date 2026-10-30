@@ -205,7 +205,7 @@ func TestCategoriesFlow(t *testing.T) {
 	if !reflect.DeepEqual(guestData, authData) {
 		t.Fatal("guest must receive the same public catalog", guest.Body.String(), authed.Body.String())
 	}
-	if guest := decodeChart(call("GET", "/api/v1/charts/"+c.ID, "", ""), 200); guest.ID != c.ID {
+	if guest := decodeChart(call("GET", "/api/v1/charts/"+c.ID+"?by=id", "", ""), 200); guest.ID != c.ID {
 		t.Fatal("guest chart detail", guest)
 	}
 	for _, kind := range []string{"tja", "audio"} {
@@ -224,7 +224,7 @@ func TestCategoriesFlow(t *testing.T) {
 	if w = call("PATCH", path, `{"title":"Should roll back","categoryIds":["missing"]}`, token); w.Code != 422 {
 		t.Fatal("invalid category patch")
 	}
-	after := decodeChart(call("GET", path, "", ""), 200)
+	after := decodeChart(call("GET", path+"?by=id", "", ""), 200)
 	if after.Title != c.Title || !reflect.DeepEqual(after.CategoryIDs, c.CategoryIDs) {
 		t.Fatal("partial invalid patch")
 	}

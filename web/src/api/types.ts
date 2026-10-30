@@ -15,6 +15,8 @@ export type Chart = Metadata & {
   demoEnd?: number
   previewPath?: string
   id: string
+  /** The chart's short number; GET /charts/{number} finds it too. */
+  numberId: number
   coverHash?: string
   categoryIds: string[]
   ownerIds?: string[]

@@ -90,7 +90,7 @@ export function ChartEditorPage() {
     if (!id) return
     async function load() {
       try {
-        const loaded = await api<Chart>(endpoints.chart(id!), { signal: aborter.signal })
+        const loaded = await api<Chart>(endpoints.chartDetail(id!), { signal: aborter.signal })
         const response = await fetch(endpoints.resource(loaded, 'tja'), {
           signal: aborter.signal,
           credentials: 'omit',

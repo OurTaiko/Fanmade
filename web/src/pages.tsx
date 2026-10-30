@@ -329,7 +329,7 @@ export function Detail() {
     setActivityTab('image')
     setChosenCourse('')
     if (!id) return
-    api<Chart>(endpoints.chart(id), { signal: controller.signal })
+    api<Chart>(endpoints.chartDetail(id), { signal: controller.signal })
       .then(setChart)
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message)
@@ -363,7 +363,7 @@ export function Detail() {
     try {
       await api(endpoints.chartOwnership(chart.id), jsonRequest('DELETE', {}, session.csrfToken))
       setLeaving(false)
-      setChart(await api<Chart>(endpoints.chart(chart.id)))
+      setChart(await api<Chart>(endpoints.chartDetail(chart.id)))
       notify(t('collaboration.left'), 'success')
     } catch (e) {
       setLeaving(false)

@@ -59,7 +59,7 @@ test('owner edits metadata in a modal, handles errors, restores values and prote
     await page.getByLabel('英文歌名', { exact: true }).fill('Edited song')
     await page.getByLabel('英文副标题', { exact: true }).fill('Edited subtitle')
     await page.getByLabel('中文歌名', { exact: true }).fill('编辑后的中文名')
-    await page.route('**/api/v1/charts/' + chart.id, (route) =>
+    await page.route('**/api/v1/charts/' + chart.id + '*', (route) =>
       route.request().method() === 'PATCH'
         ? route.fulfill({ status: 503, json: { message: '测试：暂时无法保存' } })
         : route.continue(),
@@ -68,7 +68,7 @@ test('owner edits metadata in a modal, handles errors, restores values and prote
     await expect(page.getByRole('alertdialog')).toContainText('测试：暂时无法保存')
     await page.getByRole('button', { name: '知道了', exact: true }).click()
     await expect(page.getByLabel('英文歌名', { exact: true })).toHaveValue('Edited song')
-    await page.unroute('**/api/v1/charts/' + chart.id)
+    await page.unroute('**/api/v1/charts/' + chart.id + '*')
     await page.getByRole('button', { name: '保存修改', exact: true }).click()
     await expect(modal).not.toBeVisible()
     await expect(page.getByRole('dialog', { name: '操作成功' })).toContainText('谱面信息已保存。')

@@ -118,7 +118,7 @@ func TestDifficultyMakersFlow(t *testing.T) {
 	if blank.Maker != "" {
 		t.Fatal("blank should not fall back to original", blank.Maker)
 	}
-	for _, path := range []string{"/api/v1/charts/" + c.ID, "/api/v1/charts?q=B", "/api/v1/me/charts", "/api/v1/game/catalog"} {
+	for _, path := range []string{"/api/v1/charts/" + c.ID + "?by=id", "/api/v1/charts?q=B", "/api/v1/me/charts", "/api/v1/game/catalog"} {
 		r := httptest.NewRequest("GET", path, nil)
 		r.AddCookie(&http.Cookie{Name: "ourtaiko_session", Value: token})
 		r.Header.Set("Authorization", "Bearer "+token)

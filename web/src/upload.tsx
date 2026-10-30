@@ -45,7 +45,7 @@ import { isAudioFilename, isMovieFilename, prepareTja, validateFiles, validateMo
 import type { PreparedTja } from './tja'
 import { audioDiffers, replacementFields, reviewReplacement } from '@sitekit/replacement-diff'
 import type { Proposal, ReplacementPreview, Review } from '@sitekit/replacement-diff'
-import { ReplacementReview } from './replacement-review'
+import { ReplacementReview } from '@sitekit/replacement-review'
 
 function createRequestKey() {
   // getRandomValues remains available over LAN HTTP, unlike randomUUID.

@@ -6,8 +6,8 @@ import { StrictMode } from 'react'
 import { IconContext } from '@phosphor-icons/react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
-import { SessionProvider } from './session'
-import { Layout } from '@/components/layout'
+import { SessionProvider } from '@sitekit/session'
+import { Layout } from '@sitekit/components/layout'
 import { Auth, ChartManagerPage, Detail, Library } from '@sitekit/pages'
 import { UpdatePage } from './upload'
 import { ChartEditorPage } from './chart-editor'
@@ -15,21 +15,21 @@ import { NotificationProvider } from '@sitekit/notifications'
 import { CategoryProvider } from '@sitekit/categories'
 import { SiteProvider } from '@sitekit/site'
 import { site } from './site'
-import { ProfilePage } from './profile'
+import { ProfilePage } from '@sitekit/profile'
 import { UsersPage } from '@sitekit/users'
 import { UserSpacePage } from '@sitekit/user-space'
-import { NotificationsPage } from './notification-center'
+import { NotificationsPage } from '@sitekit/notification-center'
 import { MyPlaylistsPage, PlaylistPage, PlaylistsPage } from '@sitekit/playlists'
-import { DanEditorPage, DanPage, DansPage } from './dans'
+import { DanEditorPage, DanPage, DansPage } from '@sitekit/dans'
 import './styles.css'
-import { ThemeProvider } from './theme'
+import { ThemeProvider } from '@sitekit/theme'
 function App() {
   const { t } = useTranslation()
 
   return (
     <StrictMode>
       <IconContext.Provider value={{ weight: 'bold' }}>
-        <ThemeProvider>
+        <ThemeProvider storageKey="fanmade-theme">
           <BrowserRouter>
             <NotificationProvider>
               <SessionProvider>

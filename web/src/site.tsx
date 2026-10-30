@@ -9,6 +9,8 @@ import { EditMetadata } from './edit-metadata'
 import { UploadPage } from './upload'
 
 export const site: Site = {
+  brand: 'Fanmade',
+  canUpload: () => true,
   chartCard: (chart) => <ChartCard chart={chart as Chart} />,
   chartOrders,
   useChartOrderLabels,

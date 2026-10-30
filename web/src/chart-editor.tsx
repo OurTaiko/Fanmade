@@ -27,9 +27,9 @@ import type { Side } from './tja'
 import { withChartTitles } from '@sitekit/tja-titles'
 import { replacementFields, reviewReplacement } from '@sitekit/replacement-diff'
 import type { Proposal, ReplacementPreview, Review } from '@sitekit/replacement-diff'
-import { ReplacementReview } from './replacement-review'
+import { ReplacementReview } from '@sitekit/replacement-review'
 
-const ChartPreview = lazy(() => import('./chart-preview'))
+const ChartPreview = lazy(() => import('@sitekit/chart-preview'))
 const TjaEditor = lazy(() => import('@sitekit/components/tja-editor'))
 
 function createRequestKey() {

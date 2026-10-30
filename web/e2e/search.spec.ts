@@ -67,16 +67,16 @@ for (const signedIn of [false, true]) {
       return route.fulfill({ json: { items: [] } })
     })
     await page.goto('/?owner=fixture-user')
-    // The website searches by keyword and order only; difficulty, star and
-    // completion filters belong to the game's search.
-    await expect(page.getByRole('combobox', { name: '筛选难度' })).toHaveCount(0)
-    await expect(page.getByRole('combobox', { name: '星级' })).toHaveCount(0)
+    // The website filters by difficulty and star too; completion filters stay the game's.
+    await expect(page.getByRole('combobox', { name: '难度' })).toBeVisible()
+    await expect(page.getByRole('combobox', { name: '星级' })).toBeVisible()
     await page.getByRole('combobox', { name: '显示顺序' }).click()
     await expect(page.locator('[data-slot="select-item"]')).toHaveText([
       '最新发布',
       '热门',
       '最高分',
       '讨论最多',
+      '最近更改',
     ])
     // Pick from the open menu; closing and reopening it races its animation.
     await page.locator('[data-slot="select-item"][data-value="hot"]').click()
@@ -105,10 +105,10 @@ for (const signedIn of [false, true]) {
       'hot',
     )
     await selectValue(page, '显示顺序', '')
-    await expect.poll(() => requests.at(-1)?.searchParams.get('order')).toBe('')
+    // The default order is not sent.
+    await expect.poll(() => requests.at(-1)?.searchParams.get('order')).toBeNull()
     expect(Object.fromEntries(requests.at(-1)!.searchParams)).toEqual({
       q: '太鼓 & test',
-      order: '',
       owner: 'fixture-user',
       page: '1',
     })

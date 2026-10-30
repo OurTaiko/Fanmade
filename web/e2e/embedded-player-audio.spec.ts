@@ -1,13 +1,17 @@
 import { test, expect } from '@playwright/test'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import ts from 'typescript'
 
 // Real browser + transferable buffers + bundled WASM decoders + the production jslib.
 // The Unity scene host is replaced with the same decode polling protocol, so these tests
 // run without a fresh Unity build. Full scene/device acceptance remains a separate test.
-const webRoot = process.env.VIEW_WEB_ROOT || resolve(process.cwd(), '../../OurTaikoView_Web')
+// The player's source checkout: a sibling of the Fanmade repository unless VIEW_WEB_ROOT says otherwise.
+const webRoot = process.env.VIEW_WEB_ROOT || resolve(process.cwd(), '../../../OurTaikoView_Web')
 const template = resolve(webRoot, 'Assets/WebGLTemplates/OurTaikoView')
+test.beforeEach(() => {
+  test.skip(!existsSync(template), `OurTaikoView_Web not found at ${webRoot}; set VIEW_WEB_ROOT`)
+})
 const origin = 'https://audio.test'
 const parentHtml = `<!doctype html><iframe src="/frame"></iframe><script type="module">
 import { PlayerAudioLoad } from '/embedded-player-audio';
@@ -124,10 +128,11 @@ async function fixture(
       }
       return route.fulfill({ body, contentType: 'audio/ogg' })
     }
-    if (url.pathname.startsWith('/embedded-player-')) {
-      const source = readFileSync(resolve('src', url.pathname.slice(1) + '.ts'), 'utf8')
+    // The player modules and what they import are OurTaikoSiteKit's.
+    const kitModule = resolve('../kit/web/src', url.pathname.slice(1) + '.ts')
+    if (existsSync(kitModule)) {
       return route.fulfill({
-        body: ts.transpileModule(source, {
+        body: ts.transpileModule(readFileSync(kitModule, 'utf8'), {
           compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
         }).outputText,
         contentType: 'application/javascript',

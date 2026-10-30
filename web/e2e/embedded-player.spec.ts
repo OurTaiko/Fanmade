@@ -54,8 +54,8 @@ const chart: Chart = {
   subtitleTranslations: {},
   categoryIds: [],
   difficulties: [
-    { course: 'Oni', level: 1, maker: '' },
-    { course: 'Edit', level: 2, maker: '' },
+    { course: 'Oni', side: 'single', level: 1, maker: '' },
+    { course: 'Edit', side: 'single', level: 2, maker: '' },
   ],
 }
 function wav() {
@@ -84,6 +84,7 @@ test('real Unity player: auto, finish reset, practice, course change and unload'
   test.setTimeout(180000)
   page.setDefaultTimeout(15000)
   const buildDir = process.env.PLAYER_TEST_BUILD_DIR
+  test.skip(!buildDir, 'PLAYER_TEST_BUILD_DIR is not set')
   const cdn = 'https://distrib.ourtaiko.org'
   const fixturePath = '/player/cccccccccccccccc/index.html'
   if (buildDir) {
@@ -356,6 +357,7 @@ ${'1'.repeat(100)},
           audioBytes,
           audioType: 'wav',
           course: 'Oni',
+          side: 'single',
           practice: true,
           autoPlay: true,
           replay: false,
@@ -415,6 +417,7 @@ ${'1'.repeat(100)},
           audioBytes,
           audioType: 'wav',
           course: 'Oni',
+          side: 'single',
           practice: true,
           autoPlay: false,
           replay: false,

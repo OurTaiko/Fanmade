@@ -27,6 +27,7 @@ const chart: Chart = {
   subtitleTranslations: {},
   difficulties: courses.map((course, blockIndex) => ({
     course,
+    side: 'single',
 
     level: 5,
 
@@ -65,6 +66,11 @@ test.beforeEach(async ({ page }) => {
       })
     if (path.endsWith('/tja')) return route.fulfill({ body: tja(courses) })
     if (path.endsWith('/audio')) return route.fulfill({ contentType: 'audio/ogg', body: '' })
+    if (path === '/api/v1/categories') return route.fulfill({ json: { items: [] } })
+    if (path.endsWith('/comments'))
+      return route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } })
+    if (path === '/api/v1/me/notifications/unread')
+      return route.fulfill({ json: { unread: 0, count: 0 } })
     const selected = [chart, ...unsupported].find((c) => path === `/api/v1/charts/${c.id}`)
     return selected
       ? route.fulfill({ json: selected })

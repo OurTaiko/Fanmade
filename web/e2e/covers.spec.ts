@@ -33,6 +33,7 @@ const makeChart = (): Chart => ({
   subtitleTranslations: {},
   difficulties: ['Easy', 'Normal', 'Hard', 'Oni', 'Edit'].map((course, blockIndex) => ({
     course,
+    side: 'single',
 
     level: blockIndex + 6,
 
@@ -220,7 +221,7 @@ for (const format of ['PNG/JPG', 'WebP', 'JPEG']) {
         await page.screenshot({ path: `/tmp/fanmade-cover-library-${colorScheme}-${width}.png` })
         await card.click()
         await expect(page.getByAltText('Cover test的封面')).toBeVisible()
-        await expect(page.getByRole('region', { name: '谱面介绍', exact: true })).toBeVisible()
+        await expect(page.getByRole('region', { name: '备注', exact: true })).toBeVisible()
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
           width,
         )
@@ -234,7 +235,8 @@ for (const format of ['PNG/JPG', 'WebP', 'JPEG']) {
     await page.getByRole('button', { name: '保存封面', exact: true }).click()
     await expect(page.getByRole('dialog', { name: '修改歌曲封面' })).toHaveCount(0)
     await expect(page.getByAltText('Cover test的封面')).toHaveAttribute('src', /admin-cover/)
-    await expect(page.getByRole('button', { name: '删除作品', exact: true })).toHaveCount(0)
+    // Administrators manage charts too, deletion included.
+    await expect(page.getByRole('button', { name: '删除作品', exact: true })).toBeVisible()
     for (const user of [null, 'other']) {
       currentUser = user
       await page.reload()

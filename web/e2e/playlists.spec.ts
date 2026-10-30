@@ -1,5 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 
+// The labels below are the English interface's.
+test.use({ locale: 'en-US' })
+
 const me = 'a'.repeat(32)
 const other = 'b'.repeat(32)
 const chart = (id: string, title: string) => ({

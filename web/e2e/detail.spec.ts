@@ -3,6 +3,12 @@ import { selectValue } from './ui-helpers'
 import { expect, test } from '@playwright/test'
 import type { Chart } from '../src/api/types'
 
+// These need a local API seeded by scripts/demo.py; without one (the Vite proxy answers 500) they skip.
+test.beforeEach(async ({ request }) => {
+  const api = await request.get('/api/v1/charts').catch(() => null)
+  test.skip(!api?.ok(), 'needs a local Fanmade API with the ESE demo charts (scripts/demo.py)')
+})
+
 // The preview adapter and TJARenderer are OurTaikoSiteKit's; Vite serves them under /@fs/.
 const kitSource = `/@fs${fileURLToPath(new URL('../../kit/web/src', import.meta.url))}`
 

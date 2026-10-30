@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test'
 test('login and registration use the account center without collecting credentials', async ({
   page,
 }) => {
+  await page.route('**/api/v1/me', (route) =>
+    route.fulfill({ json: { user: null, csrfToken: '' } }),
+  )
   await page.goto('/login?returnTo=/me/charts')
   await expect(page.getByRole('link', { name: '前往账号中心登录' })).toHaveAttribute(
     'href',

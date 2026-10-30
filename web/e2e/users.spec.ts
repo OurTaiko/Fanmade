@@ -11,6 +11,9 @@ const member: PublicUser = {
   lastActiveAt: '2026-09-24T10:00:00Z',
   chartCount: 2,
   scoreCount: 8,
+  commentCount: 2,
+  karma: 5,
+  playlistCount: 1,
 }
 const legacy: PublicUser = {
   id: other,
@@ -19,6 +22,9 @@ const legacy: PublicUser = {
   lastActiveAt: null,
   chartCount: 0,
   scoreCount: 0,
+  commentCount: 0,
+  karma: 0,
+  playlistCount: 0,
 }
 const chart: Chart = {
   id: 'c'.repeat(32),
@@ -46,6 +52,7 @@ const chart: Chart = {
   difficulties: [
     {
       course: 'Oni',
+      side: 'single',
       level: 8,
 
       maker: 'Vanilla',

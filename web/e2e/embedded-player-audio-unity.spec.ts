@@ -93,7 +93,7 @@ test('real Unity: native Ogg failure retries software once without another audio
           titleTranslations: {},
           subtitleTranslations: {},
           categoryIds: [],
-          difficulties: [{ course: 'Oni', level: 1, maker: '', branching: false }],
+          difficulties: [{ course: 'Oni', side: 'single', level: 1, maker: '', branching: false }],
         },
       })
     return route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } })

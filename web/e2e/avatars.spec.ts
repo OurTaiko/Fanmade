@@ -23,6 +23,9 @@ const member: PublicUser = {
   lastActiveAt: '2026-09-24T10:00:00Z',
   chartCount: 1,
   scoreCount: 1,
+  commentCount: 0,
+  karma: 0,
+  playlistCount: 0,
 }
 const chart: Chart = {
   id: 'c'.repeat(32),
@@ -48,7 +51,7 @@ const chart: Chart = {
   audioSize: 100,
   titleTranslations: {},
   subtitleTranslations: {},
-  difficulties: [{ course: 'Oni', level: 8, maker: '' }],
+  difficulties: [{ course: 'Oni', side: 'single', level: 8, maker: '' }],
 }
 
 async function fixture(page: Page, meAvatar: string) {
@@ -108,6 +111,11 @@ async function fixture(page: Page, meAvatar: string) {
       return route.fulfill({
         json: { items: [member], total: 1, page: 1, pageSize: 12, profilesAvailable: true },
       })
+    if (path.endsWith('/comments'))
+      return route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } })
+    if (path === '/api/v1/me/notifications/unread')
+      return route.fulfill({ json: { unread: 0, count: 0 } })
+    if (path.endsWith('/audio')) return route.fulfill({ contentType: 'audio/ogg', body: '' })
     return route.fulfill({ status: 404, json: { code: 'NOT_FOUND' } })
   })
 }

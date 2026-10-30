@@ -37,7 +37,7 @@ async function setupPlayer(page: Page) {
           titleTranslations: {},
           subtitleTranslations: {},
           categoryIds: [],
-          difficulties: [{ course: 'Oni', level: 1, maker: '' }],
+          difficulties: [{ course: 'Oni', side: 'single', level: 1, maker: '' }],
         },
       })
     return route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } })

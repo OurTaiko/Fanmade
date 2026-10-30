@@ -47,7 +47,7 @@ const chart: Chart = {
   titleTranslations: {},
   subtitleTranslations: {},
   categoryIds: [],
-  difficulties: [{ course: 'Oni', level: 1, maker: '' }],
+  difficulties: [{ course: 'Oni', side: 'single', level: 1, maker: '' }],
 }
 function wav(seconds: number) {
   const rate = 22050,

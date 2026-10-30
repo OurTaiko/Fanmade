@@ -116,7 +116,7 @@ test('refreshes account language on focus, keeps edit draft and follows browser 
   const account = await fixture(page, 'en')
   await page.goto('/charts/language-chart')
   await page.getByRole('button', { name: 'Edit information', exact: true }).click()
-  await page.getByRole('tab', { name: 'Translations', exact: true }).click()
+  await page.getByRole('tab', { name: 'Names', exact: true }).click()
   await page.locator('#edit-ja-title').fill('Unsaved draft')
   account.setLanguage('ja')
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
@@ -138,7 +138,8 @@ test('saving a translated title keeps the cover and returns focus to edit inform
   page.on('pageerror', (error) => errors.push(error.message))
   await fixture(page, 'zh-hans')
   let current = { ...chart, coverHash: 'existing-cover' }
-  await page.route('**/api/v1/charts/language-chart', async (route) => {
+  // The page reads the chart with ?by=id; the save PATCHes without a query.
+  await page.route(/\/api\/v1\/charts\/language-chart(\?.*)?$/, async (route) => {
     if (route.request().method() === 'PATCH') {
       const patch = route.request().postDataJSON()
       expect(patch).toEqual({ titleTranslations: { zh: '保存后的译名' } })
@@ -156,12 +157,12 @@ test('saving a translated title keeps the cover and returns focus to edit inform
     }),
   )
   await page.goto('/charts/language-chart')
-  const cover = page.locator('main img').first()
+  const cover = page.getByRole('img', { name: /的封面$/ })
   await expect.poll(() => cover.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBe(40)
   const source = await cover.getAttribute('src')
   const edit = page.getByRole('button', { name: '编辑信息', exact: true })
   await edit.click()
-  await page.getByRole('tab', { name: '译名', exact: true }).click()
+  await page.getByRole('tab', { name: '歌名与译名', exact: true }).click()
   await page.getByLabel('中文歌名', { exact: true }).fill('保存后的译名')
   await page.getByRole('button', { name: '保存修改', exact: true }).click()
   const success = page.getByRole('dialog', { name: '操作成功' })
@@ -175,7 +176,7 @@ test('saving a translated title keeps the cover and returns focus to edit inform
   await expect(page.getByText('暂无封面', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('link', { name: '跳到主要内容', includeHidden: true })).toHaveCount(0)
   await edit.click()
-  await page.getByRole('tab', { name: '译名', exact: true }).click()
+  await page.getByRole('tab', { name: '歌名与译名', exact: true }).click()
   await expect(page.getByLabel('中文歌名', { exact: true })).toHaveValue('保存后的译名')
   await page.keyboard.press('Escape')
   await expect(edit).toBeFocused()
@@ -235,7 +236,8 @@ test('English edits use the same translation dictionary and preserve other langu
 }) => {
   await fixture(page, 'en')
   let current = { ...chart }
-  await page.route('**/api/v1/charts/language-chart', async (route) => {
+  // The page reads the chart with ?by=id; the save PATCHes without a query.
+  await page.route(/\/api\/v1\/charts\/language-chart(\?.*)?$/, async (route) => {
     if (route.request().method() === 'PATCH') {
       const patch = route.request().postDataJSON()
       expect(patch).toEqual({ titleTranslations: { en: 'Edited English' } })
@@ -249,7 +251,7 @@ test('English edits use the same translation dictionary and preserve other langu
   await page.goto('/charts/language-chart')
   await expect(page.getByRole('heading', { name: 'English title', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Edit information', exact: true }).click()
-  await page.getByRole('tab', { name: 'Translations', exact: true }).click()
+  await page.getByRole('tab', { name: 'Names', exact: true }).click()
   await expect(page.locator('#edit-en-title')).toHaveValue('English title')
   await page.locator('#edit-en-title').fill('Edited English')
   await page.getByRole('button', { name: 'Save changes', exact: true }).click()

@@ -29,5 +29,13 @@
         "description": "最近 30 天上传的歌曲中评价最高的 20 首。"
       }
     }
+  },
+  "categories": {
+    "game": "游戏",
+    "virtual-singer": "虚拟歌手",
+    "pop": "流行",
+    "classic": "古典",
+    "variety": "综合",
+    "anime": "动画"
   }
 }

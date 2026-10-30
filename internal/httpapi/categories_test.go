@@ -159,6 +159,48 @@ func TestCategoriesFlow(t *testing.T) {
 			t.Fatal("category count", category)
 		}
 	}
+	// The website's catalog counts the same published charts, and its list filters by
+	// category, and by a course and star level that hold for the same block.
+	w = call("GET", "/api/v1/categories", "", "")
+	var site struct {
+		ChartCount int
+		Items      []struct {
+			Category
+			ChartCount int
+		}
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &site) != nil || site.ChartCount != 4 || len(site.Items) != 6 {
+		t.Fatal("website catalog counts", w.Body.String())
+	}
+	for _, category := range site.Items {
+		if category.ChartCount != wantCounts[category.ID] {
+			t.Fatal("website category count", category)
+		}
+	}
+	listTotal := func(query string) int {
+		t.Helper()
+		w := call("GET", "/api/v1/charts?"+query, "", "")
+		var list struct{ Total int }
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &list) != nil {
+			t.Fatal(query, w.Code, w.Body.String())
+		}
+		return list.Total
+	}
+	for id, want := range wantCounts {
+		if got := listTotal("category=" + id); got != want {
+			t.Fatal("category filter", id, got)
+		}
+	}
+	for query, want := range map[string]int{"course=Oni&level=5": 4, "course=Oni": 4, "level=5": 4, "course=Easy": 0, "level=6": 0, "category=pop&course=Oni": 1} {
+		if got := listTotal(query); got != want {
+			t.Fatal("block filter", query, got)
+		}
+	}
+	for _, query := range []string{"category=missing", "course=Tower", "course=oni", "level=0", "level=11", "level=x"} {
+		if w = call("GET", "/api/v1/charts?"+query, "", ""); w.Code != 400 {
+			t.Fatal("invalid filter accepted", query, w.Code)
+		}
+	}
 	// A category's songs as the game assembles them: the catalog filtered by categoryIds.
 	categoryCharts := func(id string) []Chart {
 		t.Helper()

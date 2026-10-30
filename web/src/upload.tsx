@@ -33,7 +33,7 @@ import {
 } from '@phosphor-icons/react'
 import { CoverPicker } from '@sitekit/components/cover-picker'
 import { MoviePicker } from '@sitekit/components/movie-picker'
-import { CategoryPicker } from './categories'
+import { CategoryPicker } from '@sitekit/categories'
 import { api, previewReplacement, uploadChart } from '@sitekit/api/client'
 import type { Chart } from './api/types'
 import { Modal, Notice } from '@sitekit/notifications'

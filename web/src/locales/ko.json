@@ -29,5 +29,13 @@
         "description": "최근 30일 동안 업로드된 곡 중 평가가 높은 20곡."
       }
     }
+  },
+  "categories": {
+    "game": "게임",
+    "virtual-singer": "버추얼 싱어",
+    "pop": "팝",
+    "classic": "클래식",
+    "variety": "버라이어티",
+    "anime": "애니메이션"
   }
 }

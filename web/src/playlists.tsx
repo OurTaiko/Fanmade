@@ -38,7 +38,7 @@ import {
   PlaylistGridSkeleton,
   emptyStateClassName,
 } from '@/components/playlist-card'
-import { PlaylistDialog, PlaylistCoverDialog } from '@/playlist-dialogs'
+import { PlaylistDialog, PlaylistCoverDialog } from '@sitekit/playlist-dialogs'
 
 const sorts = ['updated', 'newest', 'favorites'] as const
 type Sort = (typeof sorts)[number]

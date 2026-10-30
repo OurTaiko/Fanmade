@@ -1,6 +1,5 @@
 // OurTaikoSiteKit's API types, then this site's Chart and the types built on it.
 import type {
-  CategoryBase,
   ChartBase,
   ChartList as SharedChartList,
   MyPlaylists as SharedMyPlaylists,
@@ -14,7 +13,6 @@ import type { Metadata } from '../tja'
 export * from '@sitekit/api/types'
 export type User = UserBase
 export type Session = SharedSession<User>
-export type Category = CategoryBase
 export type Chart = Metadata & ChartBase
 export type ChartList = SharedChartList<Chart>
 export type Playlist = SharedPlaylist<Chart>

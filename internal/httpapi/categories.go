@@ -85,16 +85,44 @@ func (flags CategoryFlags) IDs() []string {
 	return ids
 }
 
-func readCategories() []Category {
-	items := make([]Category, 0, len(categoryCatalog))
-	for _, category := range categoryCatalog {
-		items = append(items, category.Category)
-	}
-	return items
-}
-
+// categories lists the catalog with each category's published charts (a chart may be in
+// several) and their total, as on OurTaiko Database.
 func (s *Server) categories(w http.ResponseWriter, r *http.Request) {
-	respond(w, 200, map[string]any{"items": readCategories()})
+	counts := make([]int, len(categoryCatalog))
+	rows, err := s.DB.Query(r.Context(), `SELECT c.category_flags,count(*) FROM charts c WHERE `+publishedChart+` GROUP BY 1`)
+	if err != nil {
+		internal(w, err)
+		return
+	}
+	defer rows.Close()
+	total := 0
+	for rows.Next() {
+		var flags CategoryFlags
+		var n int
+		if err = rows.Scan(&flags, &n); err != nil {
+			internal(w, err)
+			return
+		}
+		total += n
+		for i, category := range categoryCatalog {
+			if flags&category.Flag != 0 {
+				counts[i] += n
+			}
+		}
+	}
+	if err = rows.Err(); err != nil {
+		internal(w, err)
+		return
+	}
+	type countedCategory struct {
+		Category
+		ChartCount int `json:"chartCount"`
+	}
+	items := make([]countedCategory, 0, len(categoryCatalog))
+	for i, category := range categoryCatalog {
+		items = append(items, countedCategory{category.Category, counts[i]})
+	}
+	respond(w, 200, map[string]any{"items": items, "chartCount": total})
 }
 
 // Omitted, null or empty selection defaults to Variety. Canonical ordering also

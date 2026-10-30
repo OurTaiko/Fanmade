@@ -29,5 +29,13 @@
         "description": "直近 30 日間に投稿された曲のうち評価の高い 20 曲。"
       }
     }
+  },
+  "categories": {
+    "game": "ゲーム",
+    "virtual-singer": "バーチャルシンガー",
+    "pop": "ポップス",
+    "classic": "クラシック",
+    "variety": "バラエティ",
+    "anime": "アニメ"
   }
 }

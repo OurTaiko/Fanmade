@@ -58,29 +58,29 @@ test('server categories retry, multi-select upload, owner edits and mobile persi
   failCategories = false
   await page.getByRole('button', { name: '重试加载分类' }).click()
   await expect(page.getByRole('checkbox')).toHaveCount(6)
-  await page.getByRole('checkbox', { name: 'Anime', exact: true }).check()
-  await page.getByRole('checkbox', { name: 'Game', exact: true }).check()
-  await page.getByRole('checkbox', { name: 'Pop', exact: true }).check()
+  await page.getByRole('checkbox', { name: '动画', exact: true }).check()
+  await page.getByRole('checkbox', { name: '游戏', exact: true }).check()
+  await page.getByRole('checkbox', { name: '流行', exact: true }).check()
   await files(page)
   const chart = await publish(page)
   try {
     expect(chart.categoryIds).toEqual(['anime', 'game', 'pop'])
     await expect(page.getByRole('list', { name: '所属分类' }).getByRole('listitem')).toHaveText([
-      'Anime',
-      'Game',
-      'Pop',
+      '动画',
+      '游戏',
+      '流行',
     ])
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: '编辑信息', exact: true }).click()
     const modal = page.getByRole('dialog', { name: '编辑谱面信息' })
-    await expect(page.getByRole('checkbox', { name: 'Anime', exact: true })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Game', exact: true })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Pop', exact: true })).toBeChecked()
-    await page.getByRole('checkbox', { name: 'Game', exact: true }).uncheck()
-    await page.getByRole('checkbox', { name: 'Pop', exact: true }).uncheck()
-    await page.getByRole('checkbox', { name: 'Anime', exact: true }).uncheck()
-    await page.getByRole('checkbox', { name: 'Virtual Singer', exact: true }).check()
-    await page.getByRole('checkbox', { name: 'Classic', exact: true }).check()
+    await expect(page.getByRole('checkbox', { name: '动画', exact: true })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: '游戏', exact: true })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: '流行', exact: true })).toBeChecked()
+    await page.getByRole('checkbox', { name: '游戏', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '流行', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '动画', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '虚拟歌手', exact: true }).check()
+    await page.getByRole('checkbox', { name: '古典', exact: true }).check()
     const bounds = await modal.boundingBox()
     expect(bounds!.x).toBeGreaterThanOrEqual(0)
     expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390)
@@ -93,38 +93,38 @@ test('server categories retry, multi-select upload, owner edits and mobile persi
     expect(updated.tjaHash).toBe(chart.tjaHash)
     expect(updated.audioHash).toBe(chart.audioHash)
     await expect(page.getByRole('list', { name: '所属分类' }).getByRole('listitem')).toHaveText([
-      'Classic',
-      'Virtual Singer',
+      '古典',
+      '虚拟歌手',
     ])
     await page.reload()
     await page.getByRole('button', { name: '编辑信息', exact: true }).click()
-    await expect(page.getByRole('checkbox', { name: 'Virtual Singer', exact: true })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Classic', exact: true })).toBeChecked()
-    await page.getByRole('checkbox', { name: 'Virtual Singer', exact: true }).uncheck()
-    await page.getByRole('checkbox', { name: 'Classic', exact: true }).uncheck()
-    await page.getByRole('checkbox', { name: 'Anime', exact: true }).check()
+    await expect(page.getByRole('checkbox', { name: '虚拟歌手', exact: true })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: '古典', exact: true })).toBeChecked()
+    await page.getByRole('checkbox', { name: '虚拟歌手', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '古典', exact: true }).uncheck()
+    await page.getByRole('checkbox', { name: '动画', exact: true }).check()
     await page.getByRole('button', { name: '保存修改', exact: true }).click()
     await page.getByRole('button', { name: '知道了', exact: true }).click()
     const anime = await (await page.request.get('/api/v1/charts/' + chart.id)).json()
     expect(anime.categoryIds).toEqual(['anime'])
     expect(anime.tjaHash).toBe(chart.tjaHash)
     expect(anime.audioHash).toBe(chart.audioHash)
-    await expect(page.getByRole('list', { name: '所属分类' })).toHaveText('Anime')
+    await expect(page.getByRole('list', { name: '所属分类' })).toHaveText('动画')
     await page.reload()
     await page.getByRole('button', { name: '编辑信息', exact: true }).click()
-    await expect(page.getByRole('checkbox', { name: 'Anime', exact: true })).toBeChecked()
-    await page.getByRole('checkbox', { name: 'Anime', exact: true }).uncheck()
+    await expect(page.getByRole('checkbox', { name: '动画', exact: true })).toBeChecked()
+    await page.getByRole('checkbox', { name: '动画', exact: true }).uncheck()
     await page.getByRole('button', { name: '保存修改', exact: true }).click()
     await page.getByRole('button', { name: '知道了', exact: true }).click()
     const defaulted = await (await page.request.get('/api/v1/charts/' + chart.id)).json()
     expect(defaulted.categoryIds).toEqual(['variety'])
     await expect(page.getByRole('list', { name: '所属分类' }).getByRole('listitem')).toHaveText([
-      'Variety',
+      '综合',
     ])
     for (const path of ['/', '/me/charts']) {
       await page.goto(path)
       const card = page.locator(`[data-testid="chart-card"][href="/charts/${chart.id}"]`)
-      await expect(card.getByRole('list', { name: '所属分类' })).toHaveText('Variety')
+      await expect(card.getByRole('list', { name: '所属分类' })).toHaveText('综合')
     }
     expect(errors).toEqual([])
   } finally {
@@ -143,7 +143,7 @@ test('upload with no selected categories defaults to Variety', async ({ page }) 
   const chart = await publish(page)
   try {
     expect(chart.categoryIds).toEqual(['variety'])
-    await expect(page.getByRole('list', { name: '所属分类' })).toHaveText('Variety')
+    await expect(page.getByRole('list', { name: '所属分类' })).toHaveText('综合')
   } finally {
     await page.request.delete('/api/v1/charts/' + chart.id, {
       headers: { Origin: origin, 'X-CSRF-Token': session.csrfToken },

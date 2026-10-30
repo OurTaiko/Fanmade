@@ -1,6 +1,6 @@
 import { chartOwners, isChartOwner } from '@sitekit/chart-owners'
 import { CollaborationDialog } from '@sitekit/collaborations'
-import { AddToPlaylistDialog } from './playlist-dialogs'
+import { AddToPlaylistDialog } from '@sitekit/playlist-dialogs'
 import { formatLocale } from '@sitekit/i18n'
 import { chartText } from '@sitekit/chart-language'
 import { buildChartPackage, packageFilename, saveBlob } from '@/chart-package'
@@ -13,6 +13,7 @@ import { AudioPlayer } from '@sitekit/components/audio-player'
 import { buttonVariants, Button } from '@sitekit/components/ui/button'
 import { ChartSearch, chartOrders, useChartOrderLabels } from '@/components/chart-search'
 import type { ChartOrder } from '@/components/chart-search'
+import { readChartFilters } from '@sitekit/components/chart-search'
 import { Skeleton } from '@sitekit/components/ui/skeleton'
 import { Card } from '@sitekit/components/ui/card'
 import { UserAvatar } from '@sitekit/components/user-avatar'
@@ -38,7 +39,7 @@ import { EditMetadata } from './edit-metadata'
 import { ChartActivity, type ActivityTab } from './chart-activity'
 import { Modal, Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
-import { CategoryLabels } from './categories'
+import { CategoryLabels } from '@sitekit/categories'
 import { CommentSection, chartSubject } from './comments'
 import { VoteControl } from '@sitekit/components/vote-control'
 import { Tabs, TabsList, TabsTrigger } from '@sitekit/components/ui/tabs'
@@ -83,9 +84,9 @@ export function Library({
     [setParams],
   )
   const q = params.get('q') || '',
-    order = chartOrders.includes(params.get('order') as ChartOrder)
-      ? (params.get('order') as ChartOrder)
-      : '',
+    filters = readChartFilters(params, chartOrders),
+    order = filters.order as '' | ChartOrder,
+    { category, course, level } = filters,
     owner = mine ? '' : ownerId || params.get('owner') || '',
     page = Math.min(10000, Math.max(1, Math.floor(Number(params.get('page')) || 1)))
   useEffect(() => {
@@ -93,7 +94,7 @@ export function Library({
     const controller = new AbortController()
     setLoading(true)
     setError('')
-    api<ChartList>(endpoints.chartList({ q, order, page, ...(owner ? { owner } : {}) }, mine), {
+    api<ChartList>(endpoints.chartList({ q, order, page, category, course, level, owner }, mine), {
       signal: controller.signal,
     })
       .then((result) => {
@@ -106,7 +107,7 @@ export function Library({
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [mine, user, q, order, page, owner])
+  }, [mine, user, q, order, page, category, course, level, owner])
   if (mine && !user)
     return (
       <EmptyState title={t('messages.myCharts')}>
@@ -130,15 +131,17 @@ export function Library({
       }
       return next
     })
+  const filtered = !!(q || category || course || level)
   const explore = !mine && !owner && !embedded
   const searchBar = (
     <ChartSearch
       key={mine ? 'mine' : owner || 'all'}
       query={q}
-      order={order}
+      filters={filters}
       onSearch={search}
       onPendingChange={setSearchPending}
       onChange={update}
+      counts={!mine && !owner}
     />
   )
   return (
@@ -213,8 +216,10 @@ export function Library({
           )}
         </>
       ) : (
-        <EmptyState title={q ? t('messages.noMatchingCharts') : t('messages.noPublishedChartsYet')}>
-          {!q && !owner && (
+        <EmptyState
+          title={filtered ? t('messages.noMatchingCharts') : t('messages.noPublishedChartsYet')}
+        >
+          {!filtered && !owner && (
             <Link
               to="/me/charts/publish"
               className={buttonVariants({ variant: 'outline', size: 'default' })}
@@ -395,8 +400,7 @@ export function Detail() {
     ) : (
       <p className="text-sm text-muted-foreground">{t('messages.loadingChart')}</p>
     )
-  if (!supportsChart(chart))
-    return <Notice>{t('messages.thisChartTypeIsNotSupported')}</Notice>
+  if (!supportsChart(chart)) return <Notice>{t('messages.thisChartTypeIsNotSupported')}</Notice>
   const text = chartText(chart, i18n.resolvedLanguage)
   const course = chart.difficulties.some((d) => slotKey(d) === chosenCourse)
     ? chosenCourse

@@ -29,5 +29,13 @@
         "description": "The 20 best rated songs uploaded in the last 30 days."
       }
     }
+  },
+  "categories": {
+    "game": "Game",
+    "virtual-singer": "Virtual Singer",
+    "pop": "Pop",
+    "classic": "Classical",
+    "variety": "Variety",
+    "anime": "Anime"
   }
 }

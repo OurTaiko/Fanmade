@@ -91,8 +91,9 @@ func (s *Server) gameSearch(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string]any{"items": items, "total": len(items)})
 }
 
-// webSearch pages the website's song list: keyword, an optional uploader, and
-// newest, hot, top-voted or most-discussed order.
+// webSearch pages the website's song list: keyword, an optional uploader, a category, a
+// course and star level that must hold for the same block (any side), and newest, hot,
+// top-voted, most-discussed or recently updated order. The filters are OurTaiko Database's.
 func (s *Server) webSearch(w http.ResponseWriter, r *http.Request, owner string) {
 	q, ok := searchKeyword(w, r)
 	if !ok {
@@ -105,6 +106,30 @@ func (s *Server) webSearch(w http.ResponseWriter, r *http.Request, owner string)
 	if page > 10000 {
 		problem(w, 400, "QUERY_INVALID", "页码超出范围")
 		return
+	}
+	query := r.URL.Query()
+	var flag CategoryFlags
+	if id := query.Get("category"); id != "" {
+		var ok bool
+		if flag, ok = categoryFlag(id); !ok {
+			problem(w, 400, "QUERY_INVALID", "分类不存在")
+			return
+		}
+	}
+	course := query.Get("course")
+	switch course {
+	case "", "Easy", "Normal", "Hard", "Oni", "Edit":
+	default:
+		problem(w, 400, "QUERY_INVALID", "难度必须为 Easy / Normal / Hard / Oni / Edit")
+		return
+	}
+	level := 0
+	if raw := query.Get("level"); raw != "" {
+		var e error
+		if level, e = strconv.Atoi(raw); e != nil || level < 1 || level > 10 {
+			problem(w, 400, "QUERY_INVALID", "星数必须在 1 到 10 之间")
+			return
+		}
 	}
 	ordering := ` ORDER BY c.created_at DESC,c.id DESC`
 	switch r.URL.Query().Get("order") {
@@ -123,13 +148,17 @@ func (s *Server) webSearch(w http.ResponseWriter, r *http.Request, owner string)
 		problem(w, 400, "QUERY_INVALID", "顺序必须为 default / hot / top / comments / updated")
 		return
 	}
-	where := keywordFilter + ` AND ($2='' OR c.owner_ids @> ARRAY[$2::text])`
+	where := keywordFilter + ` AND ($2='' OR c.owner_ids @> ARRAY[$2::text])
+ AND ($3::int=0 OR (c.category_flags & $3::int)<>0)
+ AND (($4='' AND $5::int=0) OR EXISTS(SELECT 1 FROM chart_difficulties d
+   WHERE d.chart_id=c.id AND ($4='' OR d.course=$4) AND ($5::int=0 OR d.level=$5)))`
+	args := []any{q, owner, int(flag), course, level}
 	var total int
-	if e := s.DB.QueryRow(r.Context(), `SELECT count(*) FROM charts c`+where, q, owner).Scan(&total); e != nil {
+	if e := s.DB.QueryRow(r.Context(), `SELECT count(*) FROM charts c`+where, args...).Scan(&total); e != nil {
 		internal(w, e)
 		return
 	}
-	rows, e := s.DB.Query(r.Context(), chartSelect+where+ordering+` LIMIT 12 OFFSET $3`, q, owner, (page-1)*12)
+	rows, e := s.DB.Query(r.Context(), chartSelect+where+ordering+` LIMIT 12 OFFSET $6`, append(args, (page-1)*12)...)
 	if e != nil {
 		internal(w, e)
 		return

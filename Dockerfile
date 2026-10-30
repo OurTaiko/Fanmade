@@ -6,6 +6,7 @@ COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 COPY kit/web/package.json /src/kit/web/
 RUN pnpm install --frozen-lockfile
 COPY kit/web/ /src/kit/web/
+COPY kit/contracts/ /src/kit/contracts/
 COPY web/ ./
 RUN pnpm build
 

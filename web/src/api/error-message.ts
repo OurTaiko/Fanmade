@@ -1,7 +1,7 @@
 import { i18n, normalizeLanguage, t } from '../i18n'
-import type zh from '../locales/zh-Hans.json'
+import type { CustomTypeOptions } from 'i18next'
 
-type ErrorCode = keyof typeof zh.errors
+type ErrorCode = keyof CustomTypeOptions['resources']['translation']['errors']
 const aliases: Record<string, ErrorCode> = {
   CHART_NOT_FOUND: 'NOT_FOUND',
   USER_NOT_FOUND: 'NOT_FOUND',

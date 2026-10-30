@@ -1,11 +1,13 @@
-import i18next from 'i18next'
+import i18next, { type CustomTypeOptions } from 'i18next'
 import { afterEach, describe, expect, it } from 'vitest'
 import { i18n, normalizeLanguage } from './i18n'
 import { chartText } from './chart-language'
-import zh from './locales/zh-Hans.json'
-import en from './locales/en.json'
-import ja from './locales/ja.json'
-import ko from './locales/ko.json'
+
+// The catalogues as the site uses them: OurTaikoSiteKit's with this site's keys added.
+type Catalogue = CustomTypeOptions['resources']['translation']
+const [zh, en, ja, ko] = (['zh-Hans', 'en', 'ja', 'ko'] as const).map(
+  (language) => i18n.getResourceBundle(language, 'translation') as Catalogue,
+)
 
 const chart = {
   title: 'Original',
@@ -136,13 +138,16 @@ it('supplies every interpolation parameter at static translation call sites', as
   const ts = await import('typescript')
   const { readdirSync, readFileSync } = await import('node:fs')
   const { resolve } = await import('node:path')
-  const root = resolve('src')
   const failures: string[] = []
-  for (const file of readdirSync(root, { recursive: true }) as string[]) {
+  // This site's files and the OurTaikoSiteKit files it builds with.
+  const files = [resolve('src'), resolve('../kit/web/src')].flatMap((root) =>
+    (readdirSync(root, { recursive: true }) as string[]).map((file) => resolve(root, file)),
+  )
+  for (const file of files) {
     if (!/\.(ts|tsx)$/.test(file) || file.includes('.test.')) continue
     const source = ts.createSourceFile(
       file,
-      readFileSync(resolve(root, file), 'utf8'),
+      readFileSync(file, 'utf8'),
       ts.ScriptTarget.Latest,
       true,
     )

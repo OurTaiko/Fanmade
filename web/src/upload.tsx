@@ -468,14 +468,7 @@ export function UploadPage({
             </TabsList>
             <TabsContent value="files" className="space-y-6 pt-4">
               <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h2 className="text-base font-extrabold">{t('messages.chooseFiles')}</h2>
-                  <span className="text-sm text-muted-foreground">
-                    {existing
-                      ? t('messages.newTjaRequiredCurrentAudioCanBeKept')
-                      : t('messages.bothFilesAreRequired')}
-                  </span>
-                </div>
+                <h2 className="text-base font-extrabold">{t('messages.chooseFiles')}</h2>
                 <div
                   className="flex flex-col items-center gap-2 rounded-[14px] border border-dashed p-6 text-center text-sm text-muted-foreground [&>strong]:text-foreground"
                   onDragOver={(e) => e.preventDefault()}

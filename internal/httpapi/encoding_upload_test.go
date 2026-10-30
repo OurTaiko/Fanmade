@@ -16,7 +16,7 @@ import (
 	"testing"
 
 	"golang.org/x/text/encoding/japanese"
-	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/sitekit/tja"
 )
 
 func TestUploadStoresCanonicalUTF8(t *testing.T) {

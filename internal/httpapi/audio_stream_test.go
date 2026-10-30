@@ -16,8 +16,8 @@ import (
 	"testing"
 
 	"ourtaiko.dev/fanmade/api/internal/teststore"
-	"ourtaiko.dev/fanmade/api/internal/tja"
 	"ourtaiko.dev/sitekit/objectstore"
+	"ourtaiko.dev/sitekit/tja"
 )
 
 func TestAudioPreviewWindow(t *testing.T) {

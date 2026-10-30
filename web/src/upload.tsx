@@ -41,8 +41,14 @@ import { useNotification } from '@sitekit/notification-context'
 import { blockName, slotKey } from '@sitekit/courses'
 import { DifficultyBadges } from '@sitekit/components/difficulty-badges'
 import { useSession } from '@sitekit/session-context'
-import { isAudioFilename, isMovieFilename, prepareTja, validateFiles, validateMovie } from './tja'
-import type { PreparedTja } from './tja'
+import {
+  isAudioFilename,
+  isMovieFilename,
+  prepareTja,
+  validateFiles,
+  validateMovie,
+} from '@sitekit/tja'
+import type { PreparedTja } from '@sitekit/tja'
 import { audioDiffers, replacementFields, reviewReplacement } from '@sitekit/replacement-diff'
 import type { Proposal, ReplacementPreview, Review } from '@sitekit/replacement-diff'
 import { ReplacementReview } from '@sitekit/replacement-review'
@@ -628,8 +634,7 @@ export function UploadPage({
                       {metadata.difficulties.map((d) => (
                         <TableRow key={slotKey(d)}>
                           <TableHead scope="row">
-                            {blockName(d)} · {slotKey(d)} ★
-                            {d.level}
+                            {blockName(d)} · {slotKey(d)} ★{d.level}
                           </TableHead>
                           <TableCell>
                             <Input

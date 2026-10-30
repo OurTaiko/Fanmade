@@ -9,8 +9,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/tja"
 	"ourtaiko.dev/sitekit/constants"
+	"ourtaiko.dev/sitekit/tja"
 )
 
 // Keep the first occurrence in block order, so credits never shuffle between reads.

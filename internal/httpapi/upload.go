@@ -17,9 +17,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
-	"ourtaiko.dev/fanmade/api/internal/tja"
 	"ourtaiko.dev/sitekit/audio"
 	"ourtaiko.dev/sitekit/cover"
+	"ourtaiko.dev/sitekit/tja"
 	"ourtaiko.dev/sitekit/video"
 )
 

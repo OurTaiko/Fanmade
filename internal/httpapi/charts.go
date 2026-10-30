@@ -16,8 +16,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/tja"
 	"ourtaiko.dev/sitekit/constants"
+	"ourtaiko.dev/sitekit/tja"
 	"ourtaiko.dev/sitekit/video"
 )
 

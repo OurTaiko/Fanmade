@@ -3,7 +3,7 @@ import { i18n } from '@sitekit/i18n'
 import { courseNames, groupCourses, slotKey, supportsChart } from '@sitekit/courses'
 import { defaultDifficulty } from '@sitekit/chart-difficulty'
 import { parsePreviewTja } from '@sitekit/preview-tja'
-import type { Difficulty } from './tja'
+import type { Difficulty } from '@sitekit/tja'
 
 beforeEach(async () => {
   await i18n.changeLanguage('zh-Hans')

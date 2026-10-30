@@ -38,7 +38,7 @@ import {
 import { Notice } from '@sitekit/notifications'
 import { withChartTitles } from '@sitekit/tja-titles'
 import { useSession } from '@sitekit/session-context'
-import { maxTja } from './tja'
+import { maxTja } from '@sitekit/tja'
 
 const ChartPreview = lazy(() => import('@sitekit/chart-preview'))
 const EmbeddedPlayer = lazy(() => import('@sitekit/embedded-player'))

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/tja"
 	"ourtaiko.dev/sitekit/cover"
+	"ourtaiko.dev/sitekit/tja"
 )
 
 // Website responses carry only a content hash, never the image bytes. Native

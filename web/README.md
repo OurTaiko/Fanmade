@@ -42,7 +42,7 @@ pnpm dev
 
 真实数据来自本机 `~/Documents/GitHub/ESE`，不是伪造 TJA。先启动后端，在后端仓库执行 `python3 scripts/demo.py seed` 可通过上传 API 导入 6 组演示谱面。源文件不会被修改或放进前端 Git。
 
-核心规则在 `src/tja.ts`，共享测试样例为 `contracts/validation.json`，与后端副本保持相同。仅接受 Easy / Normal / Hard / Oni / Edit（TJA 数字 0–4），拒绝 Tower / Dan（含 5 / 6、大小写变体）；混合普通难度也整份拒绝。筛选、徽标和详情选择器只展示五种普通难度；如果 API 返回混合或不支持作品，隐藏卡片并阻止详情加载资源。需要资源的 `#NEXTSONG` 多音频谱暂不接受。ESE 中 `Together.tja` 缺少一个 #START，已在参考库测试中记录，原文件不改写。
+核心规则在框架的 `tja.ts`（`@sitekit/tja`），共享测试样例为框架的 `contracts/validation.json`，后端的 Go 包 `tja` 跑同一份。仅接受 Easy / Normal / Hard / Oni / Edit（TJA 数字 0–4），拒绝 Tower / Dan（含 5 / 6、大小写变体）；混合普通难度也整份拒绝。筛选、徽标和详情选择器只展示五种普通难度；如果 API 返回混合或不支持作品，隐藏卡片并阻止详情加载资源。`#NEXTSONG` 多曲谱面不接受。ESE 中 `Together.tja` 缺少一个 #START，已在参考库测试中记录，原文件不改写。
 
 ## 检查
 
@@ -69,7 +69,7 @@ PLAYWRIGHT_BASE_URL=http://<Mac-IP>:5173 pnpm exec playwright test e2e/detail.sp
 - `src/pages.tsx`：发现、账号、详情页面。
 - `src/edit-metadata.tsx`：原生 dialog 编辑弹窗、局部保存、恢复原值与失败反馈。
 - `src/upload.tsx`：文件快照、本地校验和上传状态。
-- `src/tja.ts`：纯文本解析、资源名匹配。
+- 框架的 `tja.ts`：纯文本解析、资源名匹配。
 - `src/api/config.ts`：浏览器 API 基础路径，默认同域 `/api/v1`。
 - `src/api/endpoints.ts`：全部前端 API 地址，统一处理路径参数与查询参数编码。
 - `src/api/client.ts`：JSON 请求、错误处理和 XHR 上传进度；直接使用 endpoints 返回的地址。

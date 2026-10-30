@@ -120,7 +120,7 @@ it('localizes API error codes and keeps line diagnostics', async () => {
 })
 
 it('preserves localized TJA fields for the upload preview', async () => {
-  const { parseTja } = await import('./tja')
+  const { parseTja } = await import('@sitekit/tja')
   const data = new TextEncoder().encode(
     'TITLE:Original\nTITLEEN:English translation\nSUBTITLEEN:English subtitle\nTITLEZH:中文曲名\nTITLEJA:日本語\nSUBTITLEKO:한국어 부제\nWAVE:audio.ogg\nBPM:120\nCOURSE:Oni\nLEVEL:1\n#START\n1000,\n#END\n',
   )

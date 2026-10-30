@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/sitekit/tja"
 )
 
 func TestMetadataPatch(t *testing.T) {

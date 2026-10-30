@@ -8,8 +8,7 @@
     "metadataTab_translations": "Names",
     "originalNames": "Original names",
     "originalNamesHint": "The title and subtitle can be changed at any time; the site and the game show these. The chart file is not changed, and the BPM always comes from the TJA.",
-    "titleIsRequired": "The title must not be empty; the title and subtitle are at most 500 bytes without control characters.",
-    "tooManyChartBlocks": "Too many chart blocks (at most 15)"
+    "titleIsRequired": "The title must not be empty; the title and subtitle are at most 500 bytes without control characters."
   },
   "common": {
     "siteTitle": "OurTaiko Fanmade · Community charts"

@@ -14,11 +14,11 @@ import (
 
 	"github.com/joho/godotenv"
 	fanmade "ourtaiko.dev/fanmade/api"
-	"ourtaiko.dev/fanmade/api/internal/charthash"
 	"ourtaiko.dev/fanmade/api/internal/database"
 	"ourtaiko.dev/fanmade/api/internal/httpapi"
-	"ourtaiko.dev/fanmade/api/internal/tja"
+	"ourtaiko.dev/sitekit/charthash"
 	"ourtaiko.dev/sitekit/objectstore"
+	"ourtaiko.dev/sitekit/tja"
 )
 
 func env(key, fallback string) string {

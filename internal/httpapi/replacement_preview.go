@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/tja"
 	"ourtaiko.dev/sitekit/audio"
+	"ourtaiko.dev/sitekit/tja"
 )
 
 // replacementBlock is one course×side slot of a replacement as it would land:

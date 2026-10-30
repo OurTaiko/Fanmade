@@ -8,7 +8,7 @@ import type {
   Session as SharedSession,
   UserBase,
 } from '@sitekit/api/types'
-import type { Metadata } from '../tja'
+import type { Metadata } from '@sitekit/tja'
 
 export * from '@sitekit/api/types'
 export type User = UserBase

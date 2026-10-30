@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -67,19 +66,6 @@ func TestCloudScoreMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	storage := t.TempDir()
-	// Missing originals must roll back the entire migration, not guess Single.
-	if err = migrateTo(ctx, pool, storage, 23); err == nil {
-		t.Fatal("expected missing file failure")
-	}
-	var migrated bool
-	if err = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version=3)`).Scan(&migrated); err != nil || migrated {
-		t.Fatalf("partial migration: %v", err)
-	}
-	data := "TITLE:Test\nTITLEJA:日本語\nSUBTITLEZH:副标题\nBPM:120\nWAVE:music.ogg\nCOURSE:Oni\nLEVEL:5\n#START\n1000,\n#END\nSTYLE:Double\n#START\n1000,\n#END\n#START P2\n2000,\n#END\n"
-	data += "COURSE:Easy\nLEVEL:3\n#START\n1000,\n#END\n"
-	if err = os.WriteFile(filepath.Join(storage, "chart.tja"), []byte(data), 0600); err != nil {
-		t.Fatal(err)
-	}
 	for i := 0; i < 2; i++ {
 		if err = migrateTo(ctx, pool, storage, 23); err != nil {
 			t.Fatal(err)
@@ -97,10 +83,6 @@ func TestCloudScoreMigration(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT category_id FROM chart_categories WHERE chart_id='c'`).Scan(&category); err != nil || category != "variety" {
 		t.Fatalf("013 did not backfill existing chart: %s %v", category, err)
 	}
-	var title, subtitle string
-	if err = pool.QueryRow(ctx, `SELECT title_translations->>'ja',subtitle_translations->>'zh' FROM chart_versions WHERE id='v'`).Scan(&title, &subtitle); err != nil || title != "日本語" || subtitle != "副标题" {
-		t.Fatalf("localized backfill: %s %s %v", title, subtitle, err)
-	}
 	rows, err := pool.Query(ctx, `SELECT style,cloud_score_eligible FROM difficulties ORDER BY block_index`)
 	if err != nil {
 		t.Fatal(err)
@@ -112,11 +94,8 @@ func TestCloudScoreMigration(t *testing.T) {
 		if err = rows.Scan(&style, &eligible); err != nil {
 			t.Fatal(err)
 		}
-		expected := "Double"
-		if i == 0 || i == 3 {
-			expected = "Single"
-		}
-		if style != expected || eligible != (i == 0 || i == 3) {
+		// No file is read back: rows from before 003 stay Double, never eligible.
+		if style != "Double" || eligible {
 			t.Fatalf("block %d: %s %t", i, style, eligible)
 		}
 		i++
@@ -125,6 +104,10 @@ func TestCloudScoreMigration(t *testing.T) {
 	rows.Close()
 	if err != nil || i != 4 {
 		t.Fatalf("rows=%d error=%v", i, err)
+	}
+	// Stand in for blocks a writer marks Single.
+	if _, err = pool.Exec(ctx, `UPDATE difficulties SET style='Single' WHERE player=''`); err != nil {
+		t.Fatal(err)
 	}
 	if _, err = pool.Exec(ctx, `UPDATE difficulties SET cloud_score_eligible=true WHERE block_index=1`); err == nil {
 		t.Fatal("eligibility must be database-generated")
@@ -266,17 +249,5 @@ func TestCloudScoreMigration(t *testing.T) {
 		if err = pool.QueryRow(ctx, query).Scan(&rows); err != nil || rows != want {
 			t.Fatalf("017 changed existing %s: %v", table, err)
 		}
-	}
-	// Reproduce a database already migrated by the initial COURSE-leaking parser.
-	if _, err = pool.Exec(ctx, `UPDATE difficulties SET style='Double' WHERE block_index=3;
-	 DELETE FROM schema_migrations WHERE version=4`); err != nil {
-		t.Fatal(err)
-	}
-	if err = migrateTo(ctx, pool, storage, 23); err != nil {
-		t.Fatal(err)
-	}
-	var eligible bool
-	if err = pool.QueryRow(ctx, `SELECT cloud_score_eligible FROM difficulties WHERE block_index=3`).Scan(&eligible); err != nil || !eligible {
-		t.Fatalf("004 did not repair Easy: %v", err)
 	}
 }

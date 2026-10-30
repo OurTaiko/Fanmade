@@ -61,14 +61,14 @@ python3 scripts/demo.py seed
 go test ./...
 go vet ./...
 DATABASE_TEST_URL='postgres://localhost/ourtaiko_fanmade?host=/tmp&sslmode=disable' go test ./internal/database ./internal/httpapi -v
-ESE_ROOT=~/Documents/GitHub/ESE go test ./internal/tja -v
+(cd kit && ESE_ROOT=~/Documents/GitHub/ESE go test ./tja -v)
 # API 运行中，读取真实 ESE 文件；新测试账号交互输入邮箱与验证码，结束时软删除测试作品：
 python3 scripts/demo.py test
 python3 scripts/score_smoke.py
 python3 scripts/metadata_smoke.py
 ```
 
-共享规则测试位于 `contracts/validation.json`。前端保存同内容副本；可用 `cmp contracts/validation.json web/contracts/validation.json` 检查一致性。
+TJA 上传校验（Go 包 `tja`、网页 `tja.ts`）在框架 `kit/` 里，与 OurTaikoDatabase 共用；共享规则测试是 `kit/contracts/validation.json`，框架的 Go 测试和本站 Vitest 都跑它。
 
 ## 设计与边界
 
@@ -78,7 +78,7 @@ API、数据库结构、SSO、管理员、分类、多语言、S3 存储和游�
 
 账号注册、昵称、密码和验证邮件现由 OurTaikoSSO 管理，详见 SSO 接入（文档 `SSO.md`）。
 
-本示范版支持一个 TJA + 一个 Vorbis OGG 或 MP3 音频，TJA 中可有 Easy / Normal / Hard / Oni / Edit 多个难度及 P1 / P2。Tower（塔）和 Dan（段位），包括数字 5 / 6，双端整份拒绝；混合普通难度也不能上传。迁移 012 会下架当前版本含不支持难度的已有作品，保留文件和成绩，所有公开展示及游戏曲库接口排除这些作品。`#NEXTSONG` 多音频谱暂不支持；不承诺完整游戏命令语义。试听在负数 DEMOSTART 时从 0 开始，不改写 TJA。
+本示范版支持一个 TJA + 一个 Vorbis OGG 或 MP3 音频，TJA 中可有 Easy / Normal / Hard / Oni / Edit 多个难度及 P1 / P2。Tower（塔）和 Dan（段位），包括数字 5 / 6，双端整份拒绝；混合普通难度也不能上传。迁移 012 会下架当前版本含不支持难度的已有作品，保留文件和成绩，所有公开展示及游戏曲库接口排除这些作品。`#NEXTSONG` 多曲谱面不支持。头部名不分大小写，重复的头部按游戏的读法取最后一次；歌词、背景图等额外资源不随谱面上传；不承诺完整游戏命令语义。试听在负数 DEMOSTART 时从 0 开始，不改写 TJA。
 
 谱面按"难度 × 侧别"存在 chart_difficulties：每行是 TJA 里真实存在的一个谱面块，course 为五个基础难度，side 为 single / p1 / p2（对应 `#START`、`#START P1`、`#START P2`），同一个文件里三种可以并存，同一槽位重复则拒绝。读哪个谱面块由游戏端决定：单人读 single，缺则 p1；双人 1P 读 p1，缺则 single；双人 2P 读 p2，缺则 single，再缺则 p1。成绩通过 difficulty_id 指向真实游玩的谱面块，每个谱面块各有排行榜。替换 TJA 或音频后旧成绩保留并标为非最新（is_latest=false），排行榜只计最新成绩；新文件里不再存在的谱面块连同其成绩一起删除。上传与成绩接口详见 API（文档 `API.md`）。
 
@@ -92,7 +92,7 @@ API、数据库结构、SSO、管理员、分类、多语言、S3 存储和游�
 
 新上传的 TJA 统一保存为无 BOM 的 UTF-8。API 只收 UTF-8（可带 BOM），其他编码与损坏文本一律 `TJA_ENCODING_INVALID`，上传表单没有 `encoding` 字段；前端自动检测常见源编码并先转成 UTF-8 再上传。原输入和 UTF-8 输出都受 2 MiB 上限约束。文件 SHA-256、字节数、下载和 ZIP 均以实际保存的 UTF-8 内容为准，音频保持原字节。已有文件不迁移，也无需变更数据库结构。
 
-`internal/tja/encoding_test.go` 覆盖严格解码与转换边界；`internal/httpapi/encoding_upload_test.go` 使用隔离 PostgreSQL schema 验证保存编码、文件哈希、大小、下载及转换前后相同内容的幂等重试。
+`kit/tja/encoding_test.go` 覆盖严格解码与转换边界；`internal/httpapi/encoding_upload_test.go` 使用隔离 PostgreSQL schema 验证保存编码、文件哈希、大小、下载及转换前后相同内容的幂等重试。
 
 ## 谱面分类
 

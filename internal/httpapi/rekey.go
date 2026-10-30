@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"ourtaiko.dev/fanmade/api/internal/tja"
 	"ourtaiko.dev/sitekit/audio"
+	"ourtaiko.dev/sitekit/tja"
 )
 
 // Files stored before schema 038 keep their original keys until rekeyed.

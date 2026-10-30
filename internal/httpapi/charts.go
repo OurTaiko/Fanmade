@@ -128,8 +128,9 @@ func (s *Server) listFor(w http.ResponseWriter, r *http.Request, owner string) {
 	s.webSearch(w, r, owner)
 }
 
-// validChartID reports whether id has the form of a chart ID: 32 lowercase hex digits.
-func validChartID(id string) bool {
+// validID reports whether id has the form of every random ID here (charts, courses,
+// playlists): 32 lowercase hex digits.
+func validID(id string) bool {
 	if len(id) != 32 {
 		return false
 	}
@@ -150,7 +151,7 @@ func (s *Server) detail(w http.ResponseWriter, r *http.Request) {
 	if by == "" {
 		// Without by, the form tells: an ID has 32 hex digits, a number at most 19.
 		by = "number"
-		if validChartID(raw) {
+		if validID(raw) {
 			by = "id"
 		}
 	}

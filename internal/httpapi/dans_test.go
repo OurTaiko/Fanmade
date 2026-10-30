@@ -222,7 +222,12 @@ func TestDanCourses(t *testing.T) {
 	expect(call("POST", "/api/v1/game/dan-attempts", `{"courseId":"`+created.ID+`","verdict":5,"songsPlayed":2}`, carol), 400, nil)
 	expect(call("POST", "/api/v1/game/dan-attempts", `{"courseId":"`+created.ID+`","verdict":5,"songsPlayed":2}`, "", "attempt-key-0001"), 401, nil)
 	attempt("attempt-key-0001", `{"courseId":"`+created.ID+`","verdict":7,"songsPlayed":2}`, 422)
-	attempt("attempt-key-0001", `{"courseId":"999","verdict":1,"songsPlayed":2}`, 404)
+	attempt("attempt-key-0001", `{"courseId":"999","verdict":1,"songsPlayed":2}`, 422) // course IDs are 32 hex digits
+	attempt("attempt-key-0001", `{"courseId":"`+ID()+`","verdict":1,"songsPlayed":2}`, 404)
+	if !validID(created.ID) {
+		t.Fatal("course ID", created.ID)
+	}
+	expect(call("GET", "/api/v1/dans/999", "", ""), 404, nil)
 
 	// Not official yet: the titles come, no 段位.
 	reply := attempt("attempt-key-0001", `{"courseId":"`+created.ID+`","verdict":5,"songsPlayed":2}`, 200)

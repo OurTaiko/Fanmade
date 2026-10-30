@@ -65,22 +65,21 @@ const publishedSubject = `((m.chart_id IS NOT NULL AND ` + publishedChart + `) O
 
 // commentSubject is what a thread hangs on: a published song or 段位 course.
 type commentSubject struct {
-	chartID string
-	danID   int64
+	chartID, danID string
 	// Who is told about new top-level comments and upvote milestones.
 	owners       []string
 	commentCount int
 }
 
 func (t commentSubject) column() string {
-	if t.danID != 0 {
+	if t.danID != "" {
 		return "dan_id"
 	}
 	return "chart_id"
 }
 
 func (t commentSubject) id() any {
-	if t.danID != 0 {
+	if t.danID != "" {
 		return t.danID
 	}
 	return t.chartID
@@ -111,13 +110,14 @@ func chartSubject(w http.ResponseWriter, r *http.Request, db rowScanner, lock st
 
 func danSubject(w http.ResponseWriter, r *http.Request, db rowScanner, lock string) (commentSubject, bool) {
 	var t commentSubject
-	id, e := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if e == nil {
+	id := r.PathValue("id")
+	var e error = pgx.ErrNoRows
+	if validID(id) {
 		var owner string
 		e = db.QueryRow(r.Context(), `SELECT d.id,d.owner_id,d.comment_count FROM dan_courses d WHERE d.id=$1 AND d.status='published' `+lock, id).Scan(&t.danID, &owner, &t.commentCount)
 		t.owners = []string{owner}
 	}
-	if e != nil && (errors.Is(e, pgx.ErrNoRows) || t.danID == 0) {
+	if errors.Is(e, pgx.ErrNoRows) {
 		problem(w, 404, "DAN_NOT_FOUND", "段位不存在")
 		return t, false
 	}
@@ -175,8 +175,7 @@ func readComments(ctx context.Context, db rowQuerier, withTitle bool, sql string
 	items := []*Comment{}
 	for rows.Next() {
 		c := &Comment{Replies: []*Comment{}}
-		var chartID, chartTitle *string
-		var danID *int64
+		var chartID, chartTitle, danID *string
 		var danTitle []byte
 		dest := []any{&c.ID, &chartID, &danID, &c.ParentID, &c.Depth, &c.AuthorID, &c.Body, &c.CreatedAt, &c.EditedAt, &c.Deleted, &c.Removed, &c.Score, &c.ReplyCount, &c.MyVote}
 		if withTitle {
@@ -195,7 +194,7 @@ func readComments(ctx context.Context, db rowQuerier, withTitle bool, sql string
 }
 
 // setSubject fills the song or course fields from their nullable columns.
-func (c *Comment) setSubject(chartID *string, danID *int64, chartTitle *string, danTitle []byte) {
+func (c *Comment) setSubject(chartID *string, danID *string, chartTitle *string, danTitle []byte) {
 	if chartID != nil {
 		c.ChartID = *chartID
 	}
@@ -203,7 +202,7 @@ func (c *Comment) setSubject(chartID *string, danID *int64, chartTitle *string, 
 		c.ChartTitle = *chartTitle
 	}
 	if danID != nil {
-		c.DanID = strconv.FormatInt(*danID, 10)
+		c.DanID = *danID
 	}
 	if len(danTitle) > 0 {
 		json.Unmarshal(danTitle, &c.DanTitle)
@@ -271,18 +270,16 @@ func commentBody(w http.ResponseWriter, raw string) (string, bool) {
 }
 
 type commentState struct {
-	id, chartID, authorID string
-	danID                 int64
-	parentID              *string
-	depth, replies        int
-	gone                  bool
+	id, chartID, authorID, danID string
+	parentID                     *string
+	depth, replies               int
+	gone                         bool
 }
 
 // lockComment loads a comment of a published song or course with the given row lock.
 func lockComment(w http.ResponseWriter, r *http.Request, tx pgx.Tx, lock string) (commentState, bool) {
 	var c commentState
-	var chartID *string
-	var danID *int64
+	var chartID, danID *string
 	e := tx.QueryRow(r.Context(), `SELECT m.id,m.chart_id,m.dan_id,m.author_id,m.parent_id,m.depth,m.reply_count,m.deleted_at IS NOT NULL OR m.removed_at IS NOT NULL
 	 FROM comments m`+commentSubjects+` WHERE m.id=$1 AND `+publishedSubject+` `+lock, r.PathValue("id")).
 		Scan(&c.id, &chartID, &danID, &c.authorID, &c.parentID, &c.depth, &c.replies, &c.gone)
@@ -471,12 +468,12 @@ func (s *Server) createSubjectComment(w http.ResponseWriter, r *http.Request, lo
 	id, depth, root := ID(), 0, ""
 	// Top-level comments notify the song's uploader or the course's maker, replies the parent's author.
 	notice := Notice{Kind: "chart_comment", Actor: u.User.ID, ChartID: subject.chartID, DanID: subject.danID, CommentID: id}
-	if subject.danID != 0 {
+	if subject.danID != "" {
 		notice.Kind = "dan_comment"
 	}
 	if req.ParentID != nil {
 		var parentChart *string
-		var parentDan *int64
+		var parentDan *string
 		var parentAuthor string
 		var gone bool
 		// The parent row is updated by the reply counter, so lock it exclusively.

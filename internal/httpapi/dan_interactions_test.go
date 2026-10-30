@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"strconv"
 	"testing"
 )
 
@@ -11,11 +10,11 @@ import (
 func TestDanInteractions(t *testing.T) {
 	c, s := interactionFixture(t)
 	ctx := context.Background()
-	var dan int64
-	if err := s.DB.QueryRow(ctx, `INSERT INTO dan_courses(owner_id,title,code,exams) VALUES('d46774d30dd13b92d9e536808da468a4','{"ja":"初段","en":"1st Dan"}','SHODAN','[]') RETURNING id`).Scan(&dan); err != nil {
+	dan := ID()
+	if _, err := s.DB.Exec(ctx, `INSERT INTO dan_courses(id,owner_id,title,code,exams) VALUES($1,'d46774d30dd13b92d9e536808da468a4','{"ja":"初段","en":"1st Dan"}','SHODAN','[]')`, dan); err != nil {
 		t.Fatal(err)
 	}
-	path := "/api/v1/dans/" + strconv.FormatInt(dan, 10)
+	path := "/api/v1/dans/" + dan
 	var v VoteResult
 	if code := c.do("", "PUT", path+"/vote", `{"value":1}`, nil); code != 401 {
 		t.Fatal("guest vote", code)
@@ -48,7 +47,7 @@ func TestDanInteractions(t *testing.T) {
 
 	// Comments: a top-level one by alice, bob's reply, and the counts they move.
 	var top, reply Comment
-	if code := c.do("alice", "POST", path+"/comments", `{"body":"良い段位"}`, &top); code != 201 || top.DanID != strconv.FormatInt(dan, 10) || top.ChartID != "" || top.Score != 1 {
+	if code := c.do("alice", "POST", path+"/comments", `{"body":"良い段位"}`, &top); code != 201 || top.DanID != dan || top.ChartID != "" || top.Score != 1 {
 		t.Fatalf("top comment %d %+v", code, top)
 	}
 	if code := c.do("bob", "POST", path+"/comments", `{"body":"同感","parentId":"`+top.ID+`"}`, &reply); code != 201 || reply.Depth != 1 {
@@ -77,7 +76,7 @@ func TestDanInteractions(t *testing.T) {
 		t.Fatal("course comment count", course.CommentCount)
 	}
 	var thread struct{ Item Comment }
-	if code := c.do("", "GET", "/api/v1/comments/"+reply.ID, "", &thread); code != 200 || thread.Item.DanTitle["ja"] != "初段" || thread.Item.DanID != strconv.FormatInt(dan, 10) {
+	if code := c.do("", "GET", "/api/v1/comments/"+reply.ID, "", &thread); code != 200 || thread.Item.DanTitle["ja"] != "初段" || thread.Item.DanID != dan {
 		t.Fatalf("thread %d %+v", code, thread.Item)
 	}
 	var history CommentList

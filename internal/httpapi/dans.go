@@ -324,13 +324,12 @@ func (s *Server) loadDans(ctx context.Context, where string, args ...any) ([]Dan
 	index := map[string]int{}
 	for rows.Next() {
 		var c DanCourse
-		var id int64
 		var title, exams, rewards []byte
-		if err = rows.Scan(&id, &c.OwnerID, &title, &c.Color, &c.Official, &exams, &rewards, &c.CreatedAt, &c.UpdatedAt, &c.Code, &c.Upvotes, &c.Downvotes, &c.CommentCount); err != nil {
+		if err = rows.Scan(&c.ID, &c.OwnerID, &title, &c.Color, &c.Official, &exams, &rewards, &c.CreatedAt, &c.UpdatedAt, &c.Code, &c.Upvotes, &c.Downvotes, &c.CommentCount); err != nil {
 			rows.Close()
 			return nil, err
 		}
-		c.Format, c.ID, c.Exams, c.Rewards, c.Songs, c.Score = 1, strconv.FormatInt(id, 10), exams, rewards, []DanSong{}, c.Upvotes-c.Downvotes
+		c.Format, c.Exams, c.Rewards, c.Songs, c.Score = 1, exams, rewards, []DanSong{}, c.Upvotes-c.Downvotes
 		json.Unmarshal(title, &c.Title)
 		index[c.ID] = len(courses)
 		courses = append(courses, c)
@@ -339,10 +338,9 @@ func (s *Server) loadDans(ctx context.Context, where string, args ...any) ([]Dan
 	if err = rows.Err(); err != nil || len(courses) == 0 {
 		return courses, err
 	}
-	ids := []int64{}
+	ids := []string{}
 	for _, c := range courses {
-		id, _ := strconv.ParseInt(c.ID, 10, 64)
-		ids = append(ids, id)
+		ids = append(ids, c.ID)
 	}
 	rows, err = s.DB.Query(ctx, `SELECT s.course_id,s.chart_id,s.course,s.side,s.hidden,COALESCE(c.title,''),COALESCE(c.subtitle,''),
  COALESCE((SELECT b.level FROM chart_difficulties b WHERE b.chart_id=s.chart_id AND b.course=s.course AND b.side=s.side),0),
@@ -354,12 +352,12 @@ func (s *Server) loadDans(ctx context.Context, where string, args ...any) ([]Dan
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var course int64
+		var course string
 		var song DanSong
 		if err = rows.Scan(&course, &song.Chart.ID, &song.Chart.Course, &song.Chart.Side, &song.Hidden, &song.Title, &song.Subtitle, &song.Level, &song.Valid, &song.Available); err != nil {
 			return nil, err
 		}
-		c := &courses[index[strconv.FormatInt(course, 10)]]
+		c := &courses[index[course]]
 		c.Songs = append(c.Songs, song)
 	}
 	if err = rows.Err(); err != nil {
@@ -395,8 +393,8 @@ func (s *Server) listDans(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) danDetail(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
+	id := r.PathValue("id")
+	if !validID(id) {
 		problem(w, 404, "DAN_NOT_FOUND", "段位不存在")
 		return
 	}
@@ -415,7 +413,7 @@ func (s *Server) danDetail(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, courses[0])
 }
 
-func (s *Server) saveDanSongs(ctx context.Context, tx pgx.Tx, course int64, songs []danSongRow) error {
+func (s *Server) saveDanSongs(ctx context.Context, tx pgx.Tx, course string, songs []danSongRow) error {
 	if _, err := tx.Exec(ctx, `DELETE FROM dan_course_songs WHERE course_id=$1`, course); err != nil {
 		return err
 	}
@@ -463,7 +461,7 @@ func (s *Server) createDan(w http.ResponseWriter, r *http.Request) {
 		problem(w, 409, "DAN_LIMIT_REACHED", "每人最多发布 10 个非官方段位")
 		return
 	}
-	var id int64
+	var id string
 	code := strings.ToUpper(strings.TrimSpace(in.Code))
 	if code != "" && !danCodePattern.MatchString(code) {
 		problem(w, 422, "DAN_CODE_INVALID", "段位码需为 6 位大写字母或数字")
@@ -487,7 +485,8 @@ func (s *Server) createDan(w http.ResponseWriter, r *http.Request) {
 			code = ""
 		}
 	}
-	if err = tx.QueryRow(ctx, `INSERT INTO dan_courses(owner_id,title,color,code,exams,rewards) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, u.User.ID, titleJSON, in.Color, code, exams, rewards).Scan(&id); err != nil {
+	id = ID()
+	if _, err = tx.Exec(ctx, `INSERT INTO dan_courses(id,owner_id,title,color,code,exams,rewards) VALUES($7,$1,$2,$3,$4,$5,$6)`, u.User.ID, titleJSON, in.Color, code, exams, rewards, id); err != nil {
 		internal(w, err)
 		return
 	}
@@ -508,27 +507,28 @@ func (s *Server) createDan(w http.ResponseWriter, r *http.Request) {
 }
 
 // ownDan is the course (and its maker) for its owner or an administrator to change.
-func (s *Server) ownDan(w http.ResponseWriter, r *http.Request) (session, int64, string, bool) {
+func (s *Server) ownDan(w http.ResponseWriter, r *http.Request) (session, string, string, bool) {
 	u, ok := s.required(w, r, true)
 	if !ok {
-		return u, 0, "", false
+		return u, "", "", false
 	}
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	id := r.PathValue("id")
 	var owner string
-	if err == nil {
+	err := pgx.ErrNoRows
+	if validID(id) {
 		err = s.DB.QueryRow(r.Context(), `SELECT owner_id FROM dan_courses WHERE id=$1 AND status='published'`, id).Scan(&owner)
 	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) || id == 0 {
+		if errors.Is(err, pgx.ErrNoRows) {
 			problem(w, 404, "DAN_NOT_FOUND", "段位不存在")
 		} else {
 			internal(w, err)
 		}
-		return u, 0, "", false
+		return u, "", "", false
 	}
 	if owner != u.User.ID && !u.User.IsAdmin {
 		problem(w, 403, "FORBIDDEN", "只有创建者或管理员可以修改")
-		return u, 0, "", false
+		return u, "", "", false
 	}
 	return u, id, owner, true
 }
@@ -706,8 +706,8 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &body) {
 		return
 	}
-	course, err := strconv.ParseInt(body.CourseID, 10, 64)
-	if err != nil || body.Verdict < 0 || body.Verdict > 6 || body.SongsPlayed < 0 || body.SongsPlayed > danMaxSongs {
+	course := body.CourseID
+	if !validID(course) || body.Verdict < 0 || body.Verdict > 6 || body.SongsPlayed < 0 || body.SongsPlayed > danMaxSongs {
 		problem(w, 422, "DAN_ATTEMPT_INVALID", "段位成绩无效")
 		return
 	}
@@ -727,10 +727,10 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 	var stored string
 	var granted []byte
 	err = s.DB.QueryRow(ctx, `INSERT INTO dan_attempts(id,course_id,user_id,idempotency_key,payload_digest,verdict,songs_played) VALUES($1,$2,$3,$4,$5,$6,$7)
- ON CONFLICT(user_id,idempotency_key) DO NOTHING RETURNING id,course_id::text,verdict,songs_played,submitted_at,payload_digest,granted`,
+ ON CONFLICT(user_id,idempotency_key) DO NOTHING RETURNING id,course_id,verdict,songs_played,submitted_at,payload_digest,granted`,
 		ID(), course, u.User.ID, key, digest, body.Verdict, body.SongsPlayed).Scan(&a.ID, &a.CourseID, &a.Verdict, &a.SongsPlayed, &a.SubmittedAt, &stored, &granted)
 	if errors.Is(err, pgx.ErrNoRows) {
-		err = s.DB.QueryRow(ctx, `SELECT id,course_id::text,verdict,songs_played,submitted_at,payload_digest,granted FROM dan_attempts WHERE user_id=$1 AND idempotency_key=$2`, u.User.ID, key).
+		err = s.DB.QueryRow(ctx, `SELECT id,course_id,verdict,songs_played,submitted_at,payload_digest,granted FROM dan_attempts WHERE user_id=$1 AND idempotency_key=$2`, u.User.ID, key).
 			Scan(&a.ID, &a.CourseID, &a.Verdict, &a.SongsPlayed, &a.SubmittedAt, &stored, &granted)
 		if err == nil && stored != digest {
 			problem(w, 409, "IDEMPOTENCY_CONFLICT", "同一个 Idempotency-Key 对应了不同的成绩")

@@ -161,8 +161,10 @@ for (const { actor, replaceAudio } of ['owner', 'admin'].flatMap((actor) =>
     await page.getByRole('link', { name: '更新歌曲与谱面' }).click()
     await expect(page.getByRole('heading', { name: '更新歌曲与谱面' })).toBeVisible()
     await expect(page.getByLabel('更新须知')).toContainText('只改标题、译名等头部信息不影响成绩')
-    await page.getByRole('tab', { name: '谱面介绍', exact: true }).click()
-    await expect(page.getByLabel('投稿说明')).toHaveValue('Keep description')
+    await page.getByRole('tab', { name: '备注', exact: true }).click()
+    await expect(page.getByRole('textbox', { name: '备注', exact: true })).toHaveValue(
+      'Keep description',
+    )
     await page.getByRole('tab', { name: '文件与封面', exact: true }).click()
     const coverPicker = page.getByLabel('选择 JPG/JPEG、PNG 或 WebP 封面')
     await expect(coverPicker).toBeVisible()

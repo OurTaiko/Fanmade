@@ -33,6 +33,7 @@ const chart: Chart = {
   subtitleTranslations: {},
   difficulties: ['Hard', 'Oni', 'Edit'].map((course, blockIndex) => ({
     course,
+    side: 'single',
 
     level: 5,
 
@@ -95,7 +96,7 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
     '文件与封面',
     '谱面分类',
     '试听',
-    '谱面介绍',
+    '备注',
     '谱师名义',
   ])
   await page.getByRole('tab', { name: '试听', exact: true }).click()
@@ -114,8 +115,8 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
   await expect
     .poll(() => page.locator('audio').evaluate((a: HTMLAudioElement) => a.paused))
     .toBe(true)
-  await page.getByRole('tab', { name: '谱面介绍', exact: true }).click()
-  await page.getByLabel('投稿说明', { exact: true }).fill('Upload tabs test')
+  await page.getByRole('tab', { name: '备注', exact: true }).click()
+  await page.getByRole('textbox', { name: '备注', exact: true }).fill('Upload tabs test')
   await page.getByRole('tab', { name: '试听', exact: true }).click()
   await expect(page.getByLabel('试听结束（秒）')).toHaveValue('0.3')
   await page.setViewportSize({ width: 390, height: 844 })

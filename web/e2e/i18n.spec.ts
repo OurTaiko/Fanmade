@@ -35,6 +35,7 @@ const chart: Chart = {
   difficulties: [
     {
       course: 'Oni',
+      side: 'single',
       level: 5,
 
       maker: 'Maker',

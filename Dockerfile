@@ -16,7 +16,7 @@ RUN pnpm build
 # v0.3.x and hashes the same.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS tjaparser
 ARG TARGETARCH
-ARG TJAPARSER_REF=v0.5.0
+ARG TJAPARSER_REF=v0.6.1
 RUN apk add --no-cache git \
     && git clone --depth 1 --branch "$TJAPARSER_REF" https://github.com/OurTaiko/TJAParser.git /src
 WORKDIR "/src/dotnet~"

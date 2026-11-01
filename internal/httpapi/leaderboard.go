@@ -98,7 +98,7 @@ func (s *Server) leaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 	for rows.Next() {
 		var v leaderboardEntry
-		if err = rows.Scan(&v.ID, &v.UserID, &v.SongID, &v.DifficultyID, &v.Course, &v.Side, &v.Good, &v.OK, &v.Bad, &v.Score.Score, &v.Drumroll, &v.MaxCombo, &v.ClearStatus, &v.IsLatest, &v.SubmittedAt, &v.Rank); err != nil {
+		if err = rows.Scan(&v.ID, &v.UserID, &v.SongID, &v.DifficultyID, &v.Course, &v.Side, &v.Good, &v.OK, &v.Bad, &v.Score.Score, &v.Drumroll, &v.MaxCombo, &v.ClearStatus, &v.IsLatest, &v.SubmittedAt, &v.AdLib, &v.Mines, &v.Rank); err != nil {
 			rows.Close()
 			internal(w, err)
 			return

@@ -22,7 +22,7 @@ type UserScore struct {
 const userScorePageSize = 50
 
 // The plays of one user on published charts, with the block and title; $1 is the user.
-const userPlays = `SELECT sc.id,sc.user_id,d.chart_id,sc.difficulty_id,d.course,d.side,sc.good,sc.ok,sc.bad,sc.score,sc.drumroll,sc.max_combo,sc.clear_status,sc.is_latest,sc.submitted_at,
+const userPlays = `SELECT sc.id,sc.user_id,d.chart_id,sc.difficulty_id,d.course,d.side,sc.good,sc.ok,sc.bad,sc.score,sc.drumroll,sc.max_combo,sc.clear_status,sc.is_latest,sc.submitted_at,sc.adlib,sc.mines,
  c.title,c.title_translations,d.level
  FROM scores sc JOIN chart_difficulties d ON d.id=sc.difficulty_id JOIN charts c ON c.id=d.chart_id
  WHERE sc.user_id=$1 AND ` + publishedChart
@@ -77,7 +77,7 @@ func (s *Server) userScores(w http.ResponseWriter, r *http.Request) {
 		args = append(args, course)
 		plays += ` AND d.course=$2`
 	}
-	columns := `id,user_id,chart_id,difficulty_id,course,side,good,ok,bad,score,drumroll,max_combo,clear_status,is_latest,submitted_at,title,title_translations,level`
+	columns := `id,user_id,chart_id,difficulty_id,course,side,good,ok,bad,score,drumroll,max_combo,clear_status,is_latest,submitted_at,adlib,mines,title,title_translations,level`
 	var sql string
 	if view == "all" {
 		sql = `SELECT ` + columns + `,NULL::int,NULL::int,count(*) OVER() FROM (` + plays + `) p`
@@ -100,7 +100,7 @@ func (s *Server) userScores(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var v UserScore
 		var translations []byte
-		if err = rows.Scan(&v.ID, &v.UserID, &v.SongID, &v.DifficultyID, &v.Course, &v.Side, &v.Good, &v.OK, &v.Bad, &v.Score.Score, &v.Drumroll, &v.MaxCombo, &v.ClearStatus, &v.IsLatest, &v.SubmittedAt,
+		if err = rows.Scan(&v.ID, &v.UserID, &v.SongID, &v.DifficultyID, &v.Course, &v.Side, &v.Good, &v.OK, &v.Bad, &v.Score.Score, &v.Drumroll, &v.MaxCombo, &v.ClearStatus, &v.IsLatest, &v.SubmittedAt, &v.AdLib, &v.Mines,
 			&v.Title, &translations, &v.Level, &v.BestClearStatus, &v.PlayCount, &total); err != nil {
 			internal(w, err)
 			return

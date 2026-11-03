@@ -95,7 +95,7 @@ test('owner edits preview range while player keeps full audio source', async ({ 
   })
   await page.goto('/charts/preview-song')
   await page.getByRole('button', { name: '编辑信息', exact: true }).click()
-  await page.getByRole('tab', { name: '试听', exact: true }).click()
+  await page.getByRole('tab', { name: '试听与视频', exact: true }).click()
   await expect(page.getByLabel('试听开始（秒）')).toHaveValue('12')
   await expect(page.getByLabel('试听结束（秒）')).toHaveValue('27')
   await page.getByLabel('试听结束（秒）').fill('10')
@@ -109,7 +109,7 @@ test('owner edits preview range while player keeps full audio source', async ({ 
   await page.getByLabel('魔王 ★5', { exact: true }).fill('New maker')
   await page.getByRole('tab', { name: '歌名与译名', exact: true }).click()
   await page.getByLabel('英文歌名', { exact: true }).fill('New title')
-  await page.getByRole('tab', { name: '试听', exact: true }).click()
+  await page.getByRole('tab', { name: '试听与视频', exact: true }).click()
   await page.getByLabel('试听开始（秒）').fill('20.5')
   await page.getByLabel('试听结束（秒）').fill('21.2')
   // The page has a player of its own; the range is auditioned in the dialog's.
@@ -150,7 +150,7 @@ test('owner edits preview range while player keeps full audio source', async ({ 
     /\/api\/v1\/charts\/preview-song\/audio$/,
   )
   await page.getByRole('button', { name: '编辑信息', exact: true }).click()
-  await page.getByRole('tab', { name: '试听', exact: true }).click()
+  await page.getByRole('tab', { name: '试听与视频', exact: true }).click()
   await expect(page.getByLabel('试听开始（秒）')).toHaveValue('20.5')
   await expect(page.getByLabel('试听结束（秒）')).toHaveValue('36')
   expect(errors).toEqual([])

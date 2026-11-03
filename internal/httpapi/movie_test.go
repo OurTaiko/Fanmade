@@ -223,6 +223,64 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 		}
 	}
 
+	// The offset alone: the stored TJA is rewritten, its chart and scores kept.
+	patch := func(body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("PATCH", "/api/v1/charts/"+chart.ID, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("Origin", "http://localhost")
+		r.Header.Set("X-CSRF-Token", "csrf")
+		r.AddCookie(&http.Cookie{Name: "ourtaiko_session", Value: cookie})
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w
+	}
+	declares := func(id, headers string) {
+		t.Helper()
+		if data, err := read(tjaKey(id)); err != nil || !strings.Contains(string(data), headers) {
+			t.Fatalf("stored TJA lacks %q: %s %v", headers, data, err)
+		}
+	}
+	beforeOffset := tjaKey(chart.ID)
+	rejected(patch(`{"movieOffset":1300}`), 422, "TJA_MOVIE_OFFSET_INVALID")
+	rejected(patch(`{"movieOffset":null}`), 422, "TJA_MOVIE_OFFSET_INVALID")
+	shifted := decode(patch(`{"movieOffset":2.5}`), 200)
+	if shifted.MovieOffset != 2.5 || shifted.MovieHash != chart.MovieHash || shifted.Title != "A" || len(shifted.Difficulties) != 1 || tjaKey(chart.ID) == beforeOffset {
+		t.Fatalf("offset not set: %+v", shifted)
+	}
+	declares(chart.ID, "\nBGMOVIE:"+chart.MovieHash+".mp4\nMOVIEOFFSET:2.5\n")
+	// The movie alone, with or without a new offset.
+	other := filepath.Join(t.TempDir(), "other.mp4")
+	if out, err := exec.Command("ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=30:duration=0.5", "-c:v", "libx264", "-preset", "ultrafast", other).CombinedOutput(); err != nil {
+		t.Fatal(string(out))
+	}
+	otherClip, err := os.ReadFile(other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moviePath := "/api/v1/charts/" + chart.ID + "/movie"
+	rejected(send("PUT", moviePath, ID()), 400, "UPLOAD_FILES_INVALID")
+	rejected(send("PUT", moviePath, ID(), part{"movie", "clip.avi", otherClip}), 400, "UPLOAD_FILES_INVALID")
+	rejected(send("PUT", moviePath, ID(), part{"movieOffset", "", []byte("x")}, part{"movie", "o.mp4", otherClip}), 422, "TJA_MOVIE_OFFSET_INVALID")
+	rejected(send("PUT", moviePath, ID(), part{"movie", "o.mp4", []byte("not a video")}), 422, "MOVIE_INVALID")
+	swapped := decode(send("PUT", moviePath, ID(), part{"movie", "any name.webm", otherClip}), 200)
+	if len(swapped.MovieHash) != 64 || swapped.MovieHash == chart.MovieHash || swapped.MovieOffset != 2.5 || swapped.Title != "A" {
+		t.Fatalf("movie not replaced: %+v", swapped)
+	}
+	declares(chart.ID, "\nBGMOVIE:"+swapped.MovieHash+".mp4\nMOVIEOFFSET:2.5\n")
+	app.cleanupReplacedFiles()
+	if _, err = read(chart.MovieHash + ".mp4"); !os.IsNotExist(err) {
+		t.Fatal("replaced movie still stored", err)
+	}
+	if _, err = read(beforeOffset); !os.IsNotExist(err) {
+		t.Fatal("replaced TJA still stored", err)
+	}
+	// Back to the first movie, so the checks below see it.
+	chart = decode(send("PUT", moviePath, ID(), part{"movie", "clip.mp4", clip}, part{"movieOffset", "", []byte("-0.5")}), 200)
+	if chart.MovieOffset != -0.5 {
+		t.Fatalf("offset not sent with the movie: %+v", chart)
+	}
+	declares(chart.ID, "\nBGMOVIE:"+chart.MovieHash+".mp4\nMOVIEOFFSET:-0.5\n")
+
 	// A replacement that still declares BGMOVIE keeps the stored movie without a new upload.
 	files := "/api/v1/charts/" + chart.ID + "/files"
 	confirm := part{"confirmReset", "", []byte("true")}
@@ -243,6 +301,13 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 	if _, err = read(chart.MovieHash + ".mp4"); !os.IsNotExist(err) {
 		t.Fatal("removed movie still stored", err)
 	}
+	// A chart without BGMOVIE gains the headers after WAVE.
+	rejected(patch(`{"movieOffset":1}`), 422, "MOVIE_NOT_FOUND")
+	added := decode(send("PUT", moviePath, ID(), part{"movieOffset", "", []byte("0.75")}, part{"movie", "o.mp4", otherClip}), 200)
+	if added.MovieHash != swapped.MovieHash || added.MovieOffset != 0.75 || added.Title != "C" {
+		t.Fatalf("movie not added: %+v", added)
+	}
+	declares(added.ID, "\nWAVE:"+added.AudioHash+".ogg\nBGMOVIE:"+added.MovieHash+".mp4\nMOVIEOFFSET:0.75\n")
 	// Adding it back and deleting the chart removes it again.
 	again := decode(send("PUT", files, ID(), tja("D", withMovie), confirm, movie), 200)
 	if len(again.MovieHash) != 64 {

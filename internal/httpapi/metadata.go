@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"ourtaiko.dev/sitekit/audio"
 	"ourtaiko.dev/sitekit/tja"
+	"ourtaiko.dev/sitekit/video"
 	"slices"
 	"strings"
 	"unicode"
@@ -24,6 +25,7 @@ type metadataPatch struct {
 	DifficultyMakers     json.RawMessage `json:"difficultyMakers"`
 	DemoStart            json.RawMessage `json:"demoStart"`
 	DemoEnd              json.RawMessage `json:"demoEnd"`
+	MovieOffset          json.RawMessage `json:"movieOffset"`
 	CategoryIDs          json.RawMessage `json:"categoryIds"`
 	Title                json.RawMessage `json:"title"`
 	Subtitle             json.RawMessage `json:"subtitle"`
@@ -83,7 +85,7 @@ func patchTranslations(raw json.RawMessage, dst *map[string]string, original map
 }
 
 func (p metadataPatch) apply(o *metadataTranslations, original metadataTranslations) bool {
-	if len(p.Title)+len(p.Subtitle)+len(p.TitleTranslations)+len(p.SubtitleTranslations)+len(p.CategoryIDs)+len(p.DemoStart)+len(p.DemoEnd)+len(p.Description)+len(p.DifficultyMakers) == 0 {
+	if len(p.Title)+len(p.Subtitle)+len(p.TitleTranslations)+len(p.SubtitleTranslations)+len(p.CategoryIDs)+len(p.DemoStart)+len(p.DemoEnd)+len(p.MovieOffset)+len(p.Description)+len(p.DifficultyMakers) == 0 {
 		return false
 	}
 	return patchTranslations(p.TitleTranslations, &o.Titles, original.Titles, true) && patchTranslations(p.SubtitleTranslations, &o.Subtitles, original.Subtitles, false)
@@ -292,6 +294,29 @@ func (s *Server) editMetadata(w http.ResponseWriter, r *http.Request) {
 			}
 			if _, e = tx.Exec(r.Context(), `UPDATE charts SET demo_start=$2,demo_end=$3 WHERE id=$1`, c.ID, start, end); e != nil {
 				internal(w, e)
+				return
+			}
+		}
+	}
+	// MOVIEOFFSET is kept in the stored TJA too, where players read it.
+	if len(patch.MovieOffset) > 0 {
+		var offset, current float64
+		var movieSHA string
+		if bytes.Equal(bytes.TrimSpace(patch.MovieOffset), []byte("null")) || json.Unmarshal(patch.MovieOffset, &offset) != nil || !video.ValidOffset(offset) {
+			problem(w, 422, "TJA_MOVIE_OFFSET_INVALID", "MOVIEOFFSET 必须为秒数，绝对值不超过 1200")
+			return
+		}
+		if err = tx.QueryRow(r.Context(), `SELECT c.movie_offset,COALESCE(mf.sha256,'') FROM charts c LEFT JOIN chart_resources mf ON mf.id=c.movie_file WHERE c.id=$1`, r.PathValue("id")).Scan(&current, &movieSHA); err != nil {
+			internal(w, err)
+			return
+		}
+		if movieSHA == "" {
+			problem(w, 422, "MOVIE_NOT_FOUND", "该谱面没有背景视频，无法设置 MOVIEOFFSET")
+			return
+		}
+		if offset != current {
+			if err = s.rewriteMovie(r.Context(), tx, r.PathValue("id"), movieSHA, nil, offset); err != nil {
+				internal(w, err)
 				return
 			}
 		}

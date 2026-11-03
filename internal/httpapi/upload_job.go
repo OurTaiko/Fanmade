@@ -31,6 +31,7 @@ type uploadJob struct {
 	demoStart, demoEnd       float64
 	keepMovie, async         bool
 	keepTitles               bool // a replacement keeps the chart's title, subtitle and translations
+	movieOnly                bool // sets only the background movie of existingID, see replaceMovie
 	done                     chan uploadResult
 }
 
@@ -68,7 +69,12 @@ func (s *Server) enqueue(j *uploadJob) {
 func (s *Server) runUploads() {
 	for j := range s.jobs {
 		ctx, cancel := context.WithTimeout(context.Background(), uploadTimeout)
-		result := s.processUpload(ctx, j)
+		var result uploadResult
+		if j.movieOnly {
+			result = s.processMovie(ctx, j)
+		} else {
+			result = s.processUpload(ctx, j)
+		}
 		os.RemoveAll(j.dir)
 		s.finishUpload(j, result)
 		cancel()

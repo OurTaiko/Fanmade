@@ -7,13 +7,14 @@ import { Label } from '@sitekit/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@sitekit/components/ui/tabs'
 import { Textarea } from '@sitekit/components/ui/textarea'
 import { AudioPlayer } from '@sitekit/components/audio-player'
+import { MovieSettings, movieChanges, movieDraft } from '@sitekit/components/movie-settings'
 import { Input } from '@sitekit/components/ui/input'
 import { Button } from '@sitekit/components/ui/button'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ArrowCounterClockwiseIcon as RotateCcw } from '@phosphor-icons/react'
 import { CategoryPicker } from '@sitekit/categories'
-import { api, jsonRequest } from '@sitekit/api/client'
+import { api, jsonRequest, replaceMovie } from '@sitekit/api/client'
 import type { Chart, Locale } from './api/types'
 import { useNotification } from '@sitekit/notification-context'
 import { Modal } from '@sitekit/notifications'
@@ -34,6 +35,7 @@ type Patch = {
   difficultyMakers?: { course: string; side: string; maker: string }[]
   demoStart?: number
   demoEnd?: number
+  movieOffset?: number
   categoryIds?: string[]
   titleTranslations?: Partial<Record<Locale, string | null>>
   subtitleTranslations?: Partial<Record<Locale, string | null>>
@@ -82,6 +84,8 @@ export function EditMetadata({
   const previewChanged =
     Number(demoStart) !== chart.demoStart ||
     Number(demoEnd) !== (chart.demoEnd ?? chart.demoStart + 15)
+  const [movie, setMovie] = useState(() => movieDraft(chart))
+  const movieEdit = movieChanges(chart, movie)
   const [busy, setBusy] = useState(false)
   const { notify } = useNotification()
   const setError = (message: string) => notify(message, 'error')
@@ -94,6 +98,7 @@ export function EditMetadata({
     makersChanged ||
     categoriesChanged ||
     previewChanged ||
+    movieEdit.changed ||
     namesChanged ||
     languages.some(
       ({ code }) =>
@@ -143,6 +148,12 @@ export function EditMetadata({
       patch.demoStart = start
       patch.demoEnd = end
     }
+    if (movieEdit.invalid) {
+      setTab('preview')
+      setError(t('messages.movieOffsetInvalid'))
+      return
+    }
+    if (!movieEdit.file && movieEdit.offset !== undefined) patch.movieOffset = movieEdit.offset
     const invalidText = (text: string) =>
       new TextEncoder().encode(text).length > 500 ||
       Array.from(text).some((char) => {
@@ -199,11 +210,17 @@ export function EditMetadata({
     request.current = controller
     setBusy(true)
     try {
-      const updated = await api<Chart>(endpoints.chart(chart.id), {
-        ...jsonRequest('PATCH', patch, csrf),
-        signal: controller.signal,
-      })
-      onSaved(updated)
+      // The movie first: a rejected file leaves the other edits unsaved.
+      if (movieEdit.file)
+        await replaceMovie(chart.id, movieEdit.file, movieEdit.offset, csrf, controller.signal)
+      if (Object.keys(patch).length) {
+        const updated = await api<Chart>(endpoints.chart(chart.id), {
+          ...jsonRequest('PATCH', patch, csrf),
+          signal: controller.signal,
+        })
+        onSaved(updated)
+      } else onDismiss()
+      if (movieEdit.file) notify(t('messages.movieSubmitted'), 'info')
     } catch (e) {
       if (!controller.signal.aborted) setError((e as Error).message)
     } finally {
@@ -237,7 +254,11 @@ export function EditMetadata({
                       disabled={busy}
                       ref={value === 'categories' ? firstInput : undefined}
                     >
-                      {t(`messages.metadataTab_${value}`)}
+                      {t(
+                        value === 'preview'
+                          ? 'messages.metadataTab_previewMovie'
+                          : `messages.metadataTab_${value}`,
+                      )}
                     </TabsTrigger>
                   ),
                 )}
@@ -285,6 +306,13 @@ export function EditMetadata({
                   disabled={busy || Number(demoEnd) > 1215}
                 />
               </fieldset>
+              <MovieSettings
+                chart={chart}
+                draft={movie}
+                onChange={setMovie}
+                disabled={busy}
+                className="mt-4"
+              />
             </TabsContent>
             <TabsContent value="description" className="space-y-3 pt-3">
               <Label htmlFor="edit-description">{t('messages.metadataTab_description')}</Label>
@@ -304,8 +332,7 @@ export function EditMetadata({
               {makers.map((d, index) => (
                 <div key={slotKey(d)} className="space-y-2">
                   <Label htmlFor={`edit-maker-${slotKey(d)}`}>
-                    {blockName(d)} ★
-                    {chart.difficulties[index].level}
+                    {blockName(d)} ★{chart.difficulties[index].level}
                   </Label>
                   <Input
                     id={`edit-maker-${slotKey(d)}`}

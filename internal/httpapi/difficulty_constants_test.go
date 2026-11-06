@@ -146,6 +146,19 @@ func TestDifficultyConstants(t *testing.T) {
 	if _, err = pool.Exec(ctx, `DELETE FROM difficulty_constants`); err != nil {
 		t.Fatal(err)
 	}
+	// The titles have been edited since the upload; the stored file still says "Backfill".
+	if _, err = pool.Exec(ctx, `UPDATE charts SET title_translations=title_translations||'{"zh":"改过的标题"}'::jsonb - 'en',
+ subtitle_translations='{"ja":"改过的副标题"}'::jsonb WHERE id=$1`, chart.ID); err != nil {
+		t.Fatal(err)
+	}
+	titles := func() (title, subtitle string) {
+		t.Helper()
+		if err = pool.QueryRow(ctx, `SELECT title_translations::text,subtitle_translations::text FROM charts WHERE id=$1`, chart.ID).Scan(&title, &subtitle); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	editedTitle, editedSubtitle := titles()
 	var prefix string
 	if err = pool.QueryRow(ctx, `SELECT split_part(content_hash,':',1)||':' FROM chart_difficulties WHERE chart_id=$1 LIMIT 1`, chart.ID).Scan(&prefix); err != nil {
 		t.Fatal(err)
@@ -155,6 +168,9 @@ func TestDifficultyConstants(t *testing.T) {
 	}
 	if backfilled := stored(); !same(backfilled, rated) {
 		t.Fatalf("backfill gave %v, want %v", backfilled, rated)
+	}
+	if title, subtitle := titles(); title != editedTitle || subtitle != editedSubtitle {
+		t.Fatalf("the backfill rewrote edited titles: %s %s, want %s %s", title, subtitle, editedTitle, editedSubtitle)
 	}
 
 	// A block's scores and 段位 songs go with its hash, whatever changed it: another hash of

@@ -18,8 +18,8 @@ import (
 // RunContentHashBackfill fills chart_difficulties.content_hash for charts stored before
 // migration 046, or hashed by an older algorithm than the tool now reports, and the raw
 // difficulty constants (difficulty_constants, every route) for blocks without them in the
-// current constants.Version; it adds the titles TJAParser reads (origin and every locale) to
-// the title dictionaries, never removing a key. It runs after start-up, resumes on the next
+// current constants.Version; a chart that has no titles from its file yet gets the ones
+// TJAParser reads (origin and every locale), never removing a key. It runs after start-up, resumes on the next
 // start, and leaves a block the tool cannot play NULL with a log line; the retire trigger
 // ignores a hash set for the first time, and the constants touch no score.
 func (s *Server) RunContentHashBackfill(ctx context.Context) {
@@ -114,12 +114,16 @@ func (s *Server) backfillChartHashes(parent context.Context, id string) error {
 			return err
 		}
 	}
-	// Titles: add what the file says (origin and every locale the game maps); keep every key
-	// already stored, since an "en" written by the uploader cannot be told from a defaulted one.
+	// Titles: for a chart that has not had them from its file yet (no origin), add what the file
+	// says (origin and every locale the game maps), keeping every key already stored, since an
+	// "en" written by the uploader cannot be told from a defaulted one. Once it has them the
+	// titles are the site's to edit, and the stored file keeps the old ones: reading it again
+	// (a new hash algorithm, new constants) must not bring them back.
 	titles, _ := json.Marshal(result.Titles)
 	subtitles, _ := json.Marshal(result.Subtitles)
 	if _, err = tx.Exec(ctx, `UPDATE charts SET title_translations=COALESCE(title_translations,'{}'::jsonb)||$2::jsonb,
- subtitle_translations=COALESCE(subtitle_translations,'{}'::jsonb)||$3::jsonb WHERE id=$1`, id, titles, subtitles); err != nil {
+ subtitle_translations=COALESCE(subtitle_translations,'{}'::jsonb)||$3::jsonb
+ WHERE id=$1 AND NOT (COALESCE(title_translations,'{}'::jsonb) ? 'origin')`, id, titles, subtitles); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)

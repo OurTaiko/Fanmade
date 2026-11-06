@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"maps"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -158,27 +157,9 @@ func TestDifficultyConstants(t *testing.T) {
 		t.Fatalf("backfill gave %v, want %v", backfilled, rated)
 	}
 
-	// Migration 053, for the move to algorithm v2: blocks hashed by an older algorithm (here
-	// "v0:") get the tool's hash from the backfill, and their scores stay the latest and their
-	// 段位 songs valid.
-	hashes := func() map[string]string {
-		t.Helper()
-		rows, err := pool.Query(ctx, `SELECT course,content_hash FROM chart_difficulties WHERE chart_id=$1`, chart.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer rows.Close()
-		out := map[string]string{}
-		for rows.Next() {
-			var course, value string
-			if err = rows.Scan(&course, &value); err != nil {
-				t.Fatal(err)
-			}
-			out[course] = value
-		}
-		return out
-	}
-	current := hashes()
+	// A block's scores and 段位 songs go with its hash, whatever changed it: another hash of
+	// the same algorithm, or another algorithm (053 made an exception for the move to v2, which
+	// 054 ended); and any update of a block is a change of the chart.
 	if _, err = pool.Exec(ctx, `INSERT INTO scores(id,user_id,difficulty_id,good,ok,bad,score,drumroll,max_combo,payload_digest)
  SELECT 'kept-'||course,'89b6ef3a5cb57b6e04f74711d15a8a5f',id,1,0,0,1000,0,1,repeat('a',64) FROM chart_difficulties WHERE chart_id=$1`, chart.ID); err != nil {
 		t.Fatal(err)
@@ -189,38 +170,25 @@ func TestDifficultyConstants(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO dan_course_songs(course_id,position,chart_id,course,side) VALUES('0123456789abcdef0123456789abcdef',0,$1,'Hard','single'),('0123456789abcdef0123456789abcdef',1,$1,'Oni','single')`, chart.ID); err != nil {
 		t.Fatal(err)
 	}
-	kept := func() (latest, valid int) {
+	kept := func() (latest, valid int, at time.Time) {
 		t.Helper()
-		if err = pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM scores WHERE id LIKE 'kept-%' AND is_latest),(SELECT count(*) FROM dan_course_songs WHERE chart_id=$1 AND valid)`, chart.ID).Scan(&latest, &valid); err != nil {
+		if err = pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM scores WHERE id LIKE 'kept-%' AND is_latest),(SELECT count(*) FROM dan_course_songs WHERE chart_id=$1 AND valid),
+ (SELECT update_at FROM charts WHERE id=$1)`, chart.ID).Scan(&latest, &valid, &at); err != nil {
 			t.Fatal(err)
 		}
 		return
 	}
-	touched := func() (at time.Time) {
-		t.Helper()
-		if err = pool.QueryRow(ctx, `SELECT update_at FROM charts WHERE id=$1`, chart.ID).Scan(&at); err != nil {
-			t.Fatal(err)
-		}
-		return
-	}
-	before := touched()
-	if _, err = pool.Exec(ctx, `UPDATE chart_difficulties SET content_hash='v0:'||split_part(content_hash,':',2) WHERE chart_id=$1`, chart.ID); err != nil {
-		t.Fatal(err)
-	}
-	if err = app.backfillContentHashes(ctx, prefix, constants.Version); err != nil {
-		t.Fatal(err)
-	}
-	if latest, valid := kept(); !maps.Equal(hashes(), current) || latest != 2 || valid != 2 || !touched().Equal(before) {
-		t.Fatalf("after a new algorithm: hashes %v (want %v), %d latest scores, %d valid songs, update_at %v → %v", hashes(), current, latest, valid, before, touched())
-	}
-	if backfilled := stored(); !same(backfilled, rated) {
-		t.Fatalf("after a new algorithm the constants are %v, want %v", backfilled, rated)
-	}
-	// Another hash of the same algorithm is another chart: that block's scores and songs go.
+	_, _, before := kept()
 	if _, err = pool.Exec(ctx, `UPDATE chart_difficulties SET content_hash=$2||repeat('0',64) WHERE chart_id=$1 AND course='Hard'`, chart.ID, prefix); err != nil {
 		t.Fatal(err)
 	}
-	if latest, valid := kept(); latest != 1 || valid != 1 {
-		t.Fatalf("after another hash: %d latest scores, %d valid songs", latest, valid)
+	if latest, valid, at := kept(); latest != 1 || valid != 1 || !at.After(before) {
+		t.Fatalf("after another hash: %d latest scores, %d valid songs, update_at %v → %v", latest, valid, before, at)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE chart_difficulties SET content_hash='v0:'||split_part(content_hash,':',2) WHERE chart_id=$1 AND course='Oni'`, chart.ID); err != nil {
+		t.Fatal(err)
+	}
+	if latest, valid, _ := kept(); latest != 0 || valid != 0 {
+		t.Fatalf("after another algorithm: %d latest scores, %d valid songs", latest, valid)
 	}
 }

@@ -38,8 +38,8 @@ const chart = {
   commentCount: 0,
   myVote: 0,
 }
-async function fixture(page: Page, userId: string) {
-  let status = 'pending'
+async function fixture(page: Page, userId: string, initialStatus = 'pending') {
+  let status = initialStatus
   // A declined invitation from before this visit; the server keeps them all.
   const invitations: unknown[] = [
     {
@@ -83,6 +83,20 @@ async function fixture(page: Page, userId: string) {
           profilesAvailable: true,
         },
       })
+    const revoked = path.match(/\/collaborations\/([^/]+)$/)
+    if (revoked && request.method() === 'DELETE') {
+      requests.push({ path, body: request.postDataJSON(), csrf: request.headers()['x-csrf-token'] })
+      const item = invitations.find((i) => (i as { id: string }).id === revoked[1]) as Record<
+        string,
+        unknown
+      >
+      Object.assign(item, {
+        status: 'revoked',
+        respondedAt: '2026-11-07T01:00:00Z',
+        revokedBy: { id: owner, nickname: 'Original creator' },
+      })
+      return route.fulfill({ json: { status: 'revoked' } })
+    }
     if (path.endsWith('/collaborations') && request.method() === 'GET')
       return route.fulfill({ json: { items: invitations } })
     if (path.endsWith('/collaborations')) {
@@ -219,4 +233,42 @@ test('declining leaves chart management unavailable', async ({ page }) => {
   expect(requests[0].body).toEqual({ accept: false })
   await page.goto(`/charts/${chartId}`)
   await expect(page.getByRole('button', { name: 'Add co-creator', exact: true })).toHaveCount(0)
+})
+
+test('owner revokes a pending invitation and it stays in the history', async ({ page }) => {
+  const requests = await fixture(page, owner)
+  await page.goto(`/charts/${chartId}`)
+  await page.getByRole('button', { name: 'Add co-creator', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Add co-creator', exact: true })
+  const history = dialog.getByRole('region', { name: 'Invitations' })
+  // Answered invitations cannot be revoked.
+  await expect(history.getByRole('button', { name: /Revoke/ })).toHaveCount(0)
+  await dialog.getByRole('searchbox', { name: 'Search user nicknames' }).fill('Co-creator')
+  await dialog.getByRole('button', { name: /Co-creator bbbbb/ }).click()
+  await dialog.getByRole('button', { name: 'Send invitation' }).click()
+  await page.getByRole('button', { name: 'Got it' }).click()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await history.getByRole('button', { name: 'Revoke the invitation to Co-creator' }).click()
+  await expect(page.getByText('Invitation revoked.')).toBeVisible()
+  await page.getByRole('button', { name: 'Got it' }).click()
+  const first = history.getByRole('listitem').first()
+  await expect(first).toContainText('Revoked')
+  await expect(first).toContainText('revoked by Original creator')
+  await expect(history.getByRole('button', { name: /Revoke/ })).toHaveCount(0)
+  // The revoked recipient can be invited again.
+  await expect(dialog.getByRole('button', { name: /Co-creator bbbbb/ })).toBeEnabled()
+  await history.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'test-results/collaboration-revoked-mobile.png' })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  expect(requests.map((r) => [r.path, r.csrf])).toEqual([
+    [`/api/v1/charts/${chartId}/collaborations`, 'test-csrf'],
+    [`/api/v1/charts/${chartId}/collaborations/invite`, 'test-csrf'],
+  ])
+})
+
+test('recipient sees that a revoked invitation can no longer be answered', async ({ page }) => {
+  await fixture(page, collaborator, 'revoked')
+  await page.goto('/notifications')
+  await expect(page.getByText('This invitation was revoked.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Accept', exact: true })).toHaveCount(0)
 })

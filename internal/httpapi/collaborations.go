@@ -11,6 +11,7 @@ import (
 
 // Collaboration is an invitation as its chart's owners see it. An accepted
 // recipient may have left since; the record keeps what they answered.
+// RespondedAt is when it was answered or revoked; RevokedBy who revoked it.
 type Collaboration struct {
 	ID          string             `json:"id"`
 	Status      string             `json:"status"`
@@ -18,6 +19,7 @@ type Collaboration struct {
 	RespondedAt *time.Time         `json:"respondedAt"`
 	Inviter     *NotificationActor `json:"inviter"`
 	Recipient   *NotificationActor `json:"recipient"`
+	RevokedBy   *NotificationActor `json:"revokedBy"`
 }
 
 // listCollaborations shows a chart's owners every invitation sent for it, so
@@ -43,7 +45,7 @@ func (s *Server) listCollaborations(w http.ResponseWriter, r *http.Request) {
 		problem(w, 403, "FORBIDDEN", "只有所有者可以查看邀请")
 		return
 	}
-	rows, e := s.DB.Query(ctx, `SELECT id,status,created_at,responded_at,inviter_id,recipient_id FROM chart_collaborations
+	rows, e := s.DB.Query(ctx, `SELECT id,status,created_at,responded_at,inviter_id,recipient_id,revoked_by FROM chart_collaborations
  WHERE chart_id=$1 ORDER BY status='pending' DESC,created_at DESC,id LIMIT 100`, r.PathValue("id"))
 	if e != nil {
 		internal(w, e)
@@ -54,14 +56,19 @@ func (s *Server) listCollaborations(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var c Collaboration
 		var inviter, recipient string
-		if e = rows.Scan(&c.ID, &c.Status, &c.CreatedAt, &c.RespondedAt, &inviter, &recipient); e != nil {
+		var revoker *string
+		if e = rows.Scan(&c.ID, &c.Status, &c.CreatedAt, &c.RespondedAt, &inviter, &recipient, &revoker); e != nil {
 			rows.Close()
 			internal(w, e)
 			return
 		}
 		c.Inviter, c.Recipient = &NotificationActor{ID: inviter}, &NotificationActor{ID: recipient}
-		items = append(items, c)
 		users = append(users, inviter, recipient)
+		if revoker != nil {
+			c.RevokedBy = &NotificationActor{ID: *revoker}
+			users = append(users, *revoker)
+		}
+		items = append(items, c)
 	}
 	e = rows.Err()
 	rows.Close()
@@ -72,7 +79,10 @@ func (s *Server) listCollaborations(w http.ResponseWriter, r *http.Request) {
 	if len(users) > 0 {
 		profiles := s.publicProfiles(ctx, users)
 		for _, c := range items {
-			for _, a := range []*NotificationActor{c.Inviter, c.Recipient} {
+			for _, a := range []*NotificationActor{c.Inviter, c.Recipient, c.RevokedBy} {
+				if a == nil {
+					continue
+				}
 				p := profiles[a.ID]
 				a.Nickname, a.AvatarURL = p.Nickname, p.AvatarURL
 			}
@@ -173,6 +183,69 @@ func (s *Server) inviteCollaborator(w http.ResponseWriter, r *http.Request) {
 	respond(w, 201, map[string]string{"id": invitation, "status": "pending"})
 }
 
+// revokeCollaboration lets any owner withdraw a pending invitation, theirs or
+// another owner's. The record stays as revoked; the recipient's notice is
+// marked read and shows the revocation, and can no longer be accepted.
+func (s *Server) revokeCollaboration(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.required(w, r, true)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	tx, e := s.DB.Begin(ctx)
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	defer tx.Rollback(ctx)
+	// The chart lock serializes this with the recipient accepting.
+	var owners []string
+	e = tx.QueryRow(ctx, `SELECT owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE`, r.PathValue("id")).Scan(&owners)
+	if errors.Is(e, pgx.ErrNoRows) {
+		problem(w, 404, "CHART_NOT_FOUND", "作品不存在")
+		return
+	}
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	if !slices.Contains(owners, u.User.ID) {
+		problem(w, 403, "FORBIDDEN", "只有所有者可以撤回邀请")
+		return
+	}
+	var status string
+	e = tx.QueryRow(ctx, `SELECT status FROM chart_collaborations WHERE id=$1 AND chart_id=$2 FOR UPDATE`, r.PathValue("invitation"), r.PathValue("id")).Scan(&status)
+	if errors.Is(e, pgx.ErrNoRows) {
+		problem(w, 404, "INVITATION_NOT_FOUND", "邀请不存在")
+		return
+	}
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	switch status {
+	case "revoked":
+		respond(w, 200, map[string]string{"status": status})
+		return
+	case "pending":
+	default:
+		problem(w, 409, "INVITATION_RESOLVED", "对方已经回复，不能撤回")
+		return
+	}
+	_, e = tx.Exec(ctx, `UPDATE chart_collaborations SET status='revoked',responded_at=now(),revoked_by=$2 WHERE id=$1`, r.PathValue("invitation"), u.User.ID)
+	if e == nil {
+		_, e = tx.Exec(ctx, `UPDATE notifications SET read_at=COALESCE(read_at,now()) WHERE collaboration_id=$1`, r.PathValue("invitation"))
+	}
+	if e == nil {
+		e = tx.Commit(ctx)
+	}
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	respond(w, 200, map[string]string{"status": "revoked"})
+}
+
 func (s *Server) respondCollaboration(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.required(w, r, true)
 	if !ok {
@@ -224,6 +297,10 @@ func (s *Server) respondCollaboration(w http.ResponseWriter, r *http.Request) {
 	desired := "declined"
 	if *req.Accept {
 		desired = "accepted"
+	}
+	if status == "revoked" {
+		problem(w, 409, "INVITATION_REVOKED", "邀请已被撤回")
+		return
 	}
 	if status != "pending" && status != desired {
 		problem(w, 409, "INVITATION_RESOLVED", "邀请已经处理")

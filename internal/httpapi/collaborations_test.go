@@ -292,3 +292,92 @@ func TestLeaveCoOwnedChart(t *testing.T) {
 		t.Fatal("concurrent leave", results, owners())
 	}
 }
+
+// Any owner can revoke a pending invitation; the record stays in the history as
+// revoked, and the recipient can no longer accept it.
+func TestRevokeCollaboration(t *testing.T) {
+	c, s := interactionFixture(t)
+	const owner, alice, bob = "d46774d30dd13b92d9e536808da468a4", "9b893bc6d9422c93536ff0df503b81e9", "5f0c4a0b0e7b4d3c9a6f1e2d3c4b5a69"
+	chart, other := "song", "other"
+	base := "/api/v1/charts/" + chart + "/collaborations"
+	invite := func(user, recipient string) string {
+		t.Helper()
+		var created struct{ ID string }
+		if code := c.do(user, "POST", base, `{"userId":"`+recipient+`"}`, &created); code != 201 {
+			t.Fatal("invite", user, code)
+		}
+		return created.ID
+	}
+	revoke := func(user, path string, want int) {
+		t.Helper()
+		if code := c.do(user, "DELETE", path, `{}`, nil); code != want {
+			t.Fatalf("revoke %s %s: %d want %d", user, path, code, want)
+		}
+	}
+	list := func() []Collaboration {
+		t.Helper()
+		var h struct{ Items []Collaboration }
+		if code := c.do("owner", "GET", base, "", &h); code != 200 {
+			t.Fatal("list", code)
+		}
+		return h.Items
+	}
+	notice := func(user string) Notification {
+		t.Helper()
+		var page NotificationPage
+		if code := c.do(user, "GET", "/api/v1/me/notifications", "", &page); code != 200 || len(page.Items) == 0 {
+			t.Fatal("notices", user, code)
+		}
+		return page.Items[0]
+	}
+	first := invite("owner", alice)
+	path := base + "/" + first
+	revoke("", path, 401)
+	revoke("bob", path, 403)
+	revoke("admin", path, 403)
+	revoke("owner", base+"/"+strings.Repeat("0", 32), 404)
+	revoke("owner", "/api/v1/charts/"+other+"/collaborations/"+first, 404)
+	revoke("owner", "/api/v1/charts/missing/collaborations/"+first, 404)
+	revoke("owner", path, 200)
+	revoke("owner", path, 200)
+	items := list()
+	if len(items) != 1 || items[0].Status != "revoked" || items[0].RevokedBy == nil || items[0].RevokedBy.ID != owner || items[0].RespondedAt == nil {
+		t.Fatalf("revoked history %+v", items)
+	}
+	n := notice("alice")
+	if n.Data["status"] != "revoked" || !n.Read {
+		t.Fatalf("revoked notice %+v", n)
+	}
+	var unread struct{ Count int }
+	if code := c.do("alice", "GET", "/api/v1/me/notifications/unread", "", &unread); code != 200 || unread.Count != 0 {
+		t.Fatal("revoked notice still unread", code, unread)
+	}
+	if code := c.do("alice", "POST", "/api/v1/me/notifications/"+n.ID+"/respond", `{"accept":true}`, nil); code != 409 {
+		t.Fatal("accepted a revoked invitation", code)
+	}
+	var detail Chart
+	if c.do("alice", "GET", "/api/v1/charts/"+chart+"?by=id", "", &detail); detail.hasOwner(alice) {
+		t.Fatal("revoked invitation granted ownership")
+	}
+	// A revoked notice is no longer actionable, so it can be dismissed.
+	if code := c.do("alice", "DELETE", "/api/v1/me/notifications/"+n.ID, `{}`, nil); code != 200 {
+		t.Fatal("dismiss revoked notice", code)
+	}
+	// The same person can be invited again, and an answered invitation cannot be revoked.
+	second := invite("owner", alice)
+	if code := c.do("alice", "POST", "/api/v1/me/notifications/"+notice("alice").ID+"/respond", `{"accept":true}`, nil); code != 200 {
+		t.Fatal("accept second invitation", code)
+	}
+	revoke("owner", base+"/"+second, 409)
+	// A co-owner can revoke another owner's invitation.
+	third := invite("owner", bob)
+	revoke("alice", base+"/"+third, 200)
+	items = list()
+	if len(items) != 3 || items[0].ID != third || items[0].Status != "revoked" || items[0].RevokedBy.ID != alice || items[0].Inviter.ID != owner {
+		t.Fatalf("co-owner revocation %+v", items)
+	}
+	var count int
+	if e := s.DB.QueryRow(context.Background(), `SELECT count(*) FROM chart_collaborations WHERE status='revoked' AND revoked_by IS NOT NULL`).Scan(&count); e != nil || count != 2 {
+		t.Fatal("revoked rows", count, e)
+	}
+}

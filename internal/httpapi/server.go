@@ -162,6 +162,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/comments/{id}", s.deleteComment)
 	mux.HandleFunc("PUT /api/v1/comments/{id}/vote", s.voteComment)
 	mux.HandleFunc("GET /api/v1/users/{id}/comments", s.userComments)
+	mux.HandleFunc("GET /api/v1/charts/{id}/collaborations", s.listCollaborations)
 	mux.HandleFunc("POST /api/v1/charts/{id}/collaborations", s.inviteCollaborator)
 	mux.HandleFunc("DELETE /api/v1/charts/{id}/owners/me", s.leaveChart)
 	mux.HandleFunc("POST /api/v1/me/notifications/{id}/respond", s.respondCollaboration)

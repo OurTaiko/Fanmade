@@ -4,9 +4,82 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
+
+// Collaboration is an invitation as its chart's owners see it. An accepted
+// recipient may have left since; the record keeps what they answered.
+type Collaboration struct {
+	ID          string             `json:"id"`
+	Status      string             `json:"status"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	RespondedAt *time.Time         `json:"respondedAt"`
+	Inviter     *NotificationActor `json:"inviter"`
+	Recipient   *NotificationActor `json:"recipient"`
+}
+
+// listCollaborations shows a chart's owners every invitation sent for it, so
+// an invitation is not lost once the dialog that sent it closes. Pending ones
+// come first, then the most recent; older history is cut at 100.
+func (s *Server) listCollaborations(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.required(w, r, false)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	var owners []string
+	e := s.DB.QueryRow(ctx, `SELECT owner_ids FROM charts c WHERE c.id=$1 AND `+publishedChart, r.PathValue("id")).Scan(&owners)
+	if errors.Is(e, pgx.ErrNoRows) {
+		problem(w, 404, "CHART_NOT_FOUND", "作品不存在")
+		return
+	}
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	if !slices.Contains(owners, u.User.ID) {
+		problem(w, 403, "FORBIDDEN", "只有所有者可以查看邀请")
+		return
+	}
+	rows, e := s.DB.Query(ctx, `SELECT id,status,created_at,responded_at,inviter_id,recipient_id FROM chart_collaborations
+ WHERE chart_id=$1 ORDER BY status='pending' DESC,created_at DESC,id LIMIT 100`, r.PathValue("id"))
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	items := []Collaboration{}
+	users := []string{}
+	for rows.Next() {
+		var c Collaboration
+		var inviter, recipient string
+		if e = rows.Scan(&c.ID, &c.Status, &c.CreatedAt, &c.RespondedAt, &inviter, &recipient); e != nil {
+			rows.Close()
+			internal(w, e)
+			return
+		}
+		c.Inviter, c.Recipient = &NotificationActor{ID: inviter}, &NotificationActor{ID: recipient}
+		items = append(items, c)
+		users = append(users, inviter, recipient)
+	}
+	e = rows.Err()
+	rows.Close()
+	if e != nil {
+		internal(w, e)
+		return
+	}
+	if len(users) > 0 {
+		profiles := s.publicProfiles(ctx, users)
+		for _, c := range items {
+			for _, a := range []*NotificationActor{c.Inviter, c.Recipient} {
+				p := profiles[a.ID]
+				a.Nickname, a.AvatarURL = p.Nickname, p.AvatarURL
+			}
+		}
+	}
+	respond(w, 200, map[string][]Collaboration{"items": items})
+}
 
 // Invitations grant nothing until the recipient explicitly accepts. Every
 // transition locks the chart first, serializing invitations, acceptance and deletion.

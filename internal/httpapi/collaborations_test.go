@@ -30,6 +30,25 @@ func TestChartCollaborations(t *testing.T) {
 	invite("owner", "song", "d46774d30dd13b92d9e536808da468a4", 409)
 	invite("owner", "song", alice, 201)
 	invite("owner", "song", alice, 200)
+	// Owners can always look back at whom they invited and how each answered.
+	type history struct{ Items []Collaboration }
+	list := func(user string, want int) []Collaboration {
+		t.Helper()
+		var h history
+		if code := c.do(user, "GET", "/api/v1/charts/song/collaborations", "", &h); code != want {
+			t.Fatalf("list %s: %d want %d", user, code, want)
+		}
+		return h.Items
+	}
+	list("", 401)
+	list("alice", 403)
+	list("admin", 403)
+	if code := c.do("owner", "GET", "/api/v1/charts/missing/collaborations", "", nil); code != 404 {
+		t.Fatal("missing chart history", code)
+	}
+	if items := list("owner", 200); len(items) != 1 || items[0].Status != "pending" || items[0].Recipient.ID != alice || items[0].Inviter.ID != "d46774d30dd13b92d9e536808da468a4" || items[0].RespondedAt != nil {
+		t.Fatalf("pending history %+v", items)
+	}
 	var notices NotificationPage
 	if code := c.do("alice", "GET", "/api/v1/me/notifications", "", &notices); code != 200 || len(notices.Items) != 1 {
 		t.Fatalf("notices %d %+v", code, notices)
@@ -113,6 +132,14 @@ func TestChartCollaborations(t *testing.T) {
 	if chart.hasOwner(bob) {
 		t.Fatal("decline granted ownership")
 	}
+	// Every owner sees the whole history, including invitations others sent.
+	for _, user := range []string{"owner", "alice"} {
+		items := list(user, 200)
+		if len(items) != 2 || items[0].Recipient.ID != bob || items[0].Status != "declined" || items[0].Inviter.ID != alice || items[0].RespondedAt == nil ||
+			items[1].Recipient.ID != alice || items[1].Status != "accepted" {
+			t.Fatalf("answered history %s %+v", user, items)
+		}
+	}
 	// All owners receive comments; a co-owner's own action does not notify them.
 	if code := c.do("bob", "POST", "/api/v1/charts/song/comments", `{"body":"Both owners should see this"}`, nil); code != 201 {
 		t.Fatal("comment", code)
@@ -140,6 +167,9 @@ func TestChartCollaborations(t *testing.T) {
 	}
 	if pending == "" {
 		t.Fatal("missing pending invite")
+	}
+	if items := list("owner", 200); len(items) != 3 || items[0].Status != "pending" || items[0].Recipient.ID != bob {
+		t.Fatalf("pending invitations come first %+v", items)
 	}
 	if code := c.do("alice", "DELETE", "/api/v1/charts/song", `{}`, nil); code != 200 {
 		t.Fatal("co-owner delete", code)

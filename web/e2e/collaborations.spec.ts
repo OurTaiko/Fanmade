@@ -40,6 +40,17 @@ const chart = {
 }
 async function fixture(page: Page, userId: string) {
   let status = 'pending'
+  // A declined invitation from before this visit; the server keeps them all.
+  const invitations: unknown[] = [
+    {
+      id: 'earlier',
+      status: 'declined',
+      createdAt: '2026-10-02T00:00:00Z',
+      respondedAt: '2026-10-03T00:00:00Z',
+      inviter: { id: owner, nickname: 'Original creator' },
+      recipient: { id: 'd'.repeat(32), nickname: 'Earlier guest' },
+    },
+  ]
   const requests: { path: string; body: unknown; csrf?: string }[] = []
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request()
@@ -72,7 +83,17 @@ async function fixture(page: Page, userId: string) {
           profilesAvailable: true,
         },
       })
+    if (path.endsWith('/collaborations') && request.method() === 'GET')
+      return route.fulfill({ json: { items: invitations } })
     if (path.endsWith('/collaborations')) {
+      invitations.unshift({
+        id: 'invite',
+        status: 'pending',
+        createdAt: '2026-11-07T00:00:00Z',
+        respondedAt: null,
+        inviter: { id: owner, nickname: 'Original creator' },
+        recipient: { id: collaborator, nickname: 'Co-creator' },
+      })
       requests.push({ path, body: request.postDataJSON(), csrf: request.headers()['x-csrf-token'] })
       return route.fulfill({ status: 201, json: { id: 'invite', status: 'pending' } })
     }
@@ -135,6 +156,10 @@ test('owner invites a selected co-creator from chart management', async ({ page 
   await page.goto(`/charts/${chartId}`)
   await page.getByRole('button', { name: 'Add co-creator', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Add co-creator', exact: true })
+  const history = dialog.getByRole('region', { name: 'Invitations' })
+  await expect(history.getByRole('listitem')).toHaveCount(1)
+  await expect(history.getByRole('listitem').first()).toContainText('Earlier guest')
+  await expect(history.getByRole('listitem').first()).toContainText('Declined')
   await expect(dialog.getByRole('button', { name: 'Send invitation' })).toBeDisabled()
   await expect(dialog.getByRole('button', { name: /Original creator/ })).toBeDisabled()
   await dialog.getByRole('searchbox', { name: 'Search user nicknames' }).fill('Co-creator')
@@ -143,6 +168,17 @@ test('owner invites a selected co-creator from chart management', async ({ page 
   await expect(
     page.getByText('Invitation sent. The recipient can accept it in notifications.'),
   ).toBeVisible()
+  await page.getByRole('button', { name: 'Got it' }).click()
+  // The invitation is listed and the recipient cannot be invited twice.
+  await expect(history.getByRole('listitem')).toHaveCount(2)
+  await expect(history.getByRole('listitem').first()).toContainText('Co-creator')
+  await expect(history.getByRole('listitem').first()).toContainText('Pending')
+  await expect(dialog.getByRole('button', { name: /Co-creator bbbbb/ })).toBeDisabled()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  // Reopening still shows it: the record comes from the server.
+  await page.getByRole('button', { name: 'Add co-creator', exact: true }).click()
+  await expect(history.getByRole('listitem')).toHaveCount(2)
   expect(requests).toEqual([
     {
       path: `/api/v1/charts/${chartId}/collaborations`,

@@ -30,7 +30,6 @@ import {
   CircleNotchIcon as LoaderCircle,
   UploadSimpleIcon as Upload,
   WarningIcon,
-  XIcon,
 } from '@phosphor-icons/react'
 import { CoverPicker } from '@sitekit/components/cover-picker'
 import { MoviePicker } from '@sitekit/components/movie-picker'
@@ -38,8 +37,7 @@ import { CategoryPicker } from '@sitekit/categories'
 import { api, previewReplacement, uploadChart } from '@sitekit/api/client'
 import type { PublicUser } from '@sitekit/api/types'
 import type { Chart } from './api/types'
-import { UserSearch } from '@sitekit/collaborations'
-import { UserAvatar } from '@sitekit/components/user-avatar'
+import { UploadCollaborators } from '@sitekit/collaborations'
 import { Modal, Notice } from '@sitekit/notifications'
 import { useNotification } from '@sitekit/notification-context'
 import { blockName, slotKey } from '@sitekit/courses'
@@ -125,14 +123,6 @@ export function UploadPage({
   const [typedMakers, setTypedMakers] = useState<Record<string, string>>({})
   // Users a new chart invites as co-creators once it is published.
   const [collaborators, setCollaborators] = useState<PublicUser[]>([])
-  const toggleCollaborator = (user: PublicUser) => {
-    setCollaborators((chosen) =>
-      chosen.some((c) => c.id === user.id)
-        ? chosen.filter((c) => c.id !== user.id)
-        : [...chosen, user],
-    )
-    requestKey.current = createRequestKey()
-  }
   // A replacement's review: open while the new file is read (review null) and until confirmed.
   const [reviewing, setReviewing] = useState<{
     prepared: PreparedTja
@@ -714,71 +704,14 @@ export function UploadPage({
             {!existing && (
               <TabsContent value="collaborators" className="pt-4">
                 <Card className="min-w-0 gap-4 border-[1.5px] border-border p-5 shadow-none sm:p-6">
-                  <h2 className="text-base font-extrabold">
-                    {t('collaboration.tab')}
-                    <span className="ml-2 text-xs font-normal text-muted-foreground">
-                      {t('messages.optional2')}
-                    </span>
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {t('collaboration.onUpload')} {t('collaboration.description')}
-                  </p>
-                  <section aria-labelledby="upload-collaborators" className="space-y-2">
-                    <h3 id="upload-collaborators" className="text-sm font-bold">
-                      {t('collaboration.chosen')}
-                    </h3>
-                    {collaborators.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        {t('collaboration.noneChosen')}
-                      </p>
-                    ) : (
-                      <ul className="flex flex-wrap gap-2">
-                        {collaborators.map((user) => {
-                          const nickname = user.nickname || t('messages.unknownMember')
-                          return (
-                            <li
-                              key={user.id}
-                              className="flex max-w-full items-center gap-2 rounded-full border py-1 pr-1 pl-2 text-sm"
-                            >
-                              <UserAvatar
-                                nickname={nickname}
-                                avatarUrl={user.avatarUrl}
-                                className="size-6"
-                              />
-                              <span className="min-w-0 truncate">{nickname}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-xs"
-                                disabled={busy}
-                                aria-label={t('collaboration.remove', { name: nickname })}
-                                onClick={() => toggleCollaborator(user)}
-                              >
-                                <XIcon className="size-4" aria-hidden="true" />
-                              </Button>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    )}
-                  </section>
-                  {/* Enter in the search box searches; it must not publish the form around it. */}
-                  <div
-                    className="contents"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.target instanceof HTMLInputElement)
-                        e.preventDefault()
+                  <UploadCollaborators
+                    value={collaborators}
+                    disabled={busy}
+                    onChange={(users) => {
+                      setCollaborators(users)
+                      requestKey.current = createRequestKey()
                     }}
-                  >
-                    <UserSearch
-                      disabled={busy}
-                      pressed={(id) => collaborators.some((user) => user.id === id)}
-                      note={(user) =>
-                        user.id === session.user?.id ? t('collaboration.owner') : null
-                      }
-                      onChoose={toggleCollaborator}
-                    />
-                  </div>
+                  />
                 </Card>
               </TabsContent>
             )}

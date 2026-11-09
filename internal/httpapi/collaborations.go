@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -91,6 +93,109 @@ func (s *Server) listCollaborations(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string][]Collaboration{"items": items})
 }
 
+// invitationsPerDay bounds the new invitations one user sends in a day, on all charts together.
+const invitationsPerDay = 20
+
+// lockInvitations serializes the per-sender limit across different charts without taking a user lock.
+func lockInvitations(ctx context.Context, tx pgx.Tx, inviter string) error {
+	_, e := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,37))`, inviter)
+	return e
+}
+
+// invitationsLeft is how many more invitations inviter may send today.
+func invitationsLeft(ctx context.Context, db rowScanner, inviter string) (left int, e error) {
+	e = db.QueryRow(ctx, `SELECT $2-count(*) FROM chart_collaborations WHERE inviter_id=$1 AND created_at>now()-interval '1 day'`, inviter, invitationsPerDay).Scan(&left)
+	return
+}
+
+func sendInvitation(ctx context.Context, tx pgx.Tx, chart, inviter, recipient string) (string, error) {
+	invitation := ID()
+	_, e := tx.Exec(ctx, `INSERT INTO chart_collaborations(id,chart_id,inviter_id,recipient_id) VALUES($1,$2,$3,$4)`, invitation, chart, inviter, recipient)
+	if e == nil {
+		// Actionable invitations are always delivered, independently of social-notice mutes.
+		_, e = tx.Exec(ctx, `INSERT INTO notifications(id,recipient_id,kind,actor_id,chart_id,collaboration_id) VALUES($1,$2,'chart_collaboration',$3,$4,$5)`, ID(), recipient, inviter, chart, invitation)
+	}
+	return invitation, e
+}
+
+// uploadCollaborators reads the co-creators chosen with a new upload, a JSON
+// array of user IDs, and applies the checks of inviteCollaborator while the
+// uploader is still there to be told. They are invited once the chart is published.
+func (s *Server) uploadCollaborators(w http.ResponseWriter, r *http.Request, raw, uploader string) ([]string, bool) {
+	if raw == "" {
+		return nil, true
+	}
+	var ids []string
+	if json.Unmarshal([]byte(raw), &ids) != nil {
+		problem(w, 400, "USER_INVALID", "共同创作者必须为用户 ID 数组")
+		return nil, false
+	}
+	slices.Sort(ids)
+	ids = slices.Compact(ids)
+	if len(ids) == 0 {
+		return nil, true
+	}
+	if slices.ContainsFunc(ids, func(id string) bool { return !validSubject(id) }) {
+		problem(w, 400, "USER_INVALID", "请选择有效的用户")
+		return nil, false
+	}
+	if slices.Contains(ids, uploader) {
+		problem(w, 409, "ALREADY_OWNER", "你已经是所有者，不需要邀请自己")
+		return nil, false
+	}
+	var known int
+	if e := s.DB.QueryRow(r.Context(), `SELECT count(*) FROM users WHERE id=ANY($1)`, ids).Scan(&known); e != nil {
+		internal(w, e)
+		return nil, false
+	}
+	if known != len(ids) {
+		problem(w, 404, "USER_NOT_FOUND", "用户尚未加入本站")
+		return nil, false
+	}
+	left, e := invitationsLeft(r.Context(), s.DB, uploader)
+	if e != nil {
+		internal(w, e)
+		return nil, false
+	}
+	if len(ids) > left {
+		problem(w, 429, "RATE_LIMITED", "今天发送的邀请过多，请减少共同创作者或稍后再试")
+		return nil, false
+	}
+	return ids, true
+}
+
+// inviteOnPublish sends a new chart's invitations in the transaction that
+// publishes it. uploadCollaborators checked them when the upload was accepted;
+// what changed while it waited is skipped rather than failing the upload: an
+// account removed since, and invitations beyond the day's limit that other
+// requests used up in the meantime.
+func inviteOnPublish(ctx context.Context, tx pgx.Tx, chart, inviter string, recipients []string) error {
+	if len(recipients) == 0 {
+		return nil
+	}
+	if e := lockInvitations(ctx, tx, inviter); e != nil {
+		return e
+	}
+	left, e := invitationsLeft(ctx, tx, inviter)
+	if e != nil {
+		return e
+	}
+	rows, e := tx.Query(ctx, `SELECT id FROM users WHERE id=ANY($1) ORDER BY id`, recipients)
+	if e != nil {
+		return e
+	}
+	present, e := pgx.CollectRows(rows, pgx.RowTo[string])
+	if e != nil {
+		return e
+	}
+	for _, recipient := range present[:max(0, min(left, len(present)))] {
+		if _, e = sendInvitation(ctx, tx, chart, inviter, recipient); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
 // Invitations grant nothing until the recipient explicitly accepts. Every
 // transition locks the chart first, serializing invitations, acceptance and deletion.
 func (s *Server) inviteCollaborator(w http.ResponseWriter, r *http.Request) {
@@ -153,26 +258,20 @@ func (s *Server) inviteCollaborator(w http.ResponseWriter, r *http.Request) {
 		internal(w, e)
 		return
 	}
-	// Serialize the per-sender limit across different charts without taking a user lock.
-	if _, e = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,37))`, u.User.ID); e != nil {
+	if e = lockInvitations(ctx, tx, u.User.ID); e != nil {
 		internal(w, e)
 		return
 	}
-	var recent int
-	if e = tx.QueryRow(ctx, `SELECT count(*) FROM chart_collaborations WHERE inviter_id=$1 AND created_at>now()-interval '1 day'`, u.User.ID).Scan(&recent); e != nil {
+	left, e := invitationsLeft(ctx, tx, u.User.ID)
+	if e != nil {
 		internal(w, e)
 		return
 	}
-	if recent >= 20 {
+	if left < 1 {
 		problem(w, 429, "RATE_LIMITED", "今天发送的邀请过多，请稍后再试")
 		return
 	}
-	invitation = ID()
-	_, e = tx.Exec(ctx, `INSERT INTO chart_collaborations(id,chart_id,inviter_id,recipient_id) VALUES($1,$2,$3,$4)`, invitation, r.PathValue("id"), u.User.ID, req.UserID)
-	if e == nil {
-		// Actionable invitations are always delivered, independently of social-notice mutes.
-		_, e = tx.Exec(ctx, `INSERT INTO notifications(id,recipient_id,kind,actor_id,chart_id,collaboration_id) VALUES($1,$2,'chart_collaboration',$3,$4,$5)`, ID(), req.UserID, u.User.ID, r.PathValue("id"), invitation)
-	}
+	invitation, e = sendInvitation(ctx, tx, r.PathValue("id"), u.User.ID, req.UserID)
 	if e == nil {
 		e = tx.Commit(ctx)
 	}

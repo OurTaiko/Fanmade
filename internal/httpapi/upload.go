@@ -143,7 +143,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			f.sha = hex.EncodeToString(h.Sum(nil))
 			files[field] = f
 		} else {
-			if (field != "description" && field != "categoryIds" && field != "difficultyMakers" && field != "demoStart" && field != "demoEnd" && !(existing != nil && (field == "confirmReset" || field == "keepTitles"))) || name != "" {
+			if (field != "description" && field != "categoryIds" && field != "difficultyMakers" && field != "demoStart" && field != "demoEnd" && !(existing != nil && (field == "confirmReset" || field == "keepTitles")) && !(existing == nil && field == "collaboratorIds")) || name != "" {
 				problem(w, 400, "UPLOAD_FILES_INVALID", "包含不支持的上传字段")
 				return
 			}
@@ -179,6 +179,10 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validCategories(categoryIDs) {
 		problem(w, 422, "CATEGORIES_INVALID", "包含不存在的分类，请刷新后重试")
+		return
+	}
+	collaborators, ok := s.uploadCollaborators(w, r, fields["collaboratorIds"], u.User.ID)
+	if !ok {
 		return
 	}
 	cf, mv := files["cover"], files["movie"]
@@ -321,11 +325,15 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			encoded, _ := json.Marshal([]string{"movie", mv.name, mv.sha})
 			digestData = append(digestData, encoded...)
 		}
+		if len(collaborators) > 0 {
+			encoded, _ := json.Marshal(append([]string{"collaborators"}, collaborators...))
+			digestData = append(digestData, encoded...)
+		}
 		digest = hash(string(digestData))
 	}
 	job := &uploadJob{
 		user: u.User.ID, key: key, dir: dir, tja: tf, audio: af, cover: cf, movie: mv, normalized: normalized, meta: meta,
-		description: fields["description"], categoryIDs: categoryIDs, demoStart: demoStart, demoEnd: demoEnd, keepMovie: keepMovie,
+		description: fields["description"], categoryIDs: categoryIDs, demoStart: demoStart, demoEnd: demoEnd, keepMovie: keepMovie, collaborators: collaborators,
 		// RFC 7240: the client asks not to wait for processing.
 		async: strings.Contains(strings.ToLower(r.Header.Get("Prefer")), "respond-async"), done: make(chan uploadResult, 1),
 	}

@@ -28,6 +28,7 @@ type uploadJob struct {
 	meta                     tja.Metadata
 	description              string
 	categoryIDs              []string
+	collaborators            []string // users a new chart invites as co-creators once published
 	demoStart, demoEnd       float64
 	keepMovie, async         bool
 	keepTitles               bool // a replacement keeps the chart's title, subtitle and translations
@@ -265,6 +266,9 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 		}
 	}
 	if err = setCategories(ctx, tx, chartID, j.categoryIDs); err != nil {
+		return failed(err)
+	}
+	if err = inviteOnPublish(ctx, tx, chartID, j.user, j.collaborators); err != nil {
 		return failed(err)
 	}
 	if _, err = tx.Exec(ctx, `UPDATE upload_requests SET status='done',chart_id=$3,tja_sha256=$4,audio_sha256=$5 WHERE user_id=$1 AND idempotency_key=$2`, j.user, j.key, chartID, tjaSHA, af.sha); err != nil {

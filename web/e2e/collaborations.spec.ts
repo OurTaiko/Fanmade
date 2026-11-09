@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
 
 // The labels below are the English interface's.
 test.use({ locale: 'en-US' })
@@ -271,4 +272,102 @@ test('recipient sees that a revoked invitation can no longer be answered', async
   await page.goto('/notifications')
   await expect(page.getByText('This invitation was revoked.')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Accept', exact: true })).toHaveCount(0)
+})
+
+test('uploader chooses co-creators while publishing and they are sent with the upload', async ({
+  page,
+}) => {
+  await fixture(page, owner)
+  await page.route('**/api/v1/me/charts*', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } }),
+  )
+  const uploads: (string | null)[] = []
+  await page.route('**/api/v1/charts', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    const form = await new Response(route.request().postDataBuffer()!, {
+      headers: { 'Content-Type': route.request().headers()['content-type'] },
+    }).formData()
+    uploads.push(form.get('collaboratorIds') as string | null)
+    // The web uploader does not wait, so only the server can send the invitations.
+    expect(route.request().headers()['prefer']).toBe('respond-async')
+    await route.fulfill({ status: 202, json: { status: 'processing' } })
+  })
+  await page.goto('/me/charts/publish')
+  await page.getByLabel('Choose TJA chart').setInputFiles({
+    name: 'chart.tja',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(
+      'TITLE:Together\nBPM:120\nWAVE:cbr.mp3\nCOURSE:Oni\nLEVEL:5\n#START\n1000,\n#END\n',
+    ),
+  })
+  await page.getByLabel('Choose OGG or MP3 audio').setInputFiles({
+    name: 'cbr.mp3',
+    mimeType: 'audio/mpeg',
+    buffer: readFileSync('../kit/audio/testdata/cbr.mp3'),
+  })
+  await expect(page.getByRole('dialog', { name: 'Local validation passed' })).toBeVisible()
+  await page.getByRole('button', { name: 'Got it', exact: true }).click()
+  await page.getByRole('tab', { name: 'Co-creators', exact: true }).click()
+  const chosen = page.getByRole('region', { name: 'Invited on publishing' })
+  await expect(chosen).toContainText('No co-creators selected yet.')
+  // The uploader already owns the chart.
+  await expect(page.getByRole('button', { name: /Original creator/ })).toBeDisabled()
+  const candidate = page.getByRole('button', { name: /Co-creator bbbbb/ })
+  await candidate.click()
+  await expect(candidate).toHaveAttribute('aria-pressed', 'true')
+  await expect(chosen.getByRole('listitem')).toContainText(['Co-creator'])
+  // A choice is undone from the list of chosen users or by pressing the user again.
+  await chosen.getByRole('button', { name: 'Remove Co-creator' }).click()
+  await expect(candidate).toHaveAttribute('aria-pressed', 'false')
+  await expect(chosen.getByRole('listitem')).toHaveCount(0)
+  await candidate.click()
+  await candidate.click()
+  await expect(chosen.getByRole('listitem')).toHaveCount(0)
+  await candidate.click()
+  // The choice survives another search and is shown with the submission.
+  await page.getByRole('searchbox', { name: 'Search user nicknames' }).fill('Co')
+  // Enter in the search box does not publish the form around it.
+  await page.getByRole('searchbox', { name: 'Search user nicknames' }).press('Enter')
+  await expect(candidate).toHaveAttribute('aria-pressed', 'true')
+  await expect(chosen.getByRole('listitem')).toContainText(['Co-creator'])
+  await expect(page.getByTestId('preview-panel')).toContainText('Invited on publishing')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: 'test-results/collaboration-upload-mobile.png', fullPage: true })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.getByRole('button', { name: 'Publish chart', exact: true }).click()
+  await expect(page).toHaveURL('/me/charts')
+  expect(uploads).toEqual([JSON.stringify([collaborator])])
+})
+
+test('an upload without co-creators sends no invitation field', async ({ page }) => {
+  await fixture(page, owner)
+  await page.route('**/api/v1/me/charts*', (route) =>
+    route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } }),
+  )
+  const uploads: boolean[] = []
+  await page.route('**/api/v1/charts', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    const form = await new Response(route.request().postDataBuffer()!, {
+      headers: { 'Content-Type': route.request().headers()['content-type'] },
+    }).formData()
+    uploads.push(form.has('collaboratorIds'))
+    await route.fulfill({ status: 202, json: { status: 'processing' } })
+  })
+  await page.goto('/me/charts/publish')
+  await page.getByLabel('Choose TJA chart').setInputFiles({
+    name: 'chart.tja',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(
+      'TITLE:Together\nBPM:120\nWAVE:cbr.mp3\nCOURSE:Oni\nLEVEL:5\n#START\n1000,\n#END\n',
+    ),
+  })
+  await page.getByLabel('Choose OGG or MP3 audio').setInputFiles({
+    name: 'cbr.mp3',
+    mimeType: 'audio/mpeg',
+    buffer: readFileSync('../kit/audio/testdata/cbr.mp3'),
+  })
+  await page.getByRole('button', { name: 'Got it', exact: true }).click()
+  await page.getByRole('button', { name: 'Publish chart', exact: true }).click()
+  await expect(page).toHaveURL('/me/charts')
+  expect(uploads).toEqual([false])
 })

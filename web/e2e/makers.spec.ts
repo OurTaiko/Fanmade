@@ -98,6 +98,7 @@ test('upload maker defaults, individual edits, submitted per-difficulty mapping 
     '试听',
     '备注',
     '谱师名义',
+    '共同创作',
   ])
   await page.getByRole('tab', { name: '试听', exact: true }).click()
   await expect(page.getByLabel('试听开始（秒）')).toHaveValue('0')

@@ -243,10 +243,71 @@ func TestScoreReplayCompatibility(t *testing.T) {
 	if !kept[withOptions.ID] || kept[without.ID] {
 		t.Fatalf("the score list must mark the plays with a recording: %v", kept)
 	}
+	// The public replay list: every kept recording on the chart's current files, newest first,
+	// with the song's title and the player's nickname.
+	type listing struct {
+		Items []struct {
+			ID        string `json:"id"`
+			SongID    string `json:"songId"`
+			Course    string `json:"course"`
+			Title     string `json:"title"`
+			Level     int    `json:"level"`
+			Nickname  string `json:"nickname"`
+			HasReplay bool   `json:"hasReplay"`
+			IsLatest  bool   `json:"isLatest"`
+		} `json:"items"`
+		Total    int    `json:"total"`
+		Page     int    `json:"page"`
+		PageSize int    `json:"pageSize"`
+		Sort     string `json:"sort"`
+	}
+	list := func(path string) listing {
+		t.Helper()
+		var v listing
+		if err := json.Unmarshal(mustJSON(t, get(path, 200)), &v); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	replays := list("/api/v1/replays")
+	listed := map[string]bool{}
+	for _, item := range replays.Items {
+		listed[item.ID] = true
+		if !item.HasReplay || !item.IsLatest || item.SongID != song || item.Title != "Recording fixture" || item.Course != "Oni" || item.Level != 5 || item.Nickname == "" {
+			t.Fatalf("replay listing: %+v", item)
+		}
+	}
+	if !listed[withOptions.ID] || listed[without.ID] || replays.Total != len(replays.Items) || replays.Sort != "recent" || replays.PageSize != 20 || replays.Items[0].ID != withOptions.ID {
+		t.Fatalf("replay list: %+v", replays)
+	}
+	if v := list("/api/v1/replays?course=Easy"); len(v.Items) != 0 || v.Total != 0 {
+		t.Fatalf("course filter: %+v", v)
+	}
+	if v := list("/api/v1/replays?sort=score&page=99"); len(v.Items) != 0 || v.Total != replays.Total || v.Page != 99 {
+		t.Fatalf("past the last page: %+v", v)
+	}
+	for _, bad := range []string{"?sort=level", "?page=0", "?course=oni"} {
+		get("/api/v1/replays"+bad, 400)
+	}
+	// A play of replaced files is not listed: it no longer matches the chart.
+	if _, err := pool.Exec(ctx, `UPDATE scores SET is_latest=false WHERE id=$1`, withOptions.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range list("/api/v1/replays").Items {
+		if item.ID == withOptions.ID {
+			t.Fatal("a play of replaced files must not be listed")
+		}
+	}
+	if _, err := pool.Exec(ctx, `UPDATE scores SET is_latest=true WHERE id=$1`, withOptions.ID); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := pool.Exec(ctx, `UPDATE charts SET status='hidden' WHERE id=$1`, song); err != nil {
 		t.Fatal(err)
 	}
 	get("/api/v1/scores/"+withOptions.ID+"/replay", 404)
+	if v := list("/api/v1/replays"); v.Total != 0 {
+		t.Fatalf("a hidden chart's plays must not be listed: %+v", v)
+	}
 	if _, err := pool.Exec(ctx, `UPDATE charts SET status='published' WHERE id=$1`, song); err != nil {
 		t.Fatal(err)
 	}

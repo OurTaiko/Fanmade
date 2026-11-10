@@ -675,15 +675,21 @@ func randomDanCode() string {
 
 // DanAttempt is a recorded attempt.
 type DanAttempt struct {
-	ID          string    `json:"id"`
-	CourseID    string    `json:"courseId"`
-	Verdict     int       `json:"verdict"`
-	SongsPlayed int       `json:"songsPlayed"`
+	ID          string `json:"id"`
+	CourseID    string `json:"courseId"`
+	Verdict     int    `json:"verdict"`
+	SongsPlayed int    `json:"songsPlayed"`
+	// The scores of the songs played, in order; null where a song's score is not known.
+	ScoreIDs    []*string `json:"scoreIds"`
 	SubmittedAt time.Time `json:"submittedAt"`
 }
 
-// submitDanAttempt is POST /api/v1/game/dan-attempts {courseId, verdict 0–6, songsPlayed}
-// with an Idempotency-Key, from a signed-in game. The result is trusted as single scores are.
+// submitDanAttempt is POST /api/v1/game/dan-attempts {courseId, verdict 0–6, songsPlayed,
+// scoreKeys?} with an Idempotency-Key, from a signed-in game. scoreKeys are the
+// Idempotency-Keys the game uploads the played songs' scores with, in song order (null for a
+// song without one): the attempt keeps those scores' ids, and one that arrives later is put in
+// by submitScore. Without scoreKeys (older games) the scores are looked for by time
+// (dan_attempt_scores). The result is trusted as single scores are.
 // When OurTaikoProfile is configured it is asked for what the attempt earns; its reply is kept,
 // and a retry of an attempt it did not answer asks again (profileError: Profile could not be
 // reached or failed). profileRejected (Profile's error code) means it never will. The songs'
@@ -699,9 +705,10 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		CourseID    string `json:"courseId"`
-		Verdict     int    `json:"verdict"`
-		SongsPlayed int    `json:"songsPlayed"`
+		CourseID    string    `json:"courseId"`
+		Verdict     int       `json:"verdict"`
+		SongsPlayed int       `json:"songsPlayed"`
+		ScoreKeys   []*string `json:"scoreKeys"`
 	}
 	if !decode(w, r, &body) {
 		return
@@ -710,6 +717,22 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 	if !validID(course) || body.Verdict < 0 || body.Verdict > 6 || body.SongsPlayed < 0 || body.SongsPlayed > danMaxSongs {
 		problem(w, 422, "DAN_ATTEMPT_INVALID", "段位成绩无效")
 		return
+	}
+	keyed := body.ScoreKeys != nil
+	if keyed && len(body.ScoreKeys) != body.SongsPlayed {
+		problem(w, 422, "DAN_ATTEMPT_INVALID", "段位成绩无效")
+		return
+	}
+	named := make([]string, len(body.ScoreKeys))
+	for i, scoreKey := range body.ScoreKeys {
+		if scoreKey == nil {
+			continue
+		}
+		if len(*scoreKey) < 8 || len(*scoreKey) > 128 || strings.ContainsFunc(*scoreKey, func(c rune) bool { return c < 0x21 || c > 0x7e || c == '|' || c == ',' }) {
+			problem(w, 422, "DAN_ATTEMPT_INVALID", "段位成绩无效")
+			return
+		}
+		named[i] = *scoreKey
 	}
 	ctx := r.Context()
 	courses, err := s.loadDans(ctx, `d.id=$1`, course)
@@ -722,16 +745,34 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := courses[0]
-	digest := hash(strings.Join([]string{body.CourseID, strconv.Itoa(body.Verdict), strconv.Itoa(body.SongsPlayed)}, "|"))
+	// An attempt without scoreKeys digests as before they existed.
+	parts := []string{body.CourseID, strconv.Itoa(body.Verdict), strconv.Itoa(body.SongsPlayed)}
+	if keyed {
+		parts = append(parts, strings.Join(named, ","))
+	}
+	digest := hash(strings.Join(parts, "|"))
+	scoreKeys := []*string{}
+	if keyed {
+		scoreKeys = body.ScoreKeys
+	}
 	var a DanAttempt
 	var stored string
 	var granted []byte
-	err = s.DB.QueryRow(ctx, `INSERT INTO dan_attempts(id,course_id,user_id,idempotency_key,payload_digest,verdict,songs_played) VALUES($1,$2,$3,$4,$5,$6,$7)
+	err = s.DB.QueryRow(ctx, `INSERT INTO dan_attempts(id,course_id,user_id,idempotency_key,payload_digest,verdict,songs_played,score_keys)
+ VALUES($1,$2,$3,$4,$5,$6,array_fill(NULL::text,ARRAY[$7::int]),$8)
  ON CONFLICT(user_id,idempotency_key) DO NOTHING RETURNING id,course_id,verdict,songs_played,submitted_at,payload_digest,granted`,
-		ID(), course, u.User.ID, key, digest, body.Verdict, body.SongsPlayed).Scan(&a.ID, &a.CourseID, &a.Verdict, &a.SongsPlayed, &a.SubmittedAt, &stored, &granted)
-	if errors.Is(err, pgx.ErrNoRows) {
+		ID(), course, u.User.ID, key, digest, body.Verdict, body.SongsPlayed, scoreKeys).Scan(&a.ID, &a.CourseID, &a.Verdict, &a.ScoreIDs, &a.SubmittedAt, &stored, &granted)
+	if err == nil && body.SongsPlayed > 0 {
+		// A new attempt: its songs' scores, by the keys the game named or else by time.
+		find := `dan_attempt_scores(a.id)`
+		if keyed {
+			find = `(SELECT array_agg((SELECT sc.id FROM scores sc WHERE sc.user_id=a.user_id AND sc.idempotency_key=k.key) ORDER BY k.position)
+ FROM unnest(a.score_keys) WITH ORDINALITY k(key,position))`
+		}
+		err = s.DB.QueryRow(ctx, `UPDATE dan_attempts a SET songs_played=`+find+` WHERE a.id=$1 RETURNING songs_played`, a.ID).Scan(&a.ScoreIDs)
+	} else if errors.Is(err, pgx.ErrNoRows) {
 		err = s.DB.QueryRow(ctx, `SELECT id,course_id,verdict,songs_played,submitted_at,payload_digest,granted FROM dan_attempts WHERE user_id=$1 AND idempotency_key=$2`, u.User.ID, key).
-			Scan(&a.ID, &a.CourseID, &a.Verdict, &a.SongsPlayed, &a.SubmittedAt, &stored, &granted)
+			Scan(&a.ID, &a.CourseID, &a.Verdict, &a.ScoreIDs, &a.SubmittedAt, &stored, &granted)
 		if err == nil && stored != digest {
 			problem(w, 409, "IDEMPOTENCY_CONFLICT", "同一个 Idempotency-Key 对应了不同的成绩")
 			return
@@ -741,6 +782,10 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
+	if a.ScoreIDs == nil {
+		a.ScoreIDs = []*string{}
+	}
+	a.SongsPlayed = len(a.ScoreIDs)
 	reply := map[string]any{"attempt": a, "profile": nil}
 	if granted != nil {
 		reply["profile"] = json.RawMessage(granted)

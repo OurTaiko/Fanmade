@@ -212,6 +212,13 @@ func (s *Server) submitScore(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
+	// A 段位 attempt that came before this score of one of its songs gets it now.
+	if key != "" {
+		if _, err = tx.Exec(r.Context(), `UPDATE dan_attempts SET songs_played[array_position(score_keys,$2)]=$3 WHERE user_id=$1 AND $2=ANY(score_keys)`, u.User.ID, key, result.ID); err != nil {
+			internal(w, err)
+			return
+		}
+	}
 	if err = tx.Commit(r.Context()); err != nil {
 		internal(w, err)
 		return

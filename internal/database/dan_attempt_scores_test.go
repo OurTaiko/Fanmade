@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Migration 056 turns songs_played from a count into that many score ids, unknown (NULL) where
-// no score is found; its length stays the count.
+// Migrations 056 and 057 turn songs_played from a count into that many score ids, unknown (NULL)
+// where no score is found; its length stays the count.
 func TestDanAttemptScoresMigration(t *testing.T) {
 	url := os.Getenv("DATABASE_TEST_URL")
 	if url == "" {
@@ -53,19 +53,19 @@ func TestDanAttemptScoresMigration(t *testing.T) {
 	if err = Migrate(ctx, pool, t.TempDir()); err != nil {
 		t.Fatal(err)
 	}
-	rows, err := pool.Query(ctx, `SELECT id,songs_played,score_keys FROM dan_attempts ORDER BY id`)
+	rows, err := pool.Query(ctx, `SELECT id,songs_played FROM dan_attempts ORDER BY id`)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rows.Close()
 	for n := 0; rows.Next(); n++ {
 		var id string
-		var played, keys []*string
-		if err = rows.Scan(&id, &played, &keys); err != nil {
+		var played []*string
+		if err = rows.Scan(&id, &played); err != nil {
 			t.Fatal(err)
 		}
-		if len(played) != n || len(keys) != 0 {
-			t.Fatalf("%s: %d songs became %d scores, %d keys", id, n, len(played), len(keys))
+		if len(played) != n {
+			t.Fatalf("%s: %d songs became %d scores", id, n, len(played))
 		}
 		for _, score := range played {
 			if score != nil {
@@ -76,13 +76,12 @@ func TestDanAttemptScoresMigration(t *testing.T) {
 	if err = rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	for _, bad := range []string{`ARRAY['a','b','c','d']`, `ARRAY['a']`} {
-		column := "songs_played"
-		if bad == `ARRAY['a']` {
-			column = "score_keys" // as many keys as songs, or none
-		}
-		if _, err = pool.Exec(ctx, `UPDATE dan_attempts SET `+column+`=`+bad+` WHERE id='attempt2'`); err == nil {
-			t.Fatal("accepted", column, bad)
-		}
+	if _, err = pool.Exec(ctx, `UPDATE dan_attempts SET songs_played=ARRAY['a','b','c','d'] WHERE id='attempt2'`); err == nil {
+		t.Fatal("more than three songs")
+	}
+	// 056 added score_keys and 057 took it away again.
+	var keys bool
+	if err = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='dan_attempts' AND column_name='score_keys')`).Scan(&keys); err != nil || keys {
+		t.Fatal("score_keys", err, keys)
 	}
 }

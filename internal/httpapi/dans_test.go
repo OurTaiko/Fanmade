@@ -280,16 +280,20 @@ func TestDanCourses(t *testing.T) {
 		t.Fatal("rejected", refused)
 	}
 
-	// An attempt keeps the scores of its songs. The game names them by the keys it uploads them
-	// with; a score that arrives after the attempt is put in then.
-	play := func(song, key string, points int) string {
+	// An attempt keeps the scores of its songs. The game sends them with it: they are saved
+	// first, and the attempt takes their ids.
+	slot := func(song string) int64 {
 		t.Helper()
-		var slot int64
-		if err := pool.QueryRow(ctx, `SELECT id FROM chart_difficulties WHERE chart_id=$1 AND course='Oni' AND side='single'`, song).Scan(&slot); err != nil {
+		var id int64
+		if err := pool.QueryRow(ctx, `SELECT id FROM chart_difficulties WHERE chart_id=$1 AND course='Oni' AND side='single'`, song).Scan(&id); err != nil {
 			t.Fatal(err)
 		}
+		return id
+	}
+	play := func(song, key string, points int) string {
+		t.Helper()
 		var score Score
-		expect(call("POST", "/api/v1/game/scores", fmt.Sprintf(`{"difficultyId":%d,"good":5,"ok":0,"bad":0,"score":%d,"drumroll":0,"max_combo":5}`, slot, points), carol, key), 201, &score)
+		expect(call("POST", "/api/v1/game/scores", fmt.Sprintf(`{"difficultyId":%d,"good":5,"ok":0,"bad":0,"score":%d,"drumroll":0,"max_combo":5}`, slot(song), points), carol, key), 201, &score)
 		return score.ID
 	}
 	scores := func(reply map[string]json.RawMessage) string {
@@ -322,31 +326,56 @@ func TestDanCourses(t *testing.T) {
 		}
 	}
 	age()
-	firstA := play(songA, "dan-song-a-key-0001", 1000)
-	keyed := `{"courseId":"` + created.ID + `","verdict":1,"songsPlayed":2,"scoreKeys":["dan-song-a-key-0001","dan-song-b-key-0001"]}`
-	if got := scores(attempt("attempt-key-0005", keyed, 200)); got != firstA+",-" {
-		t.Fatal("the score that is there, and a place for the one to come", got)
+	var hashA, audioA string
+	if err = pool.QueryRow(ctx, `SELECT d.content_hash,af.sha256 FROM chart_difficulties d JOIN charts c ON c.id=d.chart_id JOIN chart_resources af ON af.id=c.audio_file WHERE d.id=$1`, slot(songA)).Scan(&hashA, &audioA); err != nil {
+		t.Fatal(err)
 	}
-	firstB := play(songB, "dan-song-b-key-0001", 2000)
-	if got := scores(attempt("attempt-key-0005", keyed, 200)); got != firstA+","+firstB {
-		t.Fatal("a score that arrives after its attempt joins it", got)
+	sent := func(song string, points int, extra string) string {
+		return fmt.Sprintf(`{"difficultyId":%d,"good":5,"ok":0,"bad":0,"score":%d,"drumroll":0,"max_combo":5%s}`, slot(song), points, extra)
 	}
-	attempt("attempt-key-0005", strings.Replace(keyed, "dan-song-b-key-0001", "dan-song-b-key-0002", 1), 409)
-	for _, bad := range []string{`["dan-song-a-key-0001"]`, `["dan-song-a-key-0001","short"]`, `["dan-song-a-key-0001","with,comma-0001"]`, `["dan-song-a-key-0001",5]`} {
-		status := 422
-		if strings.Contains(bad, "5]") {
-			status = 400
-		}
-		attempt("attempt-key-0006", `{"courseId":"`+created.ID+`","verdict":1,"songsPlayed":2,"scoreKeys":`+bad+`}`, status)
+	together := `{"courseId":"` + created.ID + `","verdict":1,"scores":[` + sent(songA, 1000, `,"chartHash":"`+hashA+`","audioHash":"`+audioA+`","replay_data":`+testReplayV2) + `,` + sent(songB, 2000, "") + `]}`
+	var before int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM scores WHERE user_id=$1`, carol).Scan(&before); err != nil {
+		t.Fatal(err)
 	}
-	// A song without a score of its own, and no songs at all.
-	if got := scores(attempt("attempt-key-0006", `{"courseId":"`+created.ID+`","verdict":0,"songsPlayed":1,"scoreKeys":[null]}`, 200)); got != "-" {
-		t.Fatal("a song the game uploaded no score for", got)
+	made := attempt("attempt-key-0005", together, 200)
+	var kept []*Score
+	if err = json.Unmarshal(made["scores"], &kept); err != nil || len(kept) != 2 || kept[0] == nil || kept[1] == nil || kept[0].Score != 1000 || kept[1].Score != 2000 || !kept[0].HasReplay || kept[1].HasReplay || kept[0].Course != "Oni" {
+		t.Fatal("the scores come back as the game keeps them", err, string(made["scores"]))
 	}
-	if got := scores(attempt("attempt-key-0007", `{"courseId":"`+created.ID+`","verdict":0,"songsPlayed":0,"scoreKeys":[]}`, 200)); got != "" {
+	firstA, firstB := kept[0].ID, kept[1].ID
+	if got := scores(made); got != firstA+","+firstB {
+		t.Fatal("the attempt has its scores' ids", got)
+	}
+	// The same attempt again saves nothing twice; another body under its key conflicts.
+	if again := attempt("attempt-key-0005", together, 200); scores(again) != firstA+","+firstB || string(again["scores"]) == "null" {
+		t.Fatal("retry", again)
+	}
+	var after, onBoard int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM scores WHERE user_id=$1`, carol).Scan(&after); err != nil || after != before+2 {
+		t.Fatal("two scores, once", err, before, after)
+	}
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM scores WHERE id=ANY($1) AND is_latest AND idempotency_key IS NOT NULL`, []string{firstA, firstB}).Scan(&onBoard); err != nil || onBoard != 2 {
+		t.Fatal("scores like any other", err, onBoard)
+	}
+	attempt("attempt-key-0005", strings.Replace(together, `"score":2000`, `"score":2001`, 1), 409)
+	// A score that is not a score refuses the attempt, and nothing of it is kept.
+	attempt("attempt-key-0006", `{"courseId":"`+created.ID+`","verdict":1,"scores":[`+sent(songA, 1, "")+`,{"difficultyId":`+fmt.Sprint(slot(songB))+`,"good":-1,"ok":0,"bad":0,"score":1,"drumroll":0,"max_combo":0}]}`, 422)
+	attempt("attempt-key-0006", `{"courseId":"`+created.ID+`","verdict":1,"songsPlayed":1,"scores":[`+sent(songA, 1, "")+`,`+sent(songB, 1, "")+`]}`, 422)
+	attempt("attempt-key-0006", `{"courseId":"`+created.ID+`","verdict":1}`, 422)
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM scores WHERE user_id=$1`, carol).Scan(&after); err != nil || after != before+2 {
+		t.Fatal("a refused attempt leaves no score", err, after)
+	}
+	// A song without a score, one played on other files and one on a block that is gone are left
+	// out; the attempt is kept. No songs at all is an attempt too.
+	partly := attempt("attempt-key-0006", `{"courseId":"`+created.ID+`","verdict":0,"scores":[null,`+sent(songB, 5, `,"chartHash":"v0:stale"`)+`,`+sent(songA, 5, `,"audioHash":"`+strings.Repeat("0", 64)+`"`)+`]}`, 200)
+	if got := scores(partly); got != "-,-,-" || string(partly["scores"]) != "[null,null,null]" {
+		t.Fatal("left out", got, string(partly["scores"]))
+	}
+	if got := scores(attempt("attempt-key-0007", `{"courseId":"`+created.ID+`","verdict":0,"scores":[]}`, 200)); got != "" {
 		t.Fatal("no songs", got)
 	}
-	// A game that names no keys sends the attempt after its first song's score and before the
+	// An older game uploads the scores on their own, the attempt after its first song's score and before the
 	// others': the scores are looked for by time, when the attempt comes and as each one follows.
 	age()
 	secondA := play(songA, "dan-song-a-key-0002", 3000)
@@ -370,14 +399,14 @@ func TestDanCourses(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT dan_attempt_scores(id) FROM dan_attempts WHERE idempotency_key='attempt-key-0008'`).Scan(&found); err != nil || len(found) != 2 || found[0] != nil || found[1] == nil || *found[1] != secondB {
 		t.Fatal("an old score is not this attempt's", err, found)
 	}
-	// Migration 057's own statement: the attempts without keys are looked for again, the keyed
-	// ones keep theirs.
-	if _, err = pool.Exec(ctx, `UPDATE dan_attempts SET songs_played = dan_attempt_scores(id) WHERE cardinality(songs_played) > 0 AND cardinality(score_keys) = 0`); err != nil {
+	// Looking again over the attempts whose scores came on their own (migration 057 did so over
+	// those made before) finds the same.
+	if _, err = pool.Exec(ctx, `UPDATE dan_attempts SET songs_played = dan_attempt_scores(id) WHERE right(idempotency_key,1) IN ('1','2','3','4','8','9')`); err != nil {
 		t.Fatal(err)
 	}
 	var filled string
 	if err = pool.QueryRow(ctx, `SELECT string_agg(right(idempotency_key,1)||'='||array_to_string(songs_played,',','-'),' ' ORDER BY idempotency_key) FROM dan_attempts WHERE user_id=$1`, carol).Scan(&filled); err != nil ||
-		filled != "1=-,- 2=-,- 3=- 4=-,- 5="+firstA+","+firstB+" 6=- 7= 8=-,"+secondB+" 9=-" {
+		filled != "1=-,- 2=-,- 3=- 4=-,- 5="+firstA+","+firstB+" 6=-,-,- 7= 8=-,"+secondB+" 9=-" {
 		t.Fatal("filled in", err, filled)
 	}
 

@@ -29,7 +29,7 @@ var replayListOrders = map[string]string{
 // replayList is GET /api/v1/replays, public like the leaderboards: the plays whose recording is
 // kept, on the current files of published charts, so each can be played back over the chart as
 // it is now (the game's ghost battle). sort is recent (default) or score; course narrows to one
-// course; 20 a page.
+// course and categoryId to the songs of one category (as the game catalog lists them); 20 a page.
 func (s *Server) replayList(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	sort := query.Get("sort")
@@ -55,7 +55,16 @@ func (s *Server) replayList(w http.ResponseWriter, r *http.Request) {
 	where := `sc.replay_data IS NOT NULL AND sc.is_latest AND ` + publishedChart
 	if course != "" {
 		args = append(args, course)
-		where += ` AND d.course=$1`
+		where += fmt.Sprintf(` AND d.course=$%d`, len(args))
+	}
+	if id := query.Get("categoryId"); id != "" {
+		flag, ok := categoryFlag(id)
+		if !ok {
+			problem(w, 400, "QUERY_INVALID", "分类不存在")
+			return
+		}
+		args = append(args, int(flag))
+		where += fmt.Sprintf(` AND (c.category_flags & $%d::int)<>0`, len(args))
 	}
 	sql := `SELECT ` + scoreColumns + `,COALESCE(c.title,''),c.title_translations,COALESCE(c.subtitle,''),d.level,count(*) OVER()
 	 FROM scores sc JOIN chart_difficulties d ON d.id=sc.difficulty_id JOIN charts c ON c.id=d.chart_id

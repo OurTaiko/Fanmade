@@ -286,7 +286,17 @@ func TestScoreReplayCompatibility(t *testing.T) {
 	if v := list("/api/v1/replays?sort=score&page=99"); len(v.Items) != 0 || v.Total != replays.Total || v.Page != 99 {
 		t.Fatalf("past the last page: %+v", v)
 	}
-	for _, bad := range []string{"?sort=level", "?page=0", "?course=oni"} {
+	// categoryId narrows to the songs of one category (Game here).
+	if _, err := pool.Exec(ctx, `UPDATE charts SET category_flags=$2 WHERE id=$1`, song, int(CategoryGame)); err != nil {
+		t.Fatal(err)
+	}
+	if v := list("/api/v1/replays?categoryId=game"); v.Total != replays.Total || len(v.Items) == 0 || v.Items[0].ID != withOptions.ID {
+		t.Fatalf("category filter: %+v", v)
+	}
+	if v := list("/api/v1/replays?categoryId=pop&course=Oni"); v.Total != 0 || len(v.Items) != 0 {
+		t.Fatalf("another category: %+v", v)
+	}
+	for _, bad := range []string{"?sort=level", "?page=0", "?course=oni", "?categoryId=nope"} {
 		get("/api/v1/replays"+bad, 400)
 	}
 	// A play of replaced files is not listed: it no longer matches the chart.

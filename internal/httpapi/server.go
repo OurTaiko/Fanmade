@@ -127,6 +127,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/dans/{id}/comments", s.createDanComment)
 	mux.HandleFunc("GET /api/v1/game/dans", s.gameDans)
 	mux.HandleFunc("GET /api/v1/game/dans/{code}", s.gameDanByCode)
+	mux.HandleFunc("POST /api/v1/game/dan-results", s.submitDanResult)
+	// Deprecated 2026-11-10: games before dan-results.
 	mux.HandleFunc("POST /api/v1/game/dan-attempts", s.submitDanAttempt)
 	mux.HandleFunc("GET /api/v1/game/scores", s.gameScoreList)
 	mux.HandleFunc("GET /api/v1/game/playlists", s.gamePlaylistList)

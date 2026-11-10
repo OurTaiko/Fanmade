@@ -684,7 +684,7 @@ type DanAttempt struct {
 	SubmittedAt time.Time `json:"submittedAt"`
 }
 
-// danAttemptScore is a song's score sent with its attempt: a score as POST /game/scores takes
+// danAttemptScore is a song's score sent with its attempt (dan-results): a score as POST /game/scores takes
 // it, and the hashes of the block and the audio it was played on. When either is no longer the
 // chart's (its files were replaced since), the score is left out, as the game leaves such a
 // score out when it uploads it alone.
@@ -697,18 +697,35 @@ type danAttemptScore struct {
 // The largest attempt: three scores, each with a recording.
 const maxDanAttemptBytes = 3*maxScoreRequestBytes + 8192
 
-// submitDanAttempt is POST /api/v1/game/dan-attempts with an Idempotency-Key, from a signed-in
+// submitDanResult is POST /api/v1/game/dan-results with an Idempotency-Key, from a signed-in
 // game: {courseId, verdict 0–6, scores}, where scores are the played songs' scores in song
 // order (null for a song without one). The scores are saved first and the attempt with their
 // ids, in one transaction, so an attempt and its scores are there together or not at all. A
 // score whose block is gone, unpublished or changed is left out (null); an invalid one refuses
-// the attempt. Older games send {courseId, verdict, songsPlayed} and upload the scores on their
-// own; those are looked for by time (dan_attempt_scores), now and as each comes in after.
-// The result is trusted as single scores are.
+// the attempt. The reply carries the saved scores. The result is trusted as single scores are.
 // When OurTaikoProfile is configured it is asked for what the attempt earns; its reply is kept,
 // and a retry of an attempt it did not answer asks again (profileError: Profile could not be
 // reached or failed). profileRejected (Profile's error code) means it never will.
+func (s *Server) submitDanResult(w http.ResponseWriter, r *http.Request) {
+	s.saveDanAttempt(w, r, true)
+}
+
+// danAttemptsDeprecated is when POST /game/dan-attempts was deprecated (2026-11-10 UTC), as its
+// Deprecation header says.
+const danAttemptsDeprecated = "@1794268800"
+
+// Deprecated: submitDanAttempt is POST /api/v1/game/dan-attempts {courseId, verdict,
+// songsPlayed}, what games before dan-results send. They upload the songs' scores on their own
+// (POST /game/scores), around the attempt; the scores are looked for by time
+// (dan_attempt_scores), when the attempt comes and as each score follows it. Use
+// POST /game/dan-results.
 func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Deprecation", danAttemptsDeprecated)
+	w.Header().Set("Link", `</api/v1/game/dan-results>; rel="successor-version"`)
+	s.saveDanAttempt(w, r, false)
+}
+
+func (s *Server) saveDanAttempt(w http.ResponseWriter, r *http.Request, together bool) {
 	u, ok := s.required(w, r, false)
 	if !ok {
 		return
@@ -724,20 +741,24 @@ func (s *Server) submitDanAttempt(w http.ResponseWriter, r *http.Request) {
 		SongsPlayed *int               `json:"songsPlayed,omitempty"`
 		Scores      []*danAttemptScore `json:"scores,omitempty"`
 	}
-	if !decodeLimit(w, r, &body, maxDanAttemptBytes) {
-		return
-	}
-	together := body.Scores != nil
-	played := len(body.Scores)
-	if !together {
-		if body.SongsPlayed == nil {
-			problem(w, 422, "DAN_ATTEMPT_INVALID", "段位成绩无效")
+	if together {
+		if !decodeLimit(w, r, &body, maxDanAttemptBytes) {
 			return
 		}
+	} else if !decode(w, r, &body) {
+		return
+	}
+	// Each address takes its own form: scores with dan-results, a count with dan-attempts.
+	if together != (body.Scores != nil) || together == (body.SongsPlayed != nil) {
+		problem(w, 422, "DAN_ATTEMPT_INVALID", "段位成绩无效")
+		return
+	}
+	played := len(body.Scores)
+	if !together {
 		played = *body.SongsPlayed
 	}
 	course := body.CourseID
-	if !validID(course) || body.Verdict < 0 || body.Verdict > 6 || played < 0 || played > danMaxSongs || (body.SongsPlayed != nil && *body.SongsPlayed != played) {
+	if !validID(course) || body.Verdict < 0 || body.Verdict > 6 || played < 0 || played > danMaxSongs {
 		problem(w, 422, "DAN_ATTEMPT_INVALID", "段位成绩无效")
 		return
 	}

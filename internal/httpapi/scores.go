@@ -212,12 +212,19 @@ func (s *Server) submitScore(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	// A 段位 attempt that came before this score of one of its songs gets it now.
+	// A 段位 attempt that came before this score of one of its songs gets it now: by the key the
+	// attempt named, or, for an attempt of a game that names none, by looking again (the game
+	// sends the attempt between its songs' scores; dan_attempt_scores reaches half a minute past it).
 	if key != "" {
 		if _, err = tx.Exec(r.Context(), `UPDATE dan_attempts SET songs_played[array_position(score_keys,$2)]=$3 WHERE user_id=$1 AND $2=ANY(score_keys)`, u.User.ID, key, result.ID); err != nil {
 			internal(w, err)
 			return
 		}
+	}
+	if _, err = tx.Exec(r.Context(), `UPDATE dan_attempts a SET songs_played=dan_attempt_scores(a.id)
+	 WHERE a.user_id=$1 AND cardinality(a.score_keys)=0 AND a.submitted_at>now()-interval '30 seconds' AND array_position(a.songs_played,NULL) IS NOT NULL`, u.User.ID); err != nil {
+		internal(w, err)
+		return
 	}
 	if err = tx.Commit(r.Context()); err != nil {
 		internal(w, err)

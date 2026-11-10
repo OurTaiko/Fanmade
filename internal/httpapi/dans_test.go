@@ -311,6 +311,17 @@ func TestDanCourses(t *testing.T) {
 	if got := scores(refused); got != "-,-" {
 		t.Fatal("an attempt whose songs have no scores names none", got)
 	}
+	// Attempts are minutes apart in play; the rows so far are moved back to say so.
+	age := func() {
+		t.Helper()
+		if _, err := pool.Exec(ctx, `UPDATE dan_attempts SET submitted_at=submitted_at-interval '10 minutes'`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE scores SET submitted_at=submitted_at-interval '10 minutes'`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	age()
 	firstA := play(songA, "dan-song-a-key-0001", 1000)
 	keyed := `{"courseId":"` + created.ID + `","verdict":1,"songsPlayed":2,"scoreKeys":["dan-song-a-key-0001","dan-song-b-key-0001"]}`
 	if got := scores(attempt("attempt-key-0005", keyed, 200)); got != firstA+",-" {
@@ -335,15 +346,23 @@ func TestDanCourses(t *testing.T) {
 	if got := scores(attempt("attempt-key-0007", `{"courseId":"`+created.ID+`","verdict":0,"songsPlayed":0,"scoreKeys":[]}`, 200)); got != "" {
 		t.Fatal("no songs", got)
 	}
-	// A game that names no keys: the player's scores on the course's songs since the attempt before.
-	secondA, secondB := play(songA, "dan-song-a-key-0002", 3000), play(songB, "dan-song-b-key-0002", 4000)
-	if got := scores(attempt("attempt-key-0008", `{"courseId":"`+created.ID+`","verdict":2,"songsPlayed":2}`, 200)); got != secondA+","+secondB {
-		t.Fatal("found by time", got, secondA, secondB)
+	// A game that names no keys sends the attempt after its first song's score and before the
+	// others': the scores are looked for by time, when the attempt comes and as each one follows.
+	age()
+	secondA := play(songA, "dan-song-a-key-0002", 3000)
+	unkeyed := `{"courseId":"` + created.ID + `","verdict":2,"songsPlayed":2}`
+	if got := scores(attempt("attempt-key-0008", unkeyed, 200)); got != secondA+",-" {
+		t.Fatal("found by time", got, secondA)
 	}
+	secondB := play(songB, "dan-song-b-key-0002", 4000)
+	if got := scores(attempt("attempt-key-0008", unkeyed, 200)); got != secondA+","+secondB {
+		t.Fatal("the score that follows the attempt joins it", got, secondB)
+	}
+	age()
 	if got := scores(attempt("attempt-key-0009", `{"courseId":"`+created.ID+`","verdict":0,"songsPlayed":1}`, 200)); got != "-" {
 		t.Fatal("the scores of the attempt before are not taken again", got)
 	}
-	// The same search, as migration 056 ran it over the attempts made before: an hour back at most.
+	// An hour back at most.
 	if _, err = pool.Exec(ctx, `UPDATE scores SET submitted_at=submitted_at-interval '2 hours' WHERE id=$1`, secondA); err != nil {
 		t.Fatal(err)
 	}
@@ -351,14 +370,14 @@ func TestDanCourses(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT dan_attempt_scores(id) FROM dan_attempts WHERE idempotency_key='attempt-key-0008'`).Scan(&found); err != nil || len(found) != 2 || found[0] != nil || found[1] == nil || *found[1] != secondB {
 		t.Fatal("an old score is not this attempt's", err, found)
 	}
-	// The migration's own statement over every attempt: each takes the scores that came between
-	// the attempt before and itself, so the one that arrived after attempt 0005 is not found.
-	if _, err = pool.Exec(ctx, `UPDATE dan_attempts SET songs_played = dan_attempt_scores(id) WHERE cardinality(songs_played) > 0`); err != nil {
+	// Migration 057's own statement: the attempts without keys are looked for again, the keyed
+	// ones keep theirs.
+	if _, err = pool.Exec(ctx, `UPDATE dan_attempts SET songs_played = dan_attempt_scores(id) WHERE cardinality(songs_played) > 0 AND cardinality(score_keys) = 0`); err != nil {
 		t.Fatal(err)
 	}
 	var filled string
 	if err = pool.QueryRow(ctx, `SELECT string_agg(right(idempotency_key,1)||'='||array_to_string(songs_played,',','-'),' ' ORDER BY idempotency_key) FROM dan_attempts WHERE user_id=$1`, carol).Scan(&filled); err != nil ||
-		filled != "1=-,- 2=-,- 3=- 4=-,- 5="+firstA+",- 6=- 7= 8=-,"+secondB+" 9=-" {
+		filled != "1=-,- 2=-,- 3=- 4=-,- 5="+firstA+","+firstB+" 6=- 7= 8=-,"+secondB+" 9=-" {
 		t.Fatal("filled in", err, filled)
 	}
 

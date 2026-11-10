@@ -689,7 +689,7 @@ type DanAttempt struct {
 // Idempotency-Keys the game uploads the played songs' scores with, in song order (null for a
 // song without one): the attempt keeps those scores' ids, and one that arrives later is put in
 // by submitScore. Without scoreKeys (older games) the scores are looked for by time
-// (dan_attempt_scores). The result is trusted as single scores are.
+// (dan_attempt_scores), now and again as each of the player's scores comes in the half minute after. The result is trusted as single scores are.
 // When OurTaikoProfile is configured it is asked for what the attempt earns; its reply is kept,
 // and a retry of an attempt it did not answer asks again (profileError: Profile could not be
 // reached or failed). profileRejected (Profile's error code) means it never will. The songs'

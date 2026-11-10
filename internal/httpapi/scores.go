@@ -51,6 +51,8 @@ type Score struct {
 	// False once the song's TJA or audio was replaced after this play.
 	IsLatest    bool      `json:"isLatest"`
 	SubmittedAt time.Time `json:"submittedAt"`
+	// The play's recording is kept: GET /api/v1/scores/{id}/replay.
+	HasReplay bool `json:"hasReplay"`
 }
 
 func (v *scoreSubmission) valid() bool {
@@ -87,12 +89,12 @@ func (v *scoreSubmission) adLibValue() []int64 {
 }
 
 // scoreSelect reads scores, aliased sc, with the block each was played on.
-const scoreColumns = `sc.id,sc.user_id,d.chart_id,sc.difficulty_id,d.course,d.side,sc.good,sc.ok,sc.bad,sc.score,sc.drumroll,sc.max_combo,sc.clear_status,sc.is_latest,sc.submitted_at,sc.adlib,sc.mines`
+const scoreColumns = `sc.id,sc.user_id,d.chart_id,sc.difficulty_id,d.course,d.side,sc.good,sc.ok,sc.bad,sc.score,sc.drumroll,sc.max_combo,sc.clear_status,sc.is_latest,sc.submitted_at,sc.adlib,sc.mines,sc.replay_data IS NOT NULL`
 const scoreSelect = `SELECT ` + scoreColumns + ` FROM scores sc JOIN chart_difficulties d ON d.id=sc.difficulty_id`
 
 func readScore(row pgx.Row) (Score, error) {
 	var v Score
-	err := row.Scan(&v.ID, &v.UserID, &v.SongID, &v.DifficultyID, &v.Course, &v.Side, &v.Good, &v.OK, &v.Bad, &v.Score, &v.Drumroll, &v.MaxCombo, &v.ClearStatus, &v.IsLatest, &v.SubmittedAt, &v.AdLib, &v.Mines)
+	err := row.Scan(&v.ID, &v.UserID, &v.SongID, &v.DifficultyID, &v.Course, &v.Side, &v.Good, &v.OK, &v.Bad, &v.Score, &v.Drumroll, &v.MaxCombo, &v.ClearStatus, &v.IsLatest, &v.SubmittedAt, &v.AdLib, &v.Mines, &v.HasReplay)
 	return v, err
 }
 

@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 )
 
+const testReplayV2 = `{"version":2,"audio_offset_ms":-20,"visual_offset_ms":10,"inputs":[[-15.5,0],[1234.5,1]],"options":{"speed":25,"inverse":true,"display":false,"random":2,"flipped":[0,3,7]}}`
 const testReplay = `{"version":1,"audio_offset_ms":-20,"visual_offset_ms":10,"inputs":[[-15.5,0],[1234.5,1],[1234.5,2],[1200,3]]}`
 
 func TestNormalizeScoreReplay(t *testing.T) {
@@ -18,6 +20,31 @@ func TestNormalizeScoreReplay(t *testing.T) {
 		if normalized := normalizeScoreReplay(json.RawMessage(raw)); string(normalized) != raw {
 			t.Fatalf("lost event order, simultaneous inputs, offsets or empty recording: %s", normalized)
 		}
+	}
+	// Version 2 adds the play options; key order and spacing are canonicalized.
+	if normalized := normalizeScoreReplay(json.RawMessage(testReplayV2)); string(normalized) != testReplayV2 {
+		t.Fatalf("lost the play options: %s", normalized)
+	}
+	spaced := strings.Replace(strings.Replace(testReplayV2, `"flipped":[0,3,7]`, `"flipped": [0, 3, 7]`, 1), `"speed":25,"inverse":true`, `"inverse":true,"speed":25`, 1)
+	if normalized := normalizeScoreReplay(json.RawMessage(spaced)); string(normalized) != testReplayV2 {
+		t.Fatalf("options were not canonicalized: %s", normalized)
+	}
+	for name, raw := range map[string]string{
+		"options on version 1": strings.Replace(testReplayV2, `"version":2`, `"version":1`, 1),
+		"version 3":            strings.Replace(testReplayV2, `"version":2`, `"version":3`, 1),
+		"speed range":          strings.Replace(testReplayV2, `"speed":25`, `"speed":41`, 1),
+		"missing inverse":      strings.Replace(testReplayV2, `"inverse":true,`, "", 1),
+		"random range":         strings.Replace(testReplayV2, `"random":2`, `"random":3`, 1),
+		"null flipped":         strings.Replace(testReplayV2, `"flipped":[0,3,7]`, `"flipped":null`, 1),
+		"unordered flipped":    strings.Replace(testReplayV2, `"flipped":[0,3,7]`, `"flipped":[3,3]`, 1),
+		"negative flipped":     strings.Replace(testReplayV2, `"flipped":[0,3,7]`, `"flipped":[-1]`, 1),
+		"unknown option":       strings.Replace(testReplayV2, `"random":2`, `"random":2,"neiro":1`, 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if normalizeScoreReplay(json.RawMessage(raw)) != nil {
+				t.Fatal("invalid recording must normalize to SQL NULL")
+			}
+		})
 	}
 	for name, raw := range map[string]string{
 		"absent": "", "null": "null", "array": "[]", "string": `"invalid recording"`,
@@ -160,6 +187,69 @@ func TestScoreReplayCompatibility(t *testing.T) {
 		call(path, attach(strings.Replace(testReplay, `"audio_offset_ms":-20`, `"audio_offset_ms":-21`, 1)), validKey, 409)
 		call(path, attach(strings.Replace(testReplay, `[1234.5,2]`, `[1234.5,3]`, 1)), validKey, 409)
 	}
+	// The recording is read back with its play, by anyone; a play without one has none.
+	get := func(path string, want int) map[string]json.RawMessage {
+		t.Helper()
+		response, err := server.Client().Get(server.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		data, _ := io.ReadAll(response.Body)
+		if response.StatusCode != want {
+			t.Fatalf("%s: want %d got %d: %s", path, want, response.StatusCode, data)
+		}
+		var body map[string]json.RawMessage
+		json.Unmarshal(data, &body)
+		return body
+	}
+	withOptions := call("/api/v1/game/scores", attach(testReplayV2), "recording-v2-0001", 201)
+	if !withOptions.HasReplay {
+		t.Fatal("the receipt must say the recording was kept")
+	}
+	read := get("/api/v1/scores/"+withOptions.ID+"/replay", 200)
+	var readScore Score
+	if !sameJSON(read["replay"], []byte(testReplayV2)) || json.Unmarshal(read["score"], &readScore) != nil || readScore.ID != withOptions.ID || !readScore.HasReplay || readScore.Course != "Oni" || len(read["nickname"]) == 0 {
+		t.Fatalf("recording read back wrong: %s", read)
+	}
+	without := call("/api/v1/game/scores", base, "recording-none-0001", 201)
+	if without.HasReplay {
+		t.Fatal("a score without a recording must say so")
+	}
+	get("/api/v1/scores/"+without.ID+"/replay", 404)
+	get("/api/v1/scores/ffffffffffffffffffffffffffffffff/replay", 404)
+	var board struct {
+		Items []struct {
+			ID        string `json:"id"`
+			HasReplay bool   `json:"hasReplay"`
+		} `json:"items"`
+	}
+	if json.Unmarshal(mustJSON(t, get("/api/v1/charts/"+song+"/leaderboard", 200)), &board) != nil || len(board.Items) != 1 {
+		t.Fatalf("leaderboard: %+v", board)
+	}
+	var plays struct {
+		Items []struct {
+			ID        string `json:"id"`
+			HasReplay bool   `json:"hasReplay"`
+		} `json:"items"`
+	}
+	if json.Unmarshal(mustJSON(t, get("/api/v1/users/"+user+"/scores?view=all", 200)), &plays) != nil || len(plays.Items) == 0 {
+		t.Fatalf("user scores: %+v", plays)
+	}
+	kept := map[string]bool{}
+	for _, play := range plays.Items {
+		kept[play.ID] = play.HasReplay
+	}
+	if !kept[withOptions.ID] || kept[without.ID] {
+		t.Fatalf("the score list must mark the plays with a recording: %v", kept)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE charts SET status='hidden' WHERE id=$1`, song); err != nil {
+		t.Fatal(err)
+	}
+	get("/api/v1/scores/"+withOptions.ID+"/replay", 404)
+	if _, err := pool.Exec(ctx, `UPDATE charts SET status='published' WHERE id=$1`, song); err != nil {
+		t.Fatal(err)
+	}
 	// Requests larger than the old 8 KB cap are valid. Bound attachment size
 	// independently so an oversized recording still saves the basic score.
 	large := `{"version":1,"audio_offset_ms":0,"visual_offset_ms":0,"inputs":[` + strings.Repeat(`[1234.5,1],`, 5000) + `[1234.5,2]]}`
@@ -188,4 +278,19 @@ func TestScoreReplayCompatibility(t *testing.T) {
 			t.Fatal("capability/score compatibility failed", path)
 		}
 	}
+}
+
+func mustJSON(t *testing.T, body map[string]json.RawMessage) []byte {
+	t.Helper()
+	data, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+// jsonb does not keep key order.
+func sameJSON(a, b []byte) bool {
+	var x, y any
+	return json.Unmarshal(a, &x) == nil && json.Unmarshal(b, &y) == nil && reflect.DeepEqual(x, y)
 }

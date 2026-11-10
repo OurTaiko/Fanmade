@@ -141,6 +141,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/me", s.me)
 	mux.HandleFunc("PATCH /api/v1/me", s.retiredAccountAPI)
 	mux.HandleFunc("POST /api/v1/scores", s.submitScore)
+	mux.HandleFunc("GET /api/v1/scores/{id}/replay", s.scoreReplay)
 	mux.HandleFunc("GET /api/v1/charts", s.list)
 	mux.HandleFunc("GET /api/v1/game/search", s.gameSearch)
 	mux.HandleFunc("GET /api/v1/me/charts", s.mine)

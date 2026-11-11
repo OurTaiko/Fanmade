@@ -107,6 +107,12 @@ func (s *Server) resourceLinks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if c.BackgroundKey != "" {
+		if e = add("bgimage", c.BackgroundKey, c.BackgroundHash+".webp", "image/webp", c.BackgroundHash, c.BackgroundSize); e != nil {
+			internal(w, e)
+			return
+		}
+	}
 	if c.MovieKey != "" {
 		if e = add("movie", c.MovieKey, c.MovieHash+"."+video.Extension, video.MediaType, c.MovieHash, c.MovieSize); e != nil {
 			internal(w, e)

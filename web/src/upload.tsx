@@ -30,6 +30,7 @@ import {
   CircleNotchIcon as LoaderCircle,
   UploadSimpleIcon as Upload,
   WarningIcon,
+  FolderOpenIcon as FolderOpen,
 } from '@phosphor-icons/react'
 import { CoverPicker } from '@sitekit/components/cover-picker'
 import { MoviePicker } from '@sitekit/components/movie-picker'
@@ -43,17 +44,15 @@ import { useNotification } from '@sitekit/notification-context'
 import { blockName, slotKey } from '@sitekit/courses'
 import { DifficultyBadges } from '@sitekit/components/difficulty-badges'
 import { useSession } from '@sitekit/session-context'
-import {
-  isAudioFilename,
-  isMovieFilename,
-  prepareTja,
-  validateFiles,
-  validateMovie,
-} from '@sitekit/tja'
+import { prepareTja, validateFiles, validateMovie } from '@sitekit/tja'
 import type { PreparedTja } from '@sitekit/tja'
 import { audioDiffers, replacementFields, reviewReplacement } from '@sitekit/replacement-diff'
 import type { Proposal, ReplacementPreview, Review } from '@sitekit/replacement-diff'
 import { ReplacementReview } from '@sitekit/replacement-review'
+import { BatchUpload } from '@sitekit/batch-upload'
+import { BackgroundPicker } from '@sitekit/components/background-picker'
+import { chosenFiles, droppedFiles, scanFolder, validateImages } from '@sitekit/folder-upload'
+import type { FolderChart, FolderFile } from '@sitekit/folder-upload'
 
 function createRequestKey() {
   // getRandomValues remains available over LAN HTTP, unlike randomUUID.
@@ -111,6 +110,13 @@ export function UploadPage({
     [audio, setAudio] = useState<File | null>(null)
   const [cover, setCover] = useState<File | null>(null)
   const [movie, setMovie] = useState<File | null>(null)
+  // A folder with several charts publishes them in a batch instead of this form.
+  const [batch, setBatch] = useState<FolderChart[] | null>(null)
+  const [reading, setReading] = useState(false)
+  // The background image, which the TJA must name with BGIMAGE.
+  const [background, setBackground] = useState<File | null>(null)
+  // Chosen images that are not the ones the TJA names (PREIMAGE, BGIMAGE).
+  const [imageError, setImageError] = useState('')
   const [metadata, setMetadata] = useState<PreparedTja | null>(null),
     [validating, setValidating] = useState(false),
     [validationError, setValidationError] = useState('')
@@ -155,7 +161,7 @@ export function UploadPage({
     setValidating(true)
     const validation = audio ? validateFiles(tja, audio) : prepareTja(tja, '', retainedAudioName)
     validation
-      .then((m) => {
+      .then(async (m) => {
         validateMovie(m, movie, hasStoredMovie)
         if (active) {
           setMetadata(m)
@@ -224,34 +230,63 @@ export function UploadPage({
     if (kind === 'tja') setTja(file)
     else setAudio(file)
   }
+  // A drop or chosen folder: one chart fills this form, several are published as a batch.
+  const take = async (files: Promise<FolderFile[]> | FolderFile[]) => {
+    if (busy || reading) return
+    setReading(true)
+    try {
+      const charts = await scanFolder(await files)
+      if (!charts.length) {
+        notify(t('folderUpload.noTja'), 'error')
+        return
+      }
+      if (charts.length > 1) {
+        if (existing) notify(t('folderUpload.oneChartForUpdate', { count: charts.length }), 'error')
+        else setBatch(charts)
+        return
+      }
+      const [chart] = charts
+      reset()
+      setTja(chart.tja)
+      // An update without audio in the folder keeps the chart's own.
+      setAudio(chart.audio ?? (existing ? null : audio))
+      setCover(chart.cover)
+      setBackground(chart.background)
+      setMovie(chart.movie)
+      for (const m of chart.missing)
+        if (m.header === 'PREIMAGE' || m.header === 'BGIMAGE')
+          notify(t('folderUpload.missingImage', { header: m.header, value: m.value }), 'info')
+    } catch (e) {
+      notify((e as Error).message, 'error')
+    } finally {
+      setReading(false)
+    }
+  }
   const drop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     if (busy) return
-    const files = Array.from(e.dataTransfer.files),
-      charts = files.filter((f) => /\.tja$/i.test(f.name)),
-      tracks = files.filter((f) => isAudioFilename(f.name)),
-      movies = files.filter((f) => isMovieFilename(f.name))
-    reset()
-    if (
-      charts.length > 1 ||
-      tracks.length > 1 ||
-      movies.length > 1 ||
-      charts.length + tracks.length + movies.length !== files.length
-    ) {
-      notify(t('messages.dropOneTjaAndOneOggOrMp3NoAdditionalFiles'), 'error')
-      return
-    }
-    if (charts[0]) setTja(charts[0])
-    if (tracks[0]) setAudio(tracks[0])
-    if (movies[0]) setMovie(movies[0])
+    // The folder entries must be read during the drop event, before anything awaits.
+    void take(droppedFiles(e.dataTransfer))
   }
   const prepare = async () => {
     const prepared = audio
       ? await validateFiles(tja!, audio)
       : await prepareTja(tja!, '', existing!.audioName)
     validateMovie(prepared, movie, hasStoredMovie)
+    await validateImages(prepared, cover, background)
     return prepared
   }
+  useEffect(() => {
+    let active = true
+    setImageError('')
+    if (metadata)
+      validateImages(metadata, cover, background).catch((e: Error) => {
+        if (active) setImageError(e.message)
+      })
+    return () => {
+      active = false
+    }
+  }, [metadata, cover, background])
   const proposal = (): Proposal => ({
     description,
     categoryIds,
@@ -297,7 +332,7 @@ export function UploadPage({
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!tja || !metadata || busy || !validPreview()) return
+    if (!tja || !metadata || busy || !!imageError || !validPreview()) return
     if (existing) void startReview()
     else void save()
   }
@@ -336,6 +371,7 @@ export function UploadPage({
       if (audio) form.append('audio', audio)
       if (movie) form.append('movie', movie)
       if (cover) form.append('cover', cover)
+      if (background) form.append('bgimage', background)
       if (existing) {
         form.append('confirmReset', 'true')
         if (fields.keepTitles) form.append('keepTitles', 'true')
@@ -449,397 +485,466 @@ export function UploadPage({
           <p>{t('messages.theSongUrlStaysTheSameTitlesComeFromTheNewTja')}</p>
         </Card>
       )}
-      <form
-        onSubmit={submit}
-        noValidate
-        className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] [&>div]:space-y-6 [&>aside]:space-y-3"
-      >
-        <div className="min-w-0">
-          <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
-            <TabsList
-              aria-label={t('messages.publishYourChart')}
-              className={`grid h-auto! w-full grid-cols-3 rounded-[14px] ${existing ? 'sm:grid-cols-5' : 'sm:grid-cols-6'}`}
-            >
-              {(['files', 'categories', 'preview', 'description', 'makers'] as const).map(
-                (value) => (
-                  <TabsTrigger key={value} value={value} disabled={busy} className="h-auto py-2">
-                    {t(
-                      value === 'files'
-                        ? 'messages.uploadFilesTab'
-                        : `messages.metadataTab_${value}`,
-                    )}
+      {batch ? (
+        <BatchUpload charts={batch} onExit={() => setBatch(null)} />
+      ) : (
+        <form
+          onSubmit={submit}
+          noValidate
+          className="grid items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] [&>div]:space-y-6 [&>aside]:space-y-3"
+        >
+          <div className="min-w-0">
+            <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
+              <TabsList
+                aria-label={t('messages.publishYourChart')}
+                className={`grid h-auto! w-full grid-cols-3 rounded-[14px] ${existing ? 'sm:grid-cols-5' : 'sm:grid-cols-6'}`}
+              >
+                {(['files', 'categories', 'preview', 'description', 'makers'] as const).map(
+                  (value) => (
+                    <TabsTrigger key={value} value={value} disabled={busy} className="h-auto py-2">
+                      {t(
+                        value === 'files'
+                          ? 'messages.uploadFilesTab'
+                          : `messages.metadataTab_${value}`,
+                      )}
+                    </TabsTrigger>
+                  ),
+                )}
+                {/* An existing chart invites from its own page. */}
+                {!existing && (
+                  <TabsTrigger value="collaborators" disabled={busy} className="h-auto py-2">
+                    {t('collaboration.tab')}
                   </TabsTrigger>
-                ),
-              )}
-              {/* An existing chart invites from its own page. */}
-              {!existing && (
-                <TabsTrigger value="collaborators" disabled={busy} className="h-auto py-2">
-                  {t('collaboration.tab')}
-                </TabsTrigger>
-              )}
-            </TabsList>
-            <TabsContent value="files" className="space-y-6 pt-4">
-              <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-5">
-                <h2 className="text-base font-extrabold">{t('messages.chooseFiles')}</h2>
-                <div
-                  className="flex flex-col items-center gap-2 rounded-[14px] border border-dashed p-6 text-center text-sm text-muted-foreground [&>strong]:text-foreground"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={drop}
-                >
-                  <Upload size={26} />
-                  <strong>{t('messages.dropChartAndAudioHere')}</strong>
-                  <span>{t('messages.orChooseFilesBelow')}</span>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {fileTile('tja')}
-                  {fileTile('audio')}
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="flex min-w-0 flex-col gap-3 rounded-[14px] border p-4">
-                    <h3 className="text-sm font-extrabold">{t('messages.songCover')}</h3>
-                    <CoverPicker
-                      file={cover}
-                      disabled={busy}
-                      onChange={(file) => {
-                        setCover(file)
-                        requestKey.current = createRequestKey()
-                      }}
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-col gap-3 rounded-[14px] border p-4">
-                    <h3 className="text-sm font-extrabold">{t('messages.backgroundMovie')}</h3>
-                    <MoviePicker
-                      file={movie}
-                      disabled={busy}
-                      hint={hasStoredMovie ? t('messages.keepMovie') : t('messages.movieUpTo64Mib')}
-                      onChange={(file) => {
-                        reset()
-                        setMovie(file)
-                      }}
-                    />
-                  </div>
-                </div>
-                {existing && audio && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="default"
-                    disabled={busy}
-                    onClick={() => {
-                      reset()
-                      setAudio(null)
-                    }}
+                )}
+              </TabsList>
+              <TabsContent value="files" className="space-y-6 pt-4">
+                <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-5">
+                  <h2 className="text-base font-extrabold">{t('messages.chooseFiles')}</h2>
+                  <div
+                    className="flex flex-col items-center gap-2 rounded-[14px] border border-dashed p-6 text-center text-sm text-muted-foreground [&>strong]:text-foreground"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={drop}
+                    aria-busy={reading}
                   >
-                    {t('messages.currentAudio', { filename: existing.audioName })}
-                  </Button>
-                )}
-                {validationError && (
-                  <Notice title={t('messages.fileValidationFailed')}>{validationError}</Notice>
-                )}
-                {metadata && (
-                  <Notice kind="success" title={t('messages.localValidationPassed')}>
-                    {t('messages.encodingDetected', {
-                      encoding: metadata.sourceEncoding,
-                      filename: metadata.wave,
-                    })}
-                  </Notice>
-                )}
-              </Card>
-            </TabsContent>
-            <TabsContent value="categories" className="pt-4">
-              <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
-                <CategoryPicker
-                  value={categoryIds}
-                  disabled={busy}
-                  onChange={(ids) => {
-                    setCategoryIds(ids)
-                    requestKey.current = createRequestKey()
-                  }}
-                />
-              </Card>
-            </TabsContent>
-            <TabsContent value="preview" className="pt-4">
-              <Card className="min-w-0 gap-4 border-[1.5px] border-border p-5 shadow-none sm:p-6">
-                {metadata ? (
-                  <>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Label
-                        htmlFor="upload-demo-start"
-                        className="flex flex-col items-start gap-2"
-                      >
-                        {t('messages.previewStartSeconds')}
-                        <Input
-                          id="upload-demo-start"
-                          type="number"
-                          min="0"
-                          step="any"
-                          value={demoStart}
-                          disabled={busy}
-                          onChange={(e) => {
-                            setDemoStart(e.target.value)
-                            requestKey.current = createRequestKey()
-                          }}
-                        />
-                      </Label>
-                      <Label htmlFor="upload-demo-end" className="flex flex-col items-start gap-2">
-                        {t('messages.previewEndSeconds')}
-                        <Input
-                          id="upload-demo-end"
-                          type="number"
-                          min="0"
-                          max="1215"
-                          step="any"
-                          value={demoEnd}
-                          disabled={busy}
-                          onChange={(e) => {
-                            setDemoEnd(e.target.value)
-                            requestKey.current = createRequestKey()
-                          }}
-                        />
-                      </Label>
-                    </div>
-                    {(audioUrl || existing) && (
-                      <AudioPlayer
-                        label={t('messages.localAudioPreview')}
-                        src={audioUrl || endpoints.resource(existing!, 'audio')}
-                        startAt={demoStart.trim() ? Number(demoStart) : NaN}
-                        endAt={demoEnd.trim() ? Number(demoEnd) : NaN}
-                        disabled={busy || Number(demoEnd) > 1215}
-                      />
+                    {reading ? (
+                      <LoaderCircle className="animate-spin" size={26} />
+                    ) : (
+                      <Upload size={26} />
                     )}
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {t('messages.chartInformationAppearsHereAfterValidation')}
-                  </p>
-                )}
-              </Card>
-            </TabsContent>
-            <TabsContent value="makers" className="pt-4">
-              {metadata ? (
-                <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
-                  <h2 className="text-base font-extrabold">
-                    {t('messages.difficultiesAndCreators')}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {metadata.maker
-                      ? t('messages.creatorNamesAreFilledFromMakerYouCanEditEachOne')
-                      : t('messages.noMakerWasSpecifiedEnterACreatorForEachDifficulty')}
-                  </p>
-                  <Table className="w-full">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead scope="col">{t('messages.difficulty')}</TableHead>
-                        <TableHead scope="col">{t('messages.creator')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {metadata.difficulties.map((d) => (
-                        <TableRow key={slotKey(d)}>
-                          <TableHead scope="row">
-                            {blockName(d)} · {slotKey(d)} ★{d.level}
-                          </TableHead>
-                          <TableCell>
-                            <Input
-                              aria-label={t('messages.courseCreator', { difficulty: slotKey(d) })}
-                              value={d.maker}
-                              maxLength={500}
-                              placeholder={t('messages.notSpecified')}
-                              disabled={busy}
-                              onChange={(e) => {
-                                const maker = e.target.value
-                                setTypedMakers((typed) => ({ ...typed, [slotKey(d)]: maker }))
-                                setMetadata(
-                                  (current) =>
-                                    current && {
-                                      ...current,
-                                      difficulties: current.difficulties.map((block) =>
-                                        slotKey(block) === slotKey(d) ? { ...block, maker } : block,
-                                      ),
-                                    },
-                                )
-                                requestKey.current = createRequestKey()
-                              }}
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                    <strong>
+                      {reading ? t('folderUpload.reading') : t('folderUpload.dropHere')}
+                    </strong>
+                    <span>
+                      {existing ? t('messages.orChooseFilesBelow') : t('folderUpload.dropHint')}
+                    </span>
+                    <Label
+                      className={buttonVariants({ variant: 'secondary', className: 'mt-2' })}
+                      aria-disabled={busy || reading}
+                    >
+                      <FolderOpen size={18} aria-hidden="true" />
+                      {t('folderUpload.chooseFolder')}
+                      <input
+                        type="file"
+                        className="sr-only"
+                        disabled={busy || reading}
+                        {...{ webkitdirectory: '' }}
+                        onChange={(e) => {
+                          const files = chosenFiles(e.target.files)
+                          e.target.value = ''
+                          void take(files)
+                        }}
+                      />
+                    </Label>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {fileTile('tja')}
+                    {fileTile('audio')}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="flex min-w-0 flex-col gap-3 rounded-[14px] border p-4">
+                      <h3 className="text-sm font-extrabold">{t('messages.songCover')}</h3>
+                      <CoverPicker
+                        file={cover}
+                        disabled={busy}
+                        onChange={(file) => {
+                          setCover(file)
+                          requestKey.current = createRequestKey()
+                        }}
+                      />
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-3 rounded-[14px] border p-4">
+                      <h3 className="text-sm font-extrabold">{t('messages.backgroundMovie')}</h3>
+                      <MoviePicker
+                        file={movie}
+                        disabled={busy}
+                        hint={
+                          hasStoredMovie ? t('messages.keepMovie') : t('messages.movieUpTo64Mib')
+                        }
+                        onChange={(file) => {
+                          reset()
+                          setMovie(file)
+                        }}
+                      />
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-3 rounded-[14px] border p-4">
+                      <h3 className="text-sm font-extrabold">
+                        {t('folderUpload.backgroundTitle')}
+                      </h3>
+                      <BackgroundPicker
+                        file={background}
+                        disabled={busy}
+                        hint={
+                          existing?.bgimageHash
+                            ? t('folderUpload.keepBackground')
+                            : t('folderUpload.backgroundHint')
+                        }
+                        onChange={(file) => {
+                          setBackground(file)
+                          requestKey.current = createRequestKey()
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {existing && audio && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="default"
+                      disabled={busy}
+                      onClick={() => {
+                        reset()
+                        setAudio(null)
+                      }}
+                    >
+                      {t('messages.currentAudio', { filename: existing.audioName })}
+                    </Button>
+                  )}
+                  {validationError && (
+                    <Notice title={t('messages.fileValidationFailed')}>{validationError}</Notice>
+                  )}
+                  {!validationError && imageError && (
+                    <Notice title={t('messages.fileValidationFailed')}>{imageError}</Notice>
+                  )}
+                  {metadata && (
+                    <Notice kind="success" title={t('messages.localValidationPassed')}>
+                      {t('messages.encodingDetected', {
+                        encoding: metadata.sourceEncoding,
+                        filename: metadata.wave,
+                      })}
+                    </Notice>
+                  )}
                 </Card>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t('messages.chartInformationAppearsHereAfterValidation')}
-                </p>
-              )}
-            </TabsContent>
-            <TabsContent value="description" className="pt-4">
-              <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
-                <h2 className="text-base font-extrabold">
-                  {t('messages.notes')}
-                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                    {t('messages.optional2')}
-                  </span>
-                </h2>
-                <Label className="sr-only" htmlFor="description">
-                  {t('messages.notes')}
-                </Label>
-                <Textarea
-                  id="description"
-                  rows={5}
-                  maxLength={1000}
-                  placeholder={t('messages.describeThisChartOrLeaveAMessage')}
-                  value={description}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setDescription(e.target.value)
-                    requestKey.current = createRequestKey()
-                  }}
-                />
-                <span className="text-right text-xs text-muted-foreground">
-                  {description.length} / 1000
-                </span>
-              </Card>
-            </TabsContent>
-            {!existing && (
-              <TabsContent value="collaborators" className="pt-4">
-                <Card className="min-w-0 gap-4 border-[1.5px] border-border p-5 shadow-none sm:p-6">
-                  <UploadCollaborators
-                    value={collaborators}
+              </TabsContent>
+              <TabsContent value="categories" className="pt-4">
+                <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
+                  <CategoryPicker
+                    value={categoryIds}
                     disabled={busy}
-                    onChange={(users) => {
-                      setCollaborators(users)
+                    onChange={(ids) => {
+                      setCategoryIds(ids)
                       requestKey.current = createRequestKey()
                     }}
                   />
                 </Card>
               </TabsContent>
-            )}
-          </Tabs>
-        </div>
-        <aside>
-          <Card data-testid="preview-panel" className="min-w-0 border p-5 shadow-none sm:p-6 gap-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-base font-extrabold">
-                {existing ? t('messages.updatePreview') : t('messages.submissionPreview')}
-              </h2>
-            </div>
-            {metadata ? (
-              <>
-                <p className="text-sm text-muted-foreground">{metadata.bpm} BPM</p>
-                <h3 className="text-base font-extrabold">
-                  {chartText(metadata, i18n.resolvedLanguage).title}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {chartText(metadata, i18n.resolvedLanguage).subtitle || t('messages.taikoChart')}
-                </p>
-                <DifficultyBadges difficulties={metadata.difficulties} />
-                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm [&>dt]:text-muted-foreground [&>dd]:wrap-anywhere mt-4">
-                  <dt>{t('messages.chartCreator')}</dt>
-                  <dd>
-                    {[
-                      ...new Set(metadata.difficulties.map((d) => d.maker.trim()).filter(Boolean)),
-                    ].join(' | ') || t('messages.notSpecified')}
-                  </dd>
-                  <dt>{t('messages.uploader')}</dt>
-                  <dd>{session.user?.nickname || t('messages.notSignedIn')}</dd>
-                  {collaborators.length > 0 && (
+              <TabsContent value="preview" className="pt-4">
+                <Card className="min-w-0 gap-4 border-[1.5px] border-border p-5 shadow-none sm:p-6">
+                  {metadata ? (
                     <>
-                      <dt>{t('collaboration.chosen')}</dt>
-                      <dd>
-                        {collaborators
-                          .map((user) => user.nickname || t('messages.unknownMember'))
-                          .join(' | ')}
-                      </dd>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Label
+                          htmlFor="upload-demo-start"
+                          className="flex flex-col items-start gap-2"
+                        >
+                          {t('messages.previewStartSeconds')}
+                          <Input
+                            id="upload-demo-start"
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={demoStart}
+                            disabled={busy}
+                            onChange={(e) => {
+                              setDemoStart(e.target.value)
+                              requestKey.current = createRequestKey()
+                            }}
+                          />
+                        </Label>
+                        <Label
+                          htmlFor="upload-demo-end"
+                          className="flex flex-col items-start gap-2"
+                        >
+                          {t('messages.previewEndSeconds')}
+                          <Input
+                            id="upload-demo-end"
+                            type="number"
+                            min="0"
+                            max="1215"
+                            step="any"
+                            value={demoEnd}
+                            disabled={busy}
+                            onChange={(e) => {
+                              setDemoEnd(e.target.value)
+                              requestKey.current = createRequestKey()
+                            }}
+                          />
+                        </Label>
+                      </div>
+                      {(audioUrl || existing) && (
+                        <AudioPlayer
+                          label={t('messages.localAudioPreview')}
+                          src={audioUrl || endpoints.resource(existing!, 'audio')}
+                          startAt={demoStart.trim() ? Number(demoStart) : NaN}
+                          endAt={demoEnd.trim() ? Number(demoEnd) : NaN}
+                          disabled={busy || Number(demoEnd) > 1215}
+                        />
+                      )}
                     </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {t('messages.chartInformationAppearsHereAfterValidation')}
+                    </p>
                   )}
-                </dl>
-              </>
-            ) : (
-              <div className="flex min-h-32 items-center justify-center text-center text-sm text-muted-foreground">
-                <p>{t('messages.chartInformationAppearsHereAfterValidation')}</p>
-              </div>
-            )}
-            <div className="space-y-3 border-t pt-4 [&>p]:text-xs [&>p]:leading-relaxed [&>p]:text-muted-foreground">
-              <Button
-                type="submit"
-                variant="default"
-                size="default"
-                className="w-full"
-                disabled={!metadata || validating || busy || !session.user}
-              >
-                {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Upload size={18} />}{' '}
-                {busy
-                  ? t('messages.saving')
-                  : validating
-                    ? t('messages.validating')
-                    : existing
-                      ? t('messages.updateSongAndCharts')
-                      : t('messages.publishChart')}
-                {!busy && <ArrowRight size={17} />}
-              </Button>
-              {busy && (
-                <Modal
-                  title={existing ? t('messages.updatingSong') : t('messages.publishingChart')}
-                  busy
-                  onDismiss={() => {}}
-                  actions={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="default"
-                      onClick={() => controller.current?.abort()}
-                    >
-                      {t('messages.cancelUpload')}
-                    </Button>
-                  }
-                >
-                  <div className="space-y-3" role="status">
-                    <Progress
-                      aria-label={t('messages.uploadProgress')}
-                      max={100}
-                      value={progress}
-                    />
-                    <span>
-                      {progress < 100
-                        ? t('messages.uploadProgressPercent', { progress: progress })
-                        : t('messages.uploadedValidatingAndSaving')}
+                </Card>
+              </TabsContent>
+              <TabsContent value="makers" className="pt-4">
+                {metadata ? (
+                  <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
+                    <h2 className="text-base font-extrabold">
+                      {t('messages.difficultiesAndCreators')}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {metadata.maker
+                        ? t('messages.creatorNamesAreFilledFromMakerYouCanEditEachOne')
+                        : t('messages.noMakerWasSpecifiedEnterACreatorForEachDifficulty')}
+                    </p>
+                    <Table className="w-full">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead scope="col">{t('messages.difficulty')}</TableHead>
+                          <TableHead scope="col">{t('messages.creator')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {metadata.difficulties.map((d) => (
+                          <TableRow key={slotKey(d)}>
+                            <TableHead scope="row">
+                              {blockName(d)} · {slotKey(d)} ★{d.level}
+                            </TableHead>
+                            <TableCell>
+                              <Input
+                                aria-label={t('messages.courseCreator', { difficulty: slotKey(d) })}
+                                value={d.maker}
+                                maxLength={500}
+                                placeholder={t('messages.notSpecified')}
+                                disabled={busy}
+                                onChange={(e) => {
+                                  const maker = e.target.value
+                                  setTypedMakers((typed) => ({ ...typed, [slotKey(d)]: maker }))
+                                  setMetadata(
+                                    (current) =>
+                                      current && {
+                                        ...current,
+                                        difficulties: current.difficulties.map((block) =>
+                                          slotKey(block) === slotKey(d)
+                                            ? { ...block, maker }
+                                            : block,
+                                        ),
+                                      },
+                                  )
+                                  requestKey.current = createRequestKey()
+                                }}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Card>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {t('messages.chartInformationAppearsHereAfterValidation')}
+                  </p>
+                )}
+              </TabsContent>
+              <TabsContent value="description" className="pt-4">
+                <Card className="min-w-0 border-[1.5px] border-border p-5 shadow-none sm:p-6 gap-4">
+                  <h2 className="text-base font-extrabold">
+                    {t('messages.notes')}
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      {t('messages.optional2')}
                     </span>
-                  </div>
-                </Modal>
+                  </h2>
+                  <Label className="sr-only" htmlFor="description">
+                    {t('messages.notes')}
+                  </Label>
+                  <Textarea
+                    id="description"
+                    rows={5}
+                    maxLength={1000}
+                    placeholder={t('messages.describeThisChartOrLeaveAMessage')}
+                    value={description}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setDescription(e.target.value)
+                      requestKey.current = createRequestKey()
+                    }}
+                  />
+                  <span className="text-right text-xs text-muted-foreground">
+                    {description.length} / 1000
+                  </span>
+                </Card>
+              </TabsContent>
+              {!existing && (
+                <TabsContent value="collaborators" className="pt-4">
+                  <Card className="min-w-0 gap-4 border-[1.5px] border-border p-5 shadow-none sm:p-6">
+                    <UploadCollaborators
+                      value={collaborators}
+                      disabled={busy}
+                      onChange={(users) => {
+                        setCollaborators(users)
+                        requestKey.current = createRequestKey()
+                      }}
+                    />
+                  </Card>
+                </TabsContent>
               )}
-              {existing && !busy && (
-                <Link
-                  className={buttonVariants({
-                    variant: 'outline',
-                    size: 'default',
-                    className: 'w-full',
-                  })}
-                  to={`/charts/${existing.id}`}
+            </Tabs>
+          </div>
+          <aside>
+            <Card
+              data-testid="preview-panel"
+              className="min-w-0 border p-5 shadow-none sm:p-6 gap-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-base font-extrabold">
+                  {existing ? t('messages.updatePreview') : t('messages.submissionPreview')}
+                </h2>
+              </div>
+              {metadata ? (
+                <>
+                  <p className="text-sm text-muted-foreground">{metadata.bpm} BPM</p>
+                  <h3 className="text-base font-extrabold">
+                    {chartText(metadata, i18n.resolvedLanguage).title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {chartText(metadata, i18n.resolvedLanguage).subtitle ||
+                      t('messages.taikoChart')}
+                  </p>
+                  <DifficultyBadges difficulties={metadata.difficulties} />
+                  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 text-sm [&>dt]:text-muted-foreground [&>dd]:wrap-anywhere mt-4">
+                    <dt>{t('messages.chartCreator')}</dt>
+                    <dd>
+                      {[
+                        ...new Set(
+                          metadata.difficulties.map((d) => d.maker.trim()).filter(Boolean),
+                        ),
+                      ].join(' | ') || t('messages.notSpecified')}
+                    </dd>
+                    <dt>{t('messages.uploader')}</dt>
+                    <dd>{session.user?.nickname || t('messages.notSignedIn')}</dd>
+                    {collaborators.length > 0 && (
+                      <>
+                        <dt>{t('collaboration.chosen')}</dt>
+                        <dd>
+                          {collaborators
+                            .map((user) => user.nickname || t('messages.unknownMember'))
+                            .join(' | ')}
+                        </dd>
+                      </>
+                    )}
+                  </dl>
+                </>
+              ) : (
+                <div className="flex min-h-32 items-center justify-center text-center text-sm text-muted-foreground">
+                  <p>{t('messages.chartInformationAppearsHereAfterValidation')}</p>
+                </div>
+              )}
+              <div className="space-y-3 border-t pt-4 [&>p]:text-xs [&>p]:leading-relaxed [&>p]:text-muted-foreground">
+                <Button
+                  type="submit"
+                  variant="default"
+                  size="default"
+                  className="w-full"
+                  disabled={!metadata || validating || busy || !!imageError || !session.user}
                 >
-                  {t('messages.cancel')}
-                </Link>
-              )}
-              {existing && <p>{t('messages.afterUpdatingScoresForEveryDifficultyStartOver')}</p>}
-            </div>
-          </Card>
-          <Button
-            type="button"
-            variant="ghost"
-            size="default"
-            className="w-full"
-            onClick={() =>
-              notify(
-                t('messages.waveInTheTjaMustExactlyMatchTheAudioFilenameIncludingCase'),
-                'info',
-                t('messages.uploadRules'),
-              )
-            }
-          >
-            {t('messages.viewUploadRules')}
-          </Button>
-        </aside>
-      </form>
+                  {busy ? (
+                    <LoaderCircle className="animate-spin" size={18} />
+                  ) : (
+                    <Upload size={18} />
+                  )}{' '}
+                  {busy
+                    ? t('messages.saving')
+                    : validating
+                      ? t('messages.validating')
+                      : existing
+                        ? t('messages.updateSongAndCharts')
+                        : t('messages.publishChart')}
+                  {!busy && <ArrowRight size={17} />}
+                </Button>
+                {busy && (
+                  <Modal
+                    title={existing ? t('messages.updatingSong') : t('messages.publishingChart')}
+                    busy
+                    onDismiss={() => {}}
+                    actions={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="default"
+                        onClick={() => controller.current?.abort()}
+                      >
+                        {t('messages.cancelUpload')}
+                      </Button>
+                    }
+                  >
+                    <div className="space-y-3" role="status">
+                      <Progress
+                        aria-label={t('messages.uploadProgress')}
+                        max={100}
+                        value={progress}
+                      />
+                      <span>
+                        {progress < 100
+                          ? t('messages.uploadProgressPercent', { progress: progress })
+                          : t('messages.uploadedValidatingAndSaving')}
+                      </span>
+                    </div>
+                  </Modal>
+                )}
+                {existing && !busy && (
+                  <Link
+                    className={buttonVariants({
+                      variant: 'outline',
+                      size: 'default',
+                      className: 'w-full',
+                    })}
+                    to={`/charts/${existing.id}`}
+                  >
+                    {t('messages.cancel')}
+                  </Link>
+                )}
+                {existing && <p>{t('messages.afterUpdatingScoresForEveryDifficultyStartOver')}</p>}
+              </div>
+            </Card>
+            <Button
+              type="button"
+              variant="ghost"
+              size="default"
+              className="w-full"
+              onClick={() =>
+                notify(
+                  t('messages.waveInTheTjaMustExactlyMatchTheAudioFilenameIncludingCase'),
+                  'info',
+                  t('messages.uploadRules'),
+                )
+              }
+            >
+              {t('messages.viewUploadRules')}
+            </Button>
+          </aside>
+        </form>
+      )}
       {reviewing && existing && (
         <ReplacementReview
           review={reviewing.review}

@@ -23,7 +23,11 @@ type uploadJob struct {
 	user, key, dir           string
 	existingID               string // set when replacing a chart's files
 	audioHash, movieHash     string // files of that chart the upload keeps
+	coverHash                string // that chart's cover, which PREIMAGE names when no cover is sent
+	backgroundHash           string // that chart's background image (BGIMAGE)
 	tja, audio, cover, movie *stagedFile
+	background               *stagedFile // the BGIMAGE file
+	keepBackground           bool        // a replacement still declaring BGIMAGE keeps backgroundHash
 	normalized               []byte
 	meta                     tja.Metadata
 	description              string
@@ -106,7 +110,7 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 			return failed(err)
 		}
 		// Kept files must still be the ones the uploader saw.
-		if (af == nil && current.AudioHash != j.audioHash) || (j.keepMovie && current.MovieHash != j.movieHash) {
+		if (af == nil && current.AudioHash != j.audioHash) || (j.keepMovie && current.MovieHash != j.movieHash) || (j.cover == nil && current.CoverHash != j.coverHash) || (j.keepBackground && current.BackgroundHash != j.backgroundHash) {
 			return rejected(409, "CHART_FILES_CHANGED", "歌曲文件已被其他更新替换，请重新打开歌曲页面后上传")
 		}
 		if af == nil {
@@ -131,6 +135,20 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 		coverData, err = cover.Encode(ctx, j.cover.name, raw)
 		if errors.Is(err, cover.ErrInvalid) {
 			failures = append(failures, fileFailure{"cover", "COVER_INVALID"})
+		} else if err != nil {
+			return failed(err)
+		}
+	}
+	// The background image is stored as WebP like the cover; one that fails is left out.
+	var backgroundData []byte
+	if j.background != nil {
+		raw, err := os.ReadFile(j.background.path)
+		if err != nil {
+			return failed(err)
+		}
+		backgroundData, err = cover.EncodeBackground(ctx, j.background.name, raw)
+		if errors.Is(err, cover.ErrInvalid) {
+			failures = append(failures, fileFailure{"bgimage", "BGIMAGE_INVALID"})
 		} else if err != nil {
 			return failed(err)
 		}
@@ -169,6 +187,27 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 		}
 		stored, ok = tja.SetMovie(stored, name)
 	}
+	// PREIMAGE names the chart's stored cover as the chart's package holds it: the new one,
+	// or the one a replacement keeps (also when a new cover fails); without one, none.
+	coverName := ""
+	if coverData != nil {
+		coverName = hash(string(coverData)) + ".webp"
+	} else if j.coverHash != "" {
+		coverName = j.coverHash + ".webp"
+	}
+	if ok {
+		stored, ok = tja.SetSongHeader(stored, "PREIMAGE", coverName)
+	}
+	// BGIMAGE names the stored background image, which is only ever one it declares.
+	backgroundName := ""
+	if backgroundData != nil {
+		backgroundName = hash(string(backgroundData)) + ".webp"
+	} else if j.keepBackground {
+		backgroundName = j.backgroundHash + ".webp"
+	}
+	if ok {
+		stored, ok = tja.SetSongHeader(stored, "BGIMAGE", backgroundName)
+	}
 	if !ok {
 		return failed(errors.New("validated TJA lost a rewritten header"))
 	}
@@ -194,9 +233,10 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 		chartID = j.existingID
 		// Serialize with other replacements, deletion and score submissions, and
 		// confirm the kept files once more now that nothing can change them.
-		var audioSHA, currentMovie string
-		err = tx.QueryRow(ctx, `SELECT af.sha256,tf.sha256,COALESCE(mf.sha256,''),c.movie_file FROM charts c JOIN chart_resources af ON af.id=c.audio_file
- JOIN chart_resources tf ON tf.id=c.tja_file LEFT JOIN chart_resources mf ON mf.id=c.movie_file WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE OF c`, chartID).Scan(&audioSHA, &replacedTJA, &currentMovie, &movieFile)
+		var audioSHA, currentMovie, currentCover, currentBackground string
+		err = tx.QueryRow(ctx, `SELECT af.sha256,tf.sha256,COALESCE(mf.sha256,''),c.movie_file,COALESCE(cv.sha256,''),COALESCE(bf.sha256,'') FROM charts c JOIN chart_resources af ON af.id=c.audio_file
+ JOIN chart_resources tf ON tf.id=c.tja_file LEFT JOIN chart_resources mf ON mf.id=c.movie_file LEFT JOIN chart_resources cv ON cv.id=c.cover_file LEFT JOIN chart_resources bf ON bf.id=c.bgimage_file
+ WHERE c.id=$1 AND `+publishedChart+` FOR UPDATE OF c`, chartID).Scan(&audioSHA, &replacedTJA, &currentMovie, &movieFile, &currentCover, &currentBackground)
 		replacedAudio = audioSHA
 		if errors.Is(err, pgx.ErrNoRows) {
 			return rejected(404, "CHART_NOT_FOUND", "歌曲不存在或已下架")
@@ -204,7 +244,8 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 		if err != nil {
 			return failed(err)
 		}
-		if (j.audio == nil && audioSHA != j.audioHash) || (j.keepMovie && currentMovie != j.movieHash) {
+		// A cover changed meanwhile would leave the stored PREIMAGE naming the old one.
+		if (j.audio == nil && audioSHA != j.audioHash) || (j.keepMovie && currentMovie != j.movieHash) || (coverData == nil && currentCover != j.coverHash) || (j.keepBackground && currentBackground != j.backgroundHash) {
 			return rejected(409, "CHART_FILES_CHANGED", "歌曲文件已被其他更新替换，请重新打开歌曲页面后上传")
 		}
 		if !j.keepMovie {
@@ -262,6 +303,19 @@ func (s *Server) processUpload(ctx context.Context, j *uploadJob) uploadResult {
 	}
 	if coverData != nil {
 		if err = s.saveCover(ctx, tx, chartID, coverData); err != nil {
+			return failed(err)
+		}
+	}
+	if !j.keepBackground {
+		var file *int64
+		if backgroundData != nil {
+			id, err := s.storeImageAs(ctx, tx, "bgimage", backgroundData)
+			if err != nil {
+				return failed(err)
+			}
+			file = &id
+		}
+		if _, err = tx.Exec(ctx, `UPDATE charts SET bgimage_file=$2 WHERE id=$1`, chartID, file); err != nil {
 			return failed(err)
 		}
 	}

@@ -48,7 +48,17 @@ func (s *Server) storeCover(ctx context.Context, tx pgx.Tx, data []byte) (int64,
 	return s.storeImage(ctx, tx, data, "webp", "image/webp")
 }
 
+// storeImageAs stores WebP bytes produced by the cover package under a name for the kind of
+// image (cover, bgimage).
+func (s *Server) storeImageAs(ctx context.Context, tx pgx.Tx, kind string, data []byte) (int64, error) {
+	return s.storeNamedImage(ctx, tx, data, kind, "webp", "image/webp")
+}
+
 func (s *Server) storeImage(ctx context.Context, tx pgx.Tx, data []byte, extension, media string) (int64, error) {
+	return s.storeNamedImage(ctx, tx, data, "cover", extension, media)
+}
+
+func (s *Server) storeNamedImage(ctx context.Context, tx pgx.Tx, data []byte, kind, extension, media string) (int64, error) {
 	f, err := os.CreateTemp(s.Config.Storage, "staging-cover-")
 	if err != nil {
 		return 0, err
@@ -58,7 +68,7 @@ func (s *Server) storeImage(ctx context.Context, tx pgx.Tx, data []byte, extensi
 	if err = errors.Join(err, f.Close()); err != nil {
 		return 0, err
 	}
-	return s.storeFile(ctx, tx, f.Name(), "cover."+extension, extension, media, hash(string(data)), int64(len(data)))
+	return s.storeFile(ctx, tx, f.Name(), kind+"."+extension, extension, media, hash(string(data)), int64(len(data)))
 }
 
 func (s *Server) saveCover(ctx context.Context, tx pgx.Tx, chartID string, data []byte) error {
@@ -67,6 +77,24 @@ func (s *Server) saveCover(ctx context.Context, tx pgx.Tx, chartID string, data 
 		return err
 	}
 	_, err = tx.Exec(ctx, `UPDATE charts SET cover_file=$2 WHERE id=$1`, chartID, id)
+	return err
+}
+
+// changeCover sets a published chart's cover on its own and points the stored TJA's PREIMAGE
+// at it, as an upload does. tx must hold the chart's row lock.
+func (s *Server) changeCover(ctx context.Context, tx pgx.Tx, chartID string, data []byte) error {
+	if err := s.saveCover(ctx, tx, chartID, data); err != nil {
+		return err
+	}
+	name := hash(string(data)) + ".webp"
+	tjaFile, err := s.rewriteStoredTJA(ctx, tx, chartID, func(stored []byte) ([]byte, bool) {
+		stored, ok := tja.SetSongHeader(stored, "PREIMAGE", name)
+		return stored, ok && tja.SongHeader(stored, "PREIMAGE") == name
+	})
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `UPDATE charts SET tja_file=$2 WHERE id=$1`, chartID, tjaFile)
 	return err
 }
 
@@ -210,7 +238,7 @@ func (s *Server) replaceCover(w http.ResponseWriter, r *http.Request) {
 		problem(w, 403, "FORBIDDEN", "只有上传者或管理员可以修改封面")
 		return
 	}
-	if err = s.saveCover(r.Context(), tx, id, encoded); err != nil {
+	if err = s.changeCover(r.Context(), tx, id, encoded); err != nil {
 		internal(w, err)
 		return
 	}

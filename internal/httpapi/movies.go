@@ -222,38 +222,47 @@ func (s *Server) processMovie(ctx context.Context, j *uploadJob) uploadResult {
 // both headers from the TJA; its chart blocks, and so the scores, are kept.
 // tx must hold the chart's row lock.
 func (s *Server) rewriteMovie(ctx context.Context, tx pgx.Tx, chartID, movieSHA string, movieFile *int64, offset float64) error {
-	var key, name string
-	if err := tx.QueryRow(ctx, `SELECT r.storage_key,r.original_filename FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, chartID).Scan(&key, &name); err != nil {
-		return err
-	}
-	f, err := s.Config.Objects.Open(ctx, key)
-	if err != nil {
-		return err
-	}
-	data, err := io.ReadAll(io.LimitReader(f, tja.MaxTJA+1))
-	f.Close()
-	if err != nil {
-		return err
-	}
-	// Only the two headers change, so a file stored under older rules is not judged again.
-	stored, ok := tja.SetMovieHeaders(data, movieSHA+"."+video.Extension, offset)
-	if !ok || len(stored) > tja.MaxTJA || tja.MovieName(stored) != movieSHA+"."+video.Extension {
-		return fmt.Errorf("stored TJA of %s cannot take movie headers", chartID)
-	}
-	staged, err := os.CreateTemp(s.Config.Storage, "staging-tja-")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(staged.Name())
-	_, err = staged.Write(stored)
-	if err = errors.Join(err, staged.Close()); err != nil {
-		return err
-	}
-	digest := sha256.Sum256(stored)
-	tjaFile, err := s.storeFile(ctx, tx, staged.Name(), name, "tja", "application/octet-stream", hex.EncodeToString(digest[:]), int64(len(stored)))
+	tjaFile, err := s.rewriteStoredTJA(ctx, tx, chartID, func(data []byte) ([]byte, bool) {
+		stored, ok := tja.SetMovieHeaders(data, movieSHA+"."+video.Extension, offset)
+		return stored, ok && tja.MovieName(stored) == movieSHA+"."+video.Extension
+	})
 	if err != nil {
 		return err
 	}
 	_, err = tx.Exec(ctx, `UPDATE charts SET tja_file=$2,movie_file=COALESCE($3,movie_file),movie_offset=$4 WHERE id=$1`, chartID, tjaFile, movieFile, offset)
 	return err
+}
+
+// rewriteStoredTJA stores the chart's TJA as edit changes it and returns the new file, for
+// the caller to point the chart at. Only headers change, so a file stored under older rules
+// is not judged again. tx must hold the chart's row lock.
+func (s *Server) rewriteStoredTJA(ctx context.Context, tx pgx.Tx, chartID string, edit func([]byte) ([]byte, bool)) (int64, error) {
+	var key, name string
+	if err := tx.QueryRow(ctx, `SELECT r.storage_key,r.original_filename FROM charts c JOIN chart_resources r ON r.id=c.tja_file WHERE c.id=$1`, chartID).Scan(&key, &name); err != nil {
+		return 0, err
+	}
+	f, err := s.Config.Objects.Open(ctx, key)
+	if err != nil {
+		return 0, err
+	}
+	data, err := io.ReadAll(io.LimitReader(f, tja.MaxTJA+1))
+	f.Close()
+	if err != nil {
+		return 0, err
+	}
+	stored, ok := edit(data)
+	if !ok || len(stored) > tja.MaxTJA {
+		return 0, fmt.Errorf("stored TJA of %s cannot take its new headers", chartID)
+	}
+	staged, err := os.CreateTemp(s.Config.Storage, "staging-tja-")
+	if err != nil {
+		return 0, err
+	}
+	defer os.Remove(staged.Name())
+	_, err = staged.Write(stored)
+	if err = errors.Join(err, staged.Close()); err != nil {
+		return 0, err
+	}
+	digest := sha256.Sum256(stored)
+	return s.storeFile(ctx, tx, staged.Name(), name, "tja", "application/octet-stream", hex.EncodeToString(digest[:]), int64(len(stored)))
 }

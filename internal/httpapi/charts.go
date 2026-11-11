@@ -61,6 +61,10 @@ type Chart struct {
 	MovieHash string `json:"movieHash,omitempty"`
 	MovieSize int64  `json:"movieSize,omitempty"`
 	MovieKey  string `json:"-"`
+	// Background image (BGIMAGE), stored as WebP; empty when the chart has none.
+	BackgroundHash string `json:"bgimageHash,omitempty"`
+	BackgroundSize int64  `json:"bgimageSize,omitempty"`
+	BackgroundKey  string `json:"-"`
 	// Only in an upload's own response: optional files that were left out.
 	FailedFiles []fileFailure `json:"failedFiles,omitempty"`
 	tja.Metadata
@@ -75,14 +79,15 @@ const chartSelect = `SELECT c.id,c.number_id,c.owner_ids,''::text,c.description,
  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',d.id,'course',d.course,'side',d.side,'level',d.level,'maker',d.maker,'branching',d.branching,'chartHash',d.content_hash) ORDER BY ` + slotOrder + `) FROM chart_difficulties d WHERE d.chart_id=c.id),'[]'),
  c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE id=c.preview_file),''),
  c.movie_offset,COALESCE(mf.sha256,''),COALESCE(mf.byte_size,0),COALESCE(mf.storage_key,''),
+ COALESCE(bf.sha256,''),COALESCE(bf.byte_size,0),COALESCE(bf.storage_key,''),
  COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0)
- FROM charts c JOIN chart_resources tf ON tf.id=c.tja_file JOIN chart_resources af ON af.id=c.audio_file LEFT JOIN chart_resources mf ON mf.id=c.movie_file `
+ FROM charts c JOIN chart_resources tf ON tf.id=c.tja_file JOIN chart_resources af ON af.id=c.audio_file LEFT JOIN chart_resources mf ON mf.id=c.movie_file LEFT JOIN chart_resources bf ON bf.id=c.bgimage_file `
 
 func readChart(row pgx.Row) (Chart, error) {
 	c := Chart{}
 	var difficulties []byte
 	var flags CategoryFlags
-	e := row.Scan(&c.ID, &c.NumberID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.UpdateAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
+	e := row.Scan(&c.ID, &c.NumberID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.UpdateAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.BackgroundHash, &c.BackgroundSize, &c.BackgroundKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
 	if e == nil {
 		c.OwnerID = c.OwnerIDs[0]
 		c.Score = c.Upvotes - c.Downvotes
@@ -253,7 +258,7 @@ func (s *Server) deleteChart(ctx context.Context, chartID, ownerID string) ([]st
 	if _, e = tx.Exec(ctx, `DELETE FROM scores WHERE difficulty_id IN (SELECT id FROM chart_difficulties WHERE chart_id=$1)`, chartID); e != nil {
 		return nil, e
 	}
-	rows, e := tx.Query(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id IN (c.tja_file,c.audio_file,c.cover_file,c.preview_file,c.movie_file) WHERE c.id=$1`, chartID)
+	rows, e := tx.Query(ctx, `SELECT r.storage_key FROM charts c JOIN chart_resources r ON r.id IN (c.tja_file,c.audio_file,c.cover_file,c.preview_file,c.movie_file,c.bgimage_file) WHERE c.id=$1`, chartID)
 	if e != nil {
 		return nil, e
 	}
@@ -339,6 +344,12 @@ func (s *Server) download(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		key, name, contentType, etag = c.MovieKey, c.MovieHash+"."+video.Extension, video.MediaType, c.MovieHash
+	case "bgimage":
+		if c.BackgroundKey == "" {
+			problem(w, 404, "RESOURCE_NOT_FOUND", "该谱面没有背景图片")
+			return
+		}
+		key, name, contentType, etag = c.BackgroundKey, c.BackgroundHash+".webp", "image/webp", c.BackgroundHash
 	default:
 		problem(w, 404, "RESOURCE_NOT_FOUND", "资源不存在")
 		return

@@ -99,14 +99,14 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		field, name := params["name"], params["filename"]
-		if field == "tja" || field == "audio" || field == "cover" || field == "movie" {
+		if field == "tja" || field == "audio" || field == "cover" || field == "bgimage" || field == "movie" {
 			validExtension := strings.EqualFold(filepath.Ext(name), ".tja")
 			maxBytes := int64(tja.MaxTJA)
 			if field == "audio" {
 				validExtension = audio.MediaType(name) != ""
 				maxBytes = tja.MaxAudio
 			}
-			if field == "cover" {
+			if field == "cover" || field == "bgimage" {
 				validExtension = cover.ValidExtension(name)
 				maxBytes = cover.MaxBytes
 			}
@@ -115,7 +115,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 				maxBytes = video.MaxBytes
 			}
 			if files[field] != nil || !tja.SafeFilename(name) || !validExtension {
-				problem(w, 400, "UPLOAD_FILES_INVALID", "文件类型、数量或文件名无效；封面仅支持 JPG / PNG / WebP，视频仅支持 MP4 / WebM / MOV，文件名不能包含路径")
+				problem(w, 400, "UPLOAD_FILES_INVALID", "文件类型、数量或文件名无效；封面与背景图片仅支持 JPG / PNG / WebP，视频仅支持 MP4 / WebM / MOV，文件名不能包含路径")
 				return
 			}
 			f := &stagedFile{name: name, path: filepath.Join(dir, field)}
@@ -185,7 +185,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	cf, mv := files["cover"], files["movie"]
+	cf, bg, mv := files["cover"], files["bgimage"], files["movie"]
 	tf, af := files["tja"], files["audio"]
 	if tf == nil || (af == nil && existing == nil) {
 		message := "必须同时选择 TJA 和一个 OGG 或 MP3 音频"
@@ -238,6 +238,9 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		if cf != nil {
 			parts = append(parts, "cover", cf.name, cf.sha)
 		}
+		if bg != nil {
+			parts = append(parts, "bgimage", bg.name, bg.sha)
+		}
 		if mv != nil {
 			parts = append(parts, "movie", mv.name, mv.sha)
 		}
@@ -278,6 +281,25 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	case mv != nil && norm.NFC.String(meta.Movie) != norm.NFC.String(mv.name):
 		invalid(&tja.Issue{Code: "TJA_MOVIE_MISMATCH", Message: fmt.Sprintf("BGMOVIE 引用了「%s」，但你选择的是「%s」。请选择对应文件，或修改 TJA 的 BGMOVIE 后重新选择。", meta.Movie, mv.name), Expected: meta.Movie, Actual: mv.name})
 		return
+	}
+	// A chosen cover is the image PREIMAGE names. Without one, the stored TJA's PREIMAGE
+	// names the chart's cover, if any, and is cleared otherwise.
+	if declared := tja.HeaderFile(tja.SongHeader(normalized, "PREIMAGE")); cf != nil && declared != "" && norm.NFC.String(declared) != norm.NFC.String(cf.name) {
+		invalid(&tja.Issue{Code: "TJA_PREIMAGE_MISMATCH", Message: fmt.Sprintf("PREIMAGE 引用了「%s」，但你选择的封面是「%s」。请选择对应图片，或修改 TJA 的 PREIMAGE 后重新选择。", declared, cf.name), Expected: declared, Actual: cf.name})
+		return
+	}
+	// The background image is the one BGIMAGE names, as BGMOVIE's movie. Without a file, a
+	// replacement still declaring BGIMAGE keeps the stored image, and otherwise BGIMAGE is cleared.
+	keepBackground := false
+	switch declared := tja.HeaderFile(tja.SongHeader(normalized, "BGIMAGE")); {
+	case declared == "" && bg != nil:
+		problem(w, 400, "UPLOAD_FILES_INVALID", "TJA 没有声明 BGIMAGE，不能上传背景图片")
+		return
+	case bg != nil && norm.NFC.String(declared) != norm.NFC.String(bg.name):
+		invalid(&tja.Issue{Code: "TJA_BGIMAGE_MISMATCH", Message: fmt.Sprintf("BGIMAGE 引用了「%s」，但你选择的背景图片是「%s」。请选择对应图片，或修改 TJA 的 BGIMAGE 后重新选择。", declared, bg.name), Expected: declared, Actual: bg.name})
+		return
+	case declared != "" && bg == nil:
+		keepBackground = existing != nil && existing.BackgroundHash != ""
 	}
 	if e = applyDifficultyMakers(fields["difficultyMakers"], meta.Difficulties); e != nil {
 		problem(w, 422, "DIFFICULTY_MAKERS_INVALID", e.Error())
@@ -321,6 +343,10 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 			encoded, _ := json.Marshal([]string{"cover", cf.name, cf.sha})
 			digestData = append(digestData, encoded...)
 		}
+		if bg != nil {
+			encoded, _ := json.Marshal([]string{"bgimage", bg.name, bg.sha})
+			digestData = append(digestData, encoded...)
+		}
 		if mv != nil {
 			encoded, _ := json.Marshal([]string{"movie", mv.name, mv.sha})
 			digestData = append(digestData, encoded...)
@@ -332,13 +358,13 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		digest = hash(string(digestData))
 	}
 	job := &uploadJob{
-		user: u.User.ID, key: key, dir: dir, tja: tf, audio: af, cover: cf, movie: mv, normalized: normalized, meta: meta,
-		description: fields["description"], categoryIDs: categoryIDs, demoStart: demoStart, demoEnd: demoEnd, keepMovie: keepMovie, collaborators: collaborators,
+		user: u.User.ID, key: key, dir: dir, tja: tf, audio: af, cover: cf, background: bg, movie: mv, normalized: normalized, meta: meta,
+		description: fields["description"], categoryIDs: categoryIDs, demoStart: demoStart, demoEnd: demoEnd, keepMovie: keepMovie, keepBackground: keepBackground, collaborators: collaborators,
 		// RFC 7240: the client asks not to wait for processing.
 		async: strings.Contains(strings.ToLower(r.Header.Get("Prefer")), "respond-async"), done: make(chan uploadResult, 1),
 	}
 	if existing != nil {
-		job.existingID, job.audioHash, job.movieHash = existing.ID, existing.AudioHash, existing.MovieHash
+		job.existingID, job.audioHash, job.movieHash, job.coverHash, job.backgroundHash = existing.ID, existing.AudioHash, existing.MovieHash, existing.CoverHash, existing.BackgroundHash
 		job.keepTitles = fields["keepTitles"] == "true"
 		// A replacement keeps the description and categories it does not send, as on OurTaiko Database.
 		if _, sent := fields["description"]; !sent {
@@ -384,6 +410,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, status, result.chart)
 }
+
 func uploadReadError(w http.ResponseWriter, e error) {
 	var max *http.MaxBytesError
 	if errors.As(e, &max) {

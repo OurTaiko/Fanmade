@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type interactionClient struct {
@@ -73,7 +75,8 @@ func interactionFixture(t *testing.T) (interactionClient, *Server) {
 	return interactionClient{t, s.Handler(), tokens}, s
 }
 
-// GET /charts/{id}: by=number finds the chart's number, by=id its ID; without by the form
+// GET /charts/{id}: by=number finds the chart's number, by=id its ID, by=nijiiro its Nijiiro
+// ID; without by the form
 // decides.
 func TestChartDetailBy(t *testing.T) {
 	c, s := interactionFixture(t)
@@ -117,6 +120,47 @@ func TestChartDetailBy(t *testing.T) {
 		if code := c.do("", "GET", path, "", nil); code != want {
 			t.Fatal(path, code, "want", want)
 		}
+	}
+	// by=nijiiro reads {id} as the Nijiiro ID, another number than the chart's own: Other has
+	// Song's number as its Nijiiro ID. The field is disabled here (059), so only the database
+	// can hold one; each names one chart.
+	setNijiiro := func(id string) error {
+		_, err := s.DB.Exec(context.Background(), `UPDATE charts SET nijiiro_id=$2 WHERE id=$1`, id, song.NumberID)
+		return err
+	}
+	if err := setNijiiro("other"); err != nil {
+		t.Fatal(err)
+	}
+	var mapped Chart
+	if code := c.do("", "GET", number+"?by=nijiiro", "", &mapped); code != 200 || mapped.ID != "other" || mapped.NijiiroID == nil || int64(*mapped.NijiiroID) != song.NumberID {
+		t.Fatal("by=nijiiro", code, mapped.ID)
+	}
+	if code := c.do("", "GET", number, "", &mapped); code != 200 || mapped.ID != "song" || mapped.NijiiroID != nil {
+		t.Fatal("number beside a Nijiiro ID", code, mapped.ID)
+	}
+	for path, want := range map[string]int{
+		"/api/v1/charts/99999999?by=nijiiro":    404,
+		"/api/v1/charts/0?by=nijiiro":           404,
+		"/api/v1/charts/01?by=nijiiro":          404,
+		"/api/v1/charts/99999999999?by=nijiiro": 404, // past int4
+		"/api/v1/charts/other?by=nijiiro":       404,
+	} {
+		if code := c.do("", "GET", path, "", nil); code != want {
+			t.Fatal(path, code, "want", want)
+		}
+	}
+	var unique *pgconn.PgError
+	if err := setNijiiro("song"); !errors.As(err, &unique) || unique.ConstraintName != "charts_nijiiro_id" {
+		t.Fatal("shared Nijiiro ID", err)
+	}
+	// No request changes it.
+	for _, body := range []string{`{"nijiiroId":7}`, `{"nijiiroId":null}`} {
+		if code := c.do("owner", "PATCH", "/api/v1/charts/other", body, nil); code != 400 {
+			t.Fatal("PATCH", body, code)
+		}
+	}
+	if code := c.do("", "GET", number+"?by=nijiiro", "", &mapped); code != 200 || mapped.ID != "other" {
+		t.Fatal("Nijiiro ID after refused edits", code, mapped.ID)
 	}
 }
 

@@ -29,9 +29,12 @@ type Chart struct {
 	CategoryIDs  []string      `json:"categoryIds"`
 	ID           string        `json:"id"`
 	// NumberID is the chart's short number, also accepted by GET /charts/{id}.
-	NumberID int64               `json:"numberId"`
-	OwnerIDs []string            `json:"ownerIds"`
-	Owners   []NotificationActor `json:"owners"`
+	NumberID int64 `json:"numberId"`
+	// NijiiroID is the official song's Nijiiro ID, unique among charts and found by
+	// GET /charts/{id}?by=nijiiro. The field is disabled here: no request sets it, so it is null.
+	NijiiroID *int32              `json:"nijiiroId"`
+	OwnerIDs  []string            `json:"ownerIds"`
+	Owners    []NotificationActor `json:"owners"`
 	// Deprecated: original uploader only; authorization uses OwnerIDs.
 	OwnerID  string `json:"ownerId"`
 	Uploader string `json:"uploader"`
@@ -80,14 +83,14 @@ const chartSelect = `SELECT c.id,c.number_id,c.owner_ids,''::text,c.description,
  c.category_flags,c.demo_end,COALESCE((SELECT storage_key FROM chart_resources WHERE id=c.preview_file),''),
  c.movie_offset,COALESCE(mf.sha256,''),COALESCE(mf.byte_size,0),COALESCE(mf.storage_key,''),
  COALESCE(bf.sha256,''),COALESCE(bf.byte_size,0),COALESCE(bf.storage_key,''),
- COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0)
+ COALESCE((SELECT upvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT downvotes FROM chart_stats WHERE chart_id=c.id),0),COALESCE((SELECT comment_count FROM chart_stats WHERE chart_id=c.id),0),c.nijiiro_id
  FROM charts c JOIN chart_resources tf ON tf.id=c.tja_file JOIN chart_resources af ON af.id=c.audio_file LEFT JOIN chart_resources mf ON mf.id=c.movie_file LEFT JOIN chart_resources bf ON bf.id=c.bgimage_file `
 
 func readChart(row pgx.Row) (Chart, error) {
 	c := Chart{}
 	var difficulties []byte
 	var flags CategoryFlags
-	e := row.Scan(&c.ID, &c.NumberID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.UpdateAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.BackgroundHash, &c.BackgroundSize, &c.BackgroundKey, &c.Upvotes, &c.Downvotes, &c.CommentCount)
+	e := row.Scan(&c.ID, &c.NumberID, &c.OwnerIDs, &c.Uploader, &c.Description, &c.CreatedAt, &c.UpdateAt, &c.Duration, &c.TJAName, &c.AudioName, &c.TJAHash, &c.AudioHash, &c.AudioSize, &c.TJAKey, &c.AudioKey, &c.Title, &c.Subtitle, &c.BPM, &c.Offset, &c.DemoStart, &c.Wave, &c.TitleTranslations, &c.SubtitleTranslations, &difficulties, &flags, &c.DemoEnd, &c.PreviewPath, &c.MovieOffset, &c.MovieHash, &c.MovieSize, &c.MovieKey, &c.BackgroundHash, &c.BackgroundSize, &c.BackgroundKey, &c.Upvotes, &c.Downvotes, &c.CommentCount, &c.NijiiroID)
 	if e == nil {
 		c.OwnerID = c.OwnerIDs[0]
 		c.Score = c.Upvotes - c.Downvotes
@@ -148,8 +151,14 @@ func validID(id string) bool {
 	return true
 }
 
+// nijiiroID reads a Nijiiro ID as text: a positive int4 without leading zeros.
+func nijiiroID(raw string) (int32, bool) {
+	n, e := strconv.ParseInt(raw, 10, 32)
+	return int32(n), e == nil && n > 0 && raw[0] != '0' && raw[0] != '+'
+}
+
 // detail answers GET /charts/{id}: by=number looks {id} up as the chart's number, by=id as its
-// ID, and without by its form decides.
+// ID, by=nijiiro as its Nijiiro ID, and without by its form decides between ID and number.
 func (s *Server) detail(w http.ResponseWriter, r *http.Request) {
 	raw, column := r.PathValue("id"), ""
 	var value any = raw
@@ -168,8 +177,12 @@ func (s *Server) detail(w http.ResponseWriter, r *http.Request) {
 		}
 	case "id":
 		column = "c.id"
+	case "nijiiro":
+		if n, ok := nijiiroID(raw); ok {
+			column, value = "c.nijiiro_id", n
+		}
 	default:
-		problem(w, 400, "QUERY_INVALID", "by 只能是 number 或 id")
+		problem(w, 400, "QUERY_INVALID", "by 只能是 number、id 或 nijiiro")
 		return
 	}
 	e := pgx.ErrNoRows

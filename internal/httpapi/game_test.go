@@ -78,9 +78,13 @@ func TestGameSessionIsolation(t *testing.T) {
 			User       *User
 			Scores     []Score
 			Categories []Category
+			GenreFrame *int `json:"genreFrame"`
 		}
 		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &guest) != nil || guest.User != nil || guest.Scores != nil || len(guest.Categories) == 0 {
 			t.Fatal("catalog must expose the songs without identity or scores", w.Code, w.Body.String())
+		}
+		if guest.GenreFrame == nil || *guest.GenreFrame != 10 {
+			t.Fatal("catalog must name Fanmade's own folder board (genreFrame 10)", w.Body.String())
 		}
 		if w = call("POST", "/api/v1/game/scores", "{}", "", "", cookie); w.Code != 401 {
 			t.Fatal("guest score submission accepted", w.Code, w.Body.String())

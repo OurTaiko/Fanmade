@@ -14,6 +14,10 @@ func isGameRequest(r *http.Request) bool {
 	return strings.HasPrefix(r.URL.Path, "/api/v1/game/")
 }
 
+// catalogGenreFrame is the game's bar_genre frame (0-12) for this site's own
+// song-select folder: Fanmade's is the deep blue 10.
+const catalogGenreFrame = 10
+
 // gameCatalog is the complete song list for a game client: categories, charts
 // and the public playlists. It is the same for everyone and ignores any
 // session; an account's scores are GET /api/v1/game/scores and its own
@@ -67,7 +71,7 @@ func (s *Server) gameCatalog(w http.ResponseWriter, r *http.Request) {
 		internal(w, err)
 		return
 	}
-	body := map[string]any{"danVersion": 1, "danResultsVersion": 1, "chartSlotVersion": 1, "categories": counts, "charts": charts, "chartCount": len(charts), "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
+	body := map[string]any{"genreFrame": catalogGenreFrame, "danVersion": 1, "danResultsVersion": 1, "chartSlotVersion": 1, "categories": counts, "charts": charts, "chartCount": len(charts), "playlists": playlists, "playlistVersion": 1, "scoreReplayVersion": 1, "audioPreviewVersion": 1, "resourceDownloadVersion": func() int {
 		if s.remoteStorage() {
 			return 1
 		}

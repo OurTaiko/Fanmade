@@ -119,7 +119,6 @@ func testBackgroundMovie(t *testing.T, remote bool) {
 	sound, movie := part{"audio", "vorbis.ogg", audio}, part{"movie", "clip.mp4", clip}
 	withMovie := "BGMOVIE:clip.mp4\nMOVIEOFFSET:-0.5\n"
 
-	rejected(send("POST", "/api/v1/charts", ID(), tja("A", withMovie), sound), 422, "TJA_MOVIE_MISSING")
 	rejected(send("POST", "/api/v1/charts", ID(), tja("A", withMovie), sound, part{"movie", "other.mp4", clip}), 422, "TJA_MOVIE_MISMATCH")
 	rejected(send("POST", "/api/v1/charts", ID(), tja("A", ""), sound, movie), 400, "UPLOAD_FILES_INVALID")
 	rejected(send("POST", "/api/v1/charts", ID(), tja("A", "BGMOVIE:clip.avi\n"), sound, part{"movie", "clip.avi", clip}), 400, "UPLOAD_FILES_INVALID")

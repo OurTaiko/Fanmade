@@ -103,7 +103,7 @@ test('a cover other than PREIMAGE names blocks publishing', async ({ page }) => 
   await page.goto('/me/charts/publish')
   await page.locator('input[webkitdirectory]').setInputFiles(join(root, 'S'))
   await expect(
-    page.getByText(/PREIMAGE 引用的「jacket.png」不在文件夹里，将不带这张图片发布/),
+    page.getByText(/PREIMAGE 引用的「jacket.png」不在文件夹里，将不带这个文件发布/),
   ).toBeVisible()
   // The notices come one at a time: the missing image, then the passed checks.
   await page.getByRole('button', { name: '知道了', exact: true }).click()

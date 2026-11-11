@@ -162,7 +162,7 @@ export function UploadPage({
     const validation = audio ? validateFiles(tja, audio) : prepareTja(tja, '', retainedAudioName)
     validation
       .then(async (m) => {
-        validateMovie(m, movie, hasStoredMovie)
+        validateMovie(m, movie)
         if (active) {
           setMetadata(m)
           setTypedMakers({})
@@ -179,7 +179,7 @@ export function UploadPage({
     return () => {
       active = false
     }
-  }, [tja, audio, movie, retainedAudioName, hasStoredMovie])
+  }, [tja, audio, movie, retainedAudioName])
   useEffect(() => {
     if (!audio) {
       setAudioUrl('')
@@ -254,8 +254,8 @@ export function UploadPage({
       setBackground(chart.background)
       setMovie(chart.movie)
       for (const m of chart.missing)
-        if (m.header === 'PREIMAGE' || m.header === 'BGIMAGE')
-          notify(t('folderUpload.missingImage', { header: m.header, value: m.value }), 'info')
+        if (m.header !== 'WAVE')
+          notify(t('folderUpload.missingOptional', { header: m.header, value: m.value }), 'info')
     } catch (e) {
       notify((e as Error).message, 'error')
     } finally {
@@ -272,7 +272,7 @@ export function UploadPage({
     const prepared = audio
       ? await validateFiles(tja!, audio)
       : await prepareTja(tja!, '', existing!.audioName)
-    validateMovie(prepared, movie, hasStoredMovie)
+    validateMovie(prepared, movie)
     await validateImages(prepared, cover, background)
     return prepared
   }

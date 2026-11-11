@@ -266,18 +266,15 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		invalid(issue)
 		return
 	}
-	// A declared BGMOVIE needs its file; a replacement may keep the stored movie.
+	// A movie must be the one BGMOVIE names. Declared without a file, a replacement keeps the
+	// stored movie and a chart without one is published without (BGMOVIE is cleared).
 	keepMovie := false
 	switch {
 	case meta.Movie == "" && mv != nil:
 		problem(w, 400, "UPLOAD_FILES_INVALID", "TJA 没有声明 BGMOVIE，不能上传视频")
 		return
 	case meta.Movie != "" && mv == nil:
-		if existing == nil || existing.MovieHash == "" {
-			invalid(&tja.Issue{Code: "TJA_MOVIE_MISSING", Message: fmt.Sprintf("TJA 的 BGMOVIE 引用了「%s」，请同时选择该视频文件，或删除 BGMOVIE 后重新上传。", meta.Movie), Expected: meta.Movie})
-			return
-		}
-		keepMovie = true
+		keepMovie = existing != nil && existing.MovieHash != ""
 	case mv != nil && norm.NFC.String(meta.Movie) != norm.NFC.String(mv.name):
 		invalid(&tja.Issue{Code: "TJA_MOVIE_MISMATCH", Message: fmt.Sprintf("BGMOVIE 引用了「%s」，但你选择的是「%s」。请选择对应文件，或修改 TJA 的 BGMOVIE 后重新选择。", meta.Movie, mv.name), Expected: meta.Movie, Actual: mv.name})
 		return

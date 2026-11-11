@@ -198,6 +198,12 @@ func TestChartImagesFollowTheirHeaders(t *testing.T) {
 		t.Fatal("unexpected background")
 	}
 	declares(missing.ID, "\nBGIMAGE:\n")
+	// BGMOVIE likewise: declared without a file, the chart is published without a movie.
+	unfilmed := upload(201, chart("H", "BGMOVIE:clip.mp4\nMOVIEOFFSET:1.5\n"), sound)
+	if unfilmed.MovieHash != "" {
+		t.Fatal("unexpected movie")
+	}
+	declares(unfilmed.ID, "\nBGMOVIE:\n")
 	// A replacement still declaring BGIMAGE keeps the stored image; one without drops it.
 	w = send("PUT", "/api/v1/charts/"+backdrop.ID+"/files", chart("F2", "BGIMAGE:elsewhere.jpg\n"), part{"confirmReset", "", []byte("true")})
 	if w.Code != 200 {
